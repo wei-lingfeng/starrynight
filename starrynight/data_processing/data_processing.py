@@ -570,17 +570,19 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_error=0.5, max_v_error=5., save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, max_mass_error=0.5, max_v_error=5., save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
     ----------
     sources : pd.DataFrame
         Sources
-    model : str
+    model_name : str
         One of ['MIST', 'BHAC15', 'Feiden', 'Palla']
     radius : astropy.Quantity, optional
         Radius within which count as neighbors, by default 0.1*u.pc
+    model_func : str, optional
+        Format of model function: 'linear' or 'power'. V=k*M + b or V=A*M**k, by default 'linear'.
     self_included : bool, optional
         Include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
     mass_max_error : float, optional
@@ -618,8 +620,8 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
     
     constraint = \
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
-        (~sources['mass_{}'.format(model)].isna()) & \
-        (sources['mass_e_{}'.format(model)] < max_mass_error) & \
+        (~sources['mass_{}'.format(model_name)].isna()) & \
+        (sources['mass_e_{}'.format(model_name)] < max_mass_error) & \
         (sources.v_e < max_v_error)
     
     # sources = sources.loc[constraint].reset_index(drop=True)
@@ -632,8 +634,8 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
         radial_velocity=sources.loc[constraint, 'vr'].to_numpy()*u.km/u.s
     )
     
-    mass = sources.loc[constraint, 'mass_{}'.format(model)]
-    mass_e = sources.loc[constraint, 'mass_e_{}'.format(model)]
+    mass = sources.loc[constraint, 'mass_{}'.format(model_name)]
+    mass_e = sources.loc[constraint, 'mass_e_{}'.format(model_name)]
     v_e = sources.loc[constraint, 'v_e']
     
     ############# calculate vcom within radius #############
@@ -681,8 +683,8 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
         radial_velocity=sources.loc[valid_idx, 'vr'].to_numpy()*u.km/u.s
     )
     
-    mass = sources.loc[valid_idx, 'mass_{}'.format(model)].to_numpy()
-    mass_e = sources.loc[valid_idx, 'mass_e_{}'.format(model)].to_numpy()
+    mass = sources.loc[valid_idx, 'mass_{}'.format(model_name)].to_numpy()
+    mass_e = sources.loc[valid_idx, 'mass_e_{}'.format(model_name)].to_numpy()
 
     v_e = sources.loc[valid_idx, 'v_e'].to_numpy()
     
@@ -708,14 +710,19 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
     
     
     ############# Resampling #############
-    def model_func(x, k, b):
-        # y = k*x + b
-        if model_func=='linear':
-        return k*x + b
+    
+    if model_type=='linear':
+        def model_func(x, k, b):
+            return k*x + b
+    elif model_type=='power':
+        def model_func(x, k, b):
+            return b*x**k
+    else:
+        raise ValueError("model_func must be one of 'linear' or 'power', not {}.".format(model_func))
     
     R = np.corrcoef(mass, vrel)[1, 0]   # Pearson's R
     # Resampling
-    resampling = 100000
+    resampling = 100
     ks = np.empty(resampling)
     ebs = np.empty(resampling)
     Rs = np.empty(resampling)
@@ -787,7 +794,7 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
     
     
     ########## Linear Fit Plot - Original Error ##########
-    xs = np.linspace(mass.min(), mass.max(), 2)
+    xs = np.linspace(mass.min(), mass.max(), 100)
     
     fig, ax = plt.subplots(figsize=(6, 4.5), dpi=300)
     
@@ -850,11 +857,16 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
     handles, labels = ax.get_legend_handles_labels()
     handles = [h1, (h2, f2), h3, h4]
     labels = [
-        'Sources - {} Model'.format(model),
+        'Sources - {} Model'.format(model_name),
         'Running Average',
-        "KDE's 84-th Percentile",
-        'Best Linear Fit:\n$k={:.2f}\pm{:.2f}$\n$b={:.2f}\pm{:.2f}$'.format(k_resample, k_e, b_resample, b_e),
+        "KDE's 84-th Percentile"
     ]
+    
+    if model_type=='linear':
+        labels.append('Best Linear Fit:\n$k={:.2f}\pm{:.2f}$\n$b={:.2f}\pm{:.2f}$'.format(k_resample, k_e, b_resample, b_e))
+    elif model_type=='power':
+        labels.append('Best Fit:\n$k={:.2f}\pm{:.2f}$\n$A={:.2f}\pm{:.2f}$'.format(k_resample, k_e, b_resample, b_e))
+    
     ax.legend(handles, labels)
     
     
@@ -875,8 +887,8 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
     plt.show()
     
     ########## Updating the original DataFrame ##########
-    sources.loc[valid_idx, 'vrel_{}'.format(model)] = vrel
-    sources.loc[valid_idx, 'vrel_e_{}'.format(model)] = vrel_e
+    sources.loc[valid_idx, 'vrel_{}'.format(model_name)] = vrel
+    sources.loc[valid_idx, 'vrel_e_{}'.format(model_name)] = vrel_e
     
     return mass, vrel, mass_e, vrel_e
 
