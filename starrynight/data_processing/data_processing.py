@@ -710,6 +710,7 @@ def vrel_vs_mass(sources, model, radius=0.1*u.pc, self_included=True, max_mass_e
     ############# Resampling #############
     def model_func(x, k, b):
         # y = k*x + b
+        if model_func=='linear':
         return k*x + b
     
     R = np.corrcoef(mass, vrel)[1, 0]   # Pearson's R
