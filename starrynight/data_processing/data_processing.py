@@ -1988,10 +1988,13 @@ compare_chris(sources_2d)
 model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
 radii = [0.05, 0.1, 0.15, 0.2]*u.pc
 for radius in radii:
-    for model in models:
+    for model_name in model_names:
         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-            sources_2d, model, radius=radius, 
-            save_path='{}linear fit - {} pc/{}/'.format(save_path, radius.value, model)
+            sources_2d, 
+            model_name, 
+            model_type='linear',
+            radius=radius, 
+            save_path='{}linear fit - {} pc/{}/'.format(save_path, radius.value, model_name)
         )
 
 sources_2d.to_csv('/home/l3wei/ONC/Catalogs/sources with vrel.csv', index=False)
