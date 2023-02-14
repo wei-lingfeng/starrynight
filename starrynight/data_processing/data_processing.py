@@ -1985,8 +1985,8 @@ compare_chris(sources_2d)
 #################################################
 
 # Local velocity
-models = ['MIST', 'BHAC15', 'Feiden', 'Palla']
-radii = [0.1]*u.pc
+model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
+radii = [0.05, 0.1, 0.15, 0.2]*u.pc
 for radius in radii:
     for model in models:
         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
