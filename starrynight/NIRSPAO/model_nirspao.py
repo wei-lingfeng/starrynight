@@ -15,6 +15,7 @@ from functools import reduce
 from scipy.interpolate import interp1d
 from multiprocessing import Pool
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from collections.abc import Iterable
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -49,7 +50,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     order = sci_spec.header['ECHLORD']
     if mark_CO:
         # Read CO lines
-        co_lines = pd.read_csv('/home/l3wei/ONC/Codes/Plot Spectrum/CO lines.csv')
+        co_lines = pd.read_csv('/home/l3wei/ONC/Codes/starrynight/plot_spectrum/CO lines.csv')
         co_lines.intensity = np.log10(co_lines.intensity)
         if order==32:
             co_lines = co_lines[co_lines.intensity >= -25].reset_index(drop=True)
@@ -68,47 +69,47 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
     if mark_CO:
         if order==32:
-            ax1.vlines(co_lines.wavelength + wave_offset, max(sci_spec.flux) + 0.02, max(sci_spec.flux) + 0.1, colors='k', alpha=co_lines.alpha, lw=1.2, label='CO lines')
+            ax1.vlines(co_lines.wavelength + wave_offset, max(sci_spec.flux) + 0.02, max(sci_spec.flux) + 0.1, colors='k', alpha=co_lines.alpha, lw=1.2)
             ax1.text(min(co_lines.wavelength) + wave_offset - 10, max(sci_spec.flux) + 0.055, 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.03)
             ax2.margins(x=0.03)
         elif order==33:
-            ax1.vlines(co_lines.wavelength + wave_offset, max(sci_spec.flux) + 0.02, max(sci_spec.flux) + 0.08, colors='k', alpha=co_lines.alpha, lw=1.2, label='CO lines')
+            ax1.vlines(co_lines.wavelength + wave_offset, max(sci_spec.flux) + 0.02, max(sci_spec.flux) + 0.08, colors='k', alpha=co_lines.alpha, lw=1.2)
             ax1.text(min(co_lines.wavelength) + wave_offset - 15, max(sci_spec.flux) + 0.048, 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.05)
             ax2.margins(x=0.05)
         else:
             pass    # do not label.
             
-    ax1.plot(sci_spec.wave, sci_spec.flux, color='C7', label='Data', alpha=alpha, lw=lw)
-    ax1.plot(model_notel.wave, model_notel.flux, color='C3', label='Model', alpha=1, lw=1)
-    ax1.plot(model.wave, model.flux, color='C0', label='Model + Telluric', alpha=alpha, lw=lw)
+    ax1.plot(sci_spec.wave, sci_spec.flux, color='C7', alpha=alpha, lw=lw)
+    ax1.plot(model_notel.wave, model_notel.flux, color='C3', alpha=1, lw=1)
+    ax1.plot(model.wave, model.flux, color='C0', alpha=alpha, lw=lw)
     ax1.minorticks_on()
     ax1.xaxis.tick_top()
     ax1.tick_params(axis='both', labelsize=12, labeltop=False)  # don't put tick labels at the top
     ax1.set_ylabel('Normalized Flux', fontsize=15)
-    h1, l1 = ax1.get_legend_handles_labels()
 
-    ax2.plot(sci_spec.wave, sci_spec.flux - model.flux, color='k', label='Residual', alpha=0.5, lw=lw)
-    ax2.fill_between(sci_spec.wave, -sci_spec.noise, sci_spec.noise, facecolor='0.8', label='Noise')
+    ax2.plot(sci_spec.wave, sci_spec.flux - model.flux, color='k', alpha=0.5, lw=lw)
+    ax2.fill_between(sci_spec.wave, -sci_spec.noise, sci_spec.noise, facecolor='0.8')
     ax2.axhline(y=0, color='k', linestyle='--', dashes=(8, 2), alpha=alpha, lw=lw)
     ax2.minorticks_on()
     ax2.tick_params(axis='both', labelsize=12)
     ax2.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
     ax2.set_ylabel('Residual', fontsize=15)
-    h2, l2 = ax2.get_legend_handles_labels()
-    custom_lines = [Line2D([], [], color='k', marker='|', linestyle='None',
-                            markersize=14, markeredgewidth=1.2),
-                    Line2D([], [], color='C7', alpha=alpha, lw=1.2),
-                    Line2D([], [], color='C3', lw=1.2),
-                    Line2D([], [], color='C0', lw=1.2),
-                    Line2D([], [], color='k', alpha=alpha, lw=1.2),
-                    h2[-1]]
-    if not mark_CO:
-        custom_lines.pop(0)
-        l1.pop(0)
     
-    ax2.legend(custom_lines, [*l1, *l2], frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
+    legend_elements = [
+        Line2D([], [], color='k', marker='|', linestyle='None', markersize=14, markeredgewidth=1.2, label='CO Lines'),
+        Line2D([], [], color='C7', alpha=alpha, lw=1.2, label='Combined Spectrum'),
+        Line2D([], [], color='C3', lw=1.2, label='Model'),
+        Line2D([], [], color='C0', lw=1.2, label='Model + Telluric'),
+        Line2D([], [], color='k', alpha=alpha, lw=1.2, label='Residual'),
+        Patch(facecolor='0.8', label='Noise')
+    ]
+    
+    if not mark_CO:
+        legend_elements.pop(0)
+    
+    ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
     fig.align_ylabels((ax1, ax2))
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     if save_path is not None:
@@ -119,7 +120,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     return fig, (ax1, ax2)
 
 
-def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune=True, nwalkers=100, steps=500):
+def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune=True, nwalkers=100, steps=500):
     """Fit teff and other params using emcee
 
     Parameters
@@ -175,7 +176,7 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
     day = str(date[2]).zfill(2)
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    common_prefix = '/home/l3wei/ONC/Data/20{}{}{}/reduced/'.format(year, month_list[int(month) - 1], day)
+    common_prefix = '/home/l3wei/ONC/Data/NIRSPAO/20{}{}{}/reduced/'.format(year, month_list[int(month) - 1], day)
     save_path = '{}mcmc_median/{}_O{}_params/'.format(common_prefix, name, orders)
     
     if MCMC:
@@ -242,41 +243,33 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
             # Update the wavelength solution
             sci_spec.updateWaveSol(tel_spec)
             
-            pixel = np.arange(len(sci_spec.wave))
-            pixel = pixel.astype(float)
-            
             # Plot original spectrums:
             fig, ax = plt.subplots(figsize=(16, 6))
             ax.plot(sci_spec.wave, sci_spec.flux, alpha=0.7, lw=0.7, label='Original Spectrum')
             
             # Automatically mask out edge & flux < 0
             auto_mask = np.where(sci_spec.flux < 0)[0]
-            mask_1 = reduce(np.union1d, (auto_mask, np.arange(0, pixel_start), np.arange(len(sci_spec.wave) + pixel_end, len(sci_spec.wave))))
-            mask_1 = mask_1.astype(int)
-            pixel           [mask_1] = np.nan
-            sci_spec.wave   [mask_1] = np.nan
-            sci_spec.flux   [mask_1] = np.nan
-            sci_spec.noise  [mask_1] = np.nan
+            mask1 = reduce(np.union1d, (auto_mask, np.arange(0, pixel_start), np.arange(len(sci_spec.wave) + pixel_end, len(sci_spec.wave))))
+            sci_spec.wave   = np.delete(sci_spec.wave, mask1)
+            sci_spec.flux   = np.delete(sci_spec.flux, mask1)
+            sci_spec.noise  = np.delete(sci_spec.noise, mask1)
             
             # Mask flux > median + 3 sigma
             median_flux = np.nanmedian(sci_spec.flux)
             upper_bound = median_flux + 3.*np.nanstd(sci_spec.flux - median_flux)
-            mask_2 = pixel[np.where(sci_spec.flux > upper_bound)]
-            mask_2 = mask_2.astype(int)
-            pixel           [mask_2] = np.nan
-            sci_spec.wave   [mask_2] = np.nan
-            sci_spec.flux   [mask_2] = np.nan
-            sci_spec.noise  [mask_2] = np.nan
+            mask2 = np.where(sci_spec.flux > upper_bound)[0]
+            sci_spec.wave   = np.delete(sci_spec.wave, mask2)
+            sci_spec.flux   = np.delete(sci_spec.flux, mask2)
+            sci_spec.noise  = np.delete(sci_spec.noise, mask2)
             
             # Mask isolated bad pixels
             median_flux = np.nanmedian(sci_spec.flux)
             lower_bound = median_flux - 3.5*np.nanstd(sci_spec.flux - median_flux)
             lowest_bound = median_flux - 5.*np.nanstd(sci_spec.flux - median_flux)
-            mask_3 = np.array([i for i in np.arange(1, len(sci_spec.wave)-1) if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound)], dtype=int)
-            pixel           [mask_3] = np.nan
-            sci_spec.wave   [mask_3] = np.nan
-            sci_spec.flux   [mask_3] = np.nan
-            sci_spec.noise  [mask_3] = np.nan
+            mask3 = np.array([i for i in np.arange(1, len(sci_spec.wave)-1) if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound)], dtype=int)
+            sci_spec.wave   = np.delete(sci_spec.wave, mask3)
+            sci_spec.flux   = np.delete(sci_spec.flux, mask3)
+            sci_spec.noise  = np.delete(sci_spec.noise, mask3)
             
             # Plot masked spectrum
             ax.axhline(y=upper_bound, linestyle='--', label='Upper bound')
@@ -301,7 +294,7 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
             sci_spec.flux  = sci_spec.flux  / np.nanmedian(sci_spec.flux)
             
             
-            sci_abba.append(sci_spec)  # Type: smart.Spectrum
+            sci_abba.append(copy.deepcopy(sci_spec))  # Type: smart.Spectrum
             barycorrs.append(smart.barycorr(sci_spec.header).value)
         
         itime = sci_abba[0].header['ITIME']
@@ -338,9 +331,10 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
         
         sci_spec.wave = wave_new
         sci_spec.flux = flux_med
-        sci_spec.noise = noise_med
+        # sci_spec.noise = noise_med
+        sci_spec.noise = np.std(flux_new, axis=0)
         
-        sci_specs.append(sci_spec)
+        sci_specs.append(copy.deepcopy(sci_spec))
         
         
         fig, ax = plt.subplots(figsize=(16, 6))
@@ -356,11 +350,11 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
         plt.close()
         
         fig, ax = plt.subplots(figsize=(16, 6))
-        # original interpolated noise
+        # original noise
         for i in range(np.size(sci_frames)):
-            ax.plot(wave_new, noise_new[i, :], color='C0', alpha=0.5, lw=0.5)
+            ax.plot(sci_abba[i].wave, sci_abba[i].noise, color='C0', alpha=0.5, lw=0.5)
         # median combined noise
-        ax.plot(wave_new, noise_med, 'C3', alpha=1, lw=0.5)
+        ax.plot(sci_spec.wave, sci_spec.noise, 'C3', alpha=1, lw=0.5)
         ax.set_xlabel('$\lambda$ ($\AA$)', fontsize=15)
         ax.set_ylabel('Flux (count/s)', fontsize=15)
         ax.minorticks_on()
@@ -445,8 +439,8 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
     model_stds = []
     for i, order in enumerate(orders):
         model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], flux_offset=mcmc.loc[0, 'flux_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
-        models.append(model)
-        models_notel.append(model_notel)
+        models.append(copy.deepcopy(model))
+        models_notel.append(copy.deepcopy(model_notel))
         
         model_dips.append(np.median(model_notel.flux) - min(model_notel.flux))
         model_stds.append(np.std(model_notel.flux))
@@ -504,19 +498,15 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
     sci_specs_new = []
     for i, order in enumerate(orders):
         sci_spec = copy.deepcopy(sci_specs[i])
-        pixel = np.arange(len(sci_spec.flux))
-        pixel = pixel.astype(float)
         # Update mask
-        residue = sci_specs[i].flux - models[i].flux
-        mask_finetune = pixel[np.where(abs(residue) > np.nanmedian(residue) + 3*np.nanstd(residue))]
-        mask_finetune = mask_finetune.astype(int)
+        residual = sci_specs[i].flux - models[i].flux
+        mask_finetune = np.where(abs(residual) > np.nanmedian(residual) + 3*np.nanstd(residual))[0]
         
         # Mask out bad pixels after fine-tuning
-        pixel           = np.delete(pixel, mask_finetune)
         sci_spec.wave   = np.delete(sci_spec.wave, mask_finetune)
         sci_spec.flux   = np.delete(sci_spec.flux, mask_finetune)
         sci_spec.noise  = np.delete(sci_spec.noise, mask_finetune)
-        sci_specs_new.append(sci_spec)
+        sci_specs_new.append(copy.deepcopy(sci_spec))
 
     # Update sci_specs
     sci_specs = copy.deepcopy(sci_specs_new)
@@ -524,6 +514,7 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
     # Save sci_specs
     with open(save_path + 'sci_specs.pkl', 'wb') as file:
         pickle.dump(sci_specs, file)
+    
     
     ##################################################
     ################### Re-run MCMC ##################
@@ -541,7 +532,7 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
         print('\n\n')
         
         if Multiprocess:
-            with Pool(32) as pool:
+            with Pool(64) as pool:
                 sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend, pool=pool)
                 sampler.run_mcmc(pos, steps, progress=True)
         else:
@@ -587,8 +578,8 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
     model_stds = []
     for i, order in enumerate(orders):
         model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], flux_offset=mcmc.loc[0, 'flux_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
-        models.append(model)
-        models_notel.append(model_notel)
+        models.append(copy.deepcopy(model))
+        models_notel.append(copy.deepcopy(model_notel))
         
         model_dips.append(np.median(model_notel.flux) - min(model_notel.flux))
         model_stds.append(np.std(model_notel.flux))
@@ -631,7 +622,7 @@ def median_combine_teff(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Fi
             model=models[i], 
             rv=mcmc.rv[0], 
             wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], 
-            save_path=save_path + 'Fitted_Spectrum_O{}.pdf'.format(order)
+            save_path=save_path + 'Modeled_Spectrum_O{}.pdf'.format(order)
         )
         plt.close()
         # fig, ax = plt.subplots(figsize=(12, 5))
@@ -930,4 +921,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = median_combine_teff(infos=infos, MCMC=True, Finetune=True, Multiprocess=True, steps=500)
+        result = model_nirspao(infos=infos, MCMC=True, Finetune=False, Multiprocess=False, steps=500)

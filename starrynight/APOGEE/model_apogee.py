@@ -5,19 +5,32 @@ import copy
 import smart
 import emcee
 import corner
+import pickle
 import numpy as np
 import pandas as pd
 import apogee_tools as ap
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from collections.abc import Iterable
 from scipy.interpolate import interp1d
+
+# set params
+MCMC = True
+Multiprocess = True
+Finetune = True
+# nparams, nwalkers, steps = 17, 100, 3000
+# nparams, nwalkers, steps = 17, 100, 500
+nparams, nwalkers, steps = 17, 50, 100
+discard = steps - 20
+modelset                = 'phoenix-aces-agss-cond-2011'
+instrument, order       = 'apogee', 'all'
 
 # get apogee ids.
 ap.apogee_hack.tools.download.allStar(dr=17)
 ap_path = '/home/l3wei/Software/apogee_data'
-save_path = '/home/l3wei/ONC/Data/APOGEE/'
-
+prefix = '/home/l3wei/ONC/Data/APOGEE/'
 sources = pd.read_csv('/home/l3wei/ONC/Catalogs/sources 2d.csv')
 cross_matches = (~sources.teff_nirspec.isna()) & (~sources.teff_apogee.isna())
 sources_matched = sources.loc[abs(sources.loc[cross_matches].teff_nirspec - sources.loc[cross_matches].teff_apogee).sort_values(ascending=False).index].reset_index(drop=True)
@@ -29,22 +42,11 @@ day = list(sources_matched.day.astype(int))
 
 # apogee_ids = ['2M05351427-0524246']
 apogee_ids = ['2M05351259-0523440']
-
-# set params
-MCMC = True
-Multiprocess = False
-# nparams, nwalkers, steps = 17, 100, 3000
-# nparams, nwalkers, steps = 17, 100, 500
-nparams, nwalkers, steps = 17, 50, 100
-discard = steps - 50
-modelset                = 'phoenix-aces-agss-cond-2011'
-instrument, order       = 'apogee', 'all'
-
 apogee_id = apogee_ids[0]
-if not os.path.exists(save_path + apogee_id):
-    os.makedirs(save_path + apogee_id)
 
-object_path = save_path + apogee_id + '/'
+object_path = prefix + apogee_id + '/'
+if not os.path.exists(object_path):
+    os.makedirs(object_path)
 
 # download data
 # ap.download(apogee_id, type='apvisit', dir=object_path + 'specs/', ap_path=ap_path, dr=17)
@@ -65,40 +67,40 @@ n_visit = len([_ for _ in os.listdir(object_path + 'specs/') if os.path.isfile(o
 
 params = ['teff', 'logg', 'metal', 'vsini', 'rv', 'airmass', 'pwv', 'wave_off1', 'wave_off2', 'wave_off3', 'c0_1', 'c0_2', 'c1_1', 'c1_2', 'c2_1', 'c2_2', 'noise']
 
-priors = {
-    'teff_min':2300,  'teff_max':7000,
-    'logg_min':2.5,   'logg_max':5.,
-    'metal_min':-2.5, 'metal_max':0.5,
-    'vsini_min':0.0,  'vsini_max':100.0,
-    'rv_min':-200.0,  'rv_max':200.0,
-    'airmass_min':1., 'airmass_max':3.,
-    'pwv_min':0.5,    'pwv_max':20,
-    'wave_min':-0.5,  'wave_max':0.5,
-    'c0_1_min':-10.,  'c0_1_max':10.,
-    'c0_2_min':-10.,  'c0_2_max':10.,
-    'c1_1_min':-10.,  'c1_1_max':10.,
-    'c1_2_min':-10.,  'c1_2_max':10.,
-    'c2_1_min':-10.,  'c2_1_max':10.,
-    'c2_2_min':-10.,  'c2_2_max':10.,
-    'noise_min':1.,   'noise_max':5.
+limits = { 
+    'teff_min':2300,            'teff_max':7200,
+    'logg_min':2.5,             'logg_max':5.5,
+    'metal_min':-2.5,           'metal_max':0.5,
+    'vsini_min':0.0,            'vsini_max':300.0,
+    'rv_min':-200.0,            'rv_max':200.0,
+    'airmass_min':1.,           'airmass_max':3.,
+    'pwv_min':0.5,              'pwv_max':20,
+    'wave_min':-0.5,            'wave_max':0.5,
+    'c0_1_min':-1,              'c0_1_max':1,
+    'c0_2_min':-np.log(1.5),    'c0_2_max':-np.log(0.5),
+    'c1_1_min':-1,              'c1_1_max':1,
+    'c1_2_min':-np.log(1.5),    'c1_2_max':-np.log(0.5),
+    'c2_1_min':-1,              'c2_1_max':1,
+    'c2_2_min':-np.log(1.5),    'c2_2_max':-np.log(0.5),
+    'noise_min':1.,             'noise_max':10.
 }
 
-limits = { 
-    'teff_min':2300,    'teff_max':7200,
-    'logg_min':2.5,     'logg_max':5.5,
-    'metal_min':-2.5,   'metal_max':0.5,
-    'vsini_min':0.0,    'vsini_max':300.0,
-    'rv_min':-200.0,    'rv_max':200.0,
-    'airmass_min':1.,   'airmass_max':3.,
-    'pwv_min':0.5,      'pwv_max':20,
-    'wave_min':-0.5,    'wave_max':0.5,
-    'c0_1_min':-10000,  'c0_1_max':10000,
-    'c0_2_min':-100,    'c0_2_max':100,
-    'c1_1_min':-10000,  'c1_1_max':10000,
-    'c1_2_min':-100,    'c1_2_max':100,
-    'c2_1_min':-10000,  'c2_1_max':10000,
-    'c2_2_min':-100,    'c2_2_max':100,
-    'noise_min':1.,     'noise_max':10.
+priors = {
+    'teff_min':2300,            'teff_max':7000,
+    'logg_min':2.5,             'logg_max':5.,
+    'metal_min':-2.5,           'metal_max':0.5,
+    'vsini_min':0.0,            'vsini_max':100.0,
+    'rv_min':-200.0,            'rv_max':200.0,
+    'airmass_min':1.,           'airmass_max':3.,
+    'pwv_min':0.5,              'pwv_max':20,
+    'wave_min':-0.5,            'wave_max':0.5,
+    'c0_1_min':-0.5,            'c0_1_max':0.5,
+    'c0_2_min':-np.log(1.2),    'c0_2_max':-np.log(0.8),
+    'c1_1_min':-0.5,            'c1_1_max':0.5,
+    'c1_2_min':-np.log(1.2),    'c1_2_max':-np.log(0.8),
+    'c2_1_min':-0.5,            'c2_1_max':0.5,
+    'c2_2_min':-np.log(1.2),    'c2_2_max':-np.log(0.8),
+    'noise_min':1.,             'noise_max':5.
 }
 
 # read and normalize spectrums
@@ -160,7 +162,7 @@ if n_visit > 1:
     spec.noise = np.std(flux_new, axis=0)
 
 
-def lnlike(theta, data, lsf, xlsf):
+def lnlike(theta, spec, lsf, xlsf):
     """
     Log-likelihood, computed from chi-squared.
 
@@ -184,12 +186,48 @@ def lnlike(theta, data, lsf, xlsf):
         teff=teff, logg=logg, metal=metal, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, lsf=lsf, xlsf=xlsf,
         wave_off1=wave_off1, wave_off2=wave_off2, wave_off3=wave_off3, 
         c0_1=c0_1, c0_2=c0_2, c1_1=c1_1, c1_2=c1_2, c2_1=c2_1, c2_2=c2_2,
-        instrument=instrument, order=order, modelset=modelset, data=data
+        instrument=instrument, order=order, modelset=modelset, data=spec
     )
 
-    chisquare = smart.chisquare(data, model)/noise**2
+    chisquare = smart.chisquare(spec, model)/noise**2
 
-    return -0.5 * (chisquare + np.sum(np.log(2 * np.pi * (data.noise * noise)**2)))
+    return -0.5 * (chisquare + np.sum(np.log(2 * np.pi * (spec.noise * noise)**2)))
+
+
+def get_result(mcmc, save_path=None):
+    result = {
+        'APOGEE_ID':    apogee_id,
+        'teff':         mcmc.teff,
+        'logg':         mcmc.logg,
+        'metal':        mcmc.metal,
+        'vsini':        mcmc.vsini,
+        'rv':           mcmc.rv, 
+        'airmass':      mcmc.airmass, 
+        'pwv':          mcmc.pwv, 
+        'wave_off1':    mcmc.wave_off1,
+        'wave_off2':    mcmc.wave_off2,
+        'wave_off3':    mcmc.wave_off3,
+        'c0_1':         mcmc.c0_1,
+        'c0_2':         mcmc.c0_2,
+        'c1_1':         mcmc.c1_1,
+        'c1_2':         mcmc.c1_2,
+        'c2_1':         mcmc.c2_1,
+        'c2_2':         mcmc.c2_2,
+        'noise':        mcmc.noise,
+        'snr':          np.median(spec.flux/spec.noise)
+    }
+    
+    if save_path:
+        if not save_path.endswith('.txt'):
+            save_path += '/MCMC_Params.txt'
+        with open(save_path, 'w') as file:
+            for key, value in result.items():
+                if isinstance(value, Iterable) and (not isinstance(value, str)):
+                    file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
+                else:
+                    file.write('{}: \t{}\n'.format(key, value))
+    
+    return result
 
 
 def lnprior(theta, limits=limits):
@@ -220,14 +258,14 @@ def lnprior(theta, limits=limits):
 
     return -np.inf
 
-def lnprob(theta, data, lsf, xlsf):
-        
+def lnprob(theta, spec, lsf, xlsf):
+    
     lnp = lnprior(theta)
-        
+    
     if not np.isfinite(lnp):
         return -np.inf
-        
-    return lnp + lnlike(theta, data, lsf, xlsf)
+    
+    return lnp + lnlike(theta, spec, lsf, xlsf)
 
 # Get the starter positions
 pos = [np.array([   priors['teff_min']      + (priors['teff_max']       - priors['teff_min'])       * np.random.uniform(), 
@@ -251,7 +289,7 @@ pos = [np.array([   priors['teff_min']      + (priors['teff_max']       - priors
 
 ## multiprocessing
 if MCMC:
-    backend = emcee.backends.HDFBackend(object_path + 'sampler.h5')
+    backend = emcee.backends.HDFBackend(object_path + 'sampler1.h5')
     backend.reset(nwalkers, nparams)
     
     if Multiprocess:
@@ -266,7 +304,7 @@ if MCMC:
     print(sampler.acceptance_fraction)
 
 else:
-    sampler = emcee.backends.HDFBackend(object_path + 'sampler.h5')
+    sampler = emcee.backends.HDFBackend(object_path + 'sampler1.h5')
 
 
 ##################################################
@@ -281,6 +319,80 @@ for i in range(nparams):
     mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
 
 mcmc = pd.DataFrame(mcmc, columns=params)
+
+
+##################################################
+################ Construct Model #################
+##################################################
+
+model = smart.makeModel(
+    teff=mcmc.teff[0], logg=mcmc.logg[0], metal=mcmc.metal[0], vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], lsf=lsf, xlsf=xlsf,
+    wave_off1=mcmc.wave_off1[0], wave_off2=mcmc.wave_off2[0], wave_off3=mcmc.wave_off3[0], 
+    c0_1=mcmc.c0_1[0], c0_2=mcmc.c0_2[0], c1_1=mcmc.c1_1[0], c1_2=mcmc.c1_2[0], c2_1=mcmc.c2_1[0], c2_2=mcmc.c2_2[0],
+    instrument=instrument, order=order, modelset=modelset, data=spec
+)
+
+##################################################
+################# Writing Result #################
+##################################################
+result = get_result(mcmc, save_path=object_path)
+with open(object_path + 'sci_specs.pkl', 'wb') as file:
+    pickle.dump(spec, file)
+
+##################################################
+#################### Fine Tune ###################
+##################################################
+
+if Finetune:
+    print('Finetuning...')
+    residual = spec.flux - model.flux
+    mask_finetune = np.where(abs(residual) > np.nanmedian(residual) + 3*np.nanstd(residual))[0]
+    spec.wave   = np.delete(spec.wave, mask_finetune)
+    spec.flux   = np.delete(spec.flux, mask_finetune)
+    spec.noise  = np.delete(spec.noise, mask_finetune)
+    with open(object_path + 'sci_specs.pkl', 'wb') as file:
+        pickle.dump(spec, file)
+    
+    if MCMC:
+        backend = emcee.backends.HDFBackend(object_path + 'sampler2.h5')
+        backend.reset(nwalkers, nparams)
+        if Multiprocess:
+            with Pool(64) as pool:
+                sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(spec, lsf, xlsf), pool=pool, moves=emcee.moves.KDEMove(), backend=backend)
+                sampler.run_mcmc(pos, steps, progress=True)
+        else:
+            sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(spec, lsf, xlsf), moves=emcee.moves.KDEMove(), backend=backend)
+            sampler.run_mcmc(pos, steps, progress=True)
+        
+        print("Mean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
+        print(sampler.acceptance_fraction)
+        
+    else:
+        sampler = emcee.backends.HDFBackend(object_path + 'sampler2.h5')
+
+    # re-analyze output
+    flat_samples = sampler.get_chain(discard=discard, flat=True)
+
+    # mcmc[:, i] (3 by N) = [value, lower, upper]
+    mcmc = np.empty((3, nparams))
+    for i in range(nparams):
+        mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
+
+    mcmc = pd.DataFrame(mcmc, columns=params)
+    
+    # writing result
+    result = get_result(mcmc, save_path=object_path)
+
+
+##################################################
+############### Re-Construct Model ###############
+##################################################
+model = smart.makeModel(
+    teff=mcmc.teff[0], logg=mcmc.logg[0], metal=mcmc.metal[0], vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], lsf=lsf, xlsf=xlsf,
+    wave_off1=mcmc.wave_off1[0], wave_off2=mcmc.wave_off2[0], wave_off3=mcmc.wave_off3[0], 
+    c0_1=mcmc.c0_1[0], c0_2=mcmc.c0_2[0], c1_1=mcmc.c1_1[0], c1_2=mcmc.c1_2[0], c2_1=mcmc.c2_1[0], c2_2=mcmc.c2_2[0],
+    instrument=instrument, order=order, modelset=modelset, data=spec
+)
 
 
 ##################################################
@@ -308,40 +420,44 @@ fig = corner.corner(
     flat_samples, labels=params, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
 )
 plt.savefig(object_path + 'MCMC_Corner.png', dpi=300, bbox_inches='tight')
-plt.savefig(object_path + 'MCMC_Corner.pdf', dpi=300, bbox_inches='tight')
+# plt.savefig(object_path + 'MCMC_Corner.pdf', dpi=300, bbox_inches='tight')
 plt.close()
 
 
-##################################################
-################# Writing Result #################
-##################################################
-# 'teff', 'logg', 'metal', 'vsini', 'rv', 'airmass', 'pwv', 'waveoffset_1', 'waveoffset_2', 'waveoffset_3' 'c0_1', 'c0_2', 'c1_1', 'c1_2', 'c2_1', 'c2_2', 'N'
-result = {
-    'APOGEE_ID':    apogee_id,
-    'teff':         mcmc.teff,
-    'logg':         mcmc.logg,
-    'metal':        mcmc.metal,
-    'vsini':        mcmc.vsini,
-    'rv':           mcmc.rv, 
-    'airmass':      mcmc.airmass, 
-    'pwv':          mcmc.pwv, 
-    'wave_off1':    mcmc.wave_off1,
-    'wave_off2':    mcmc.wave_off2,
-    'wave_off3':    mcmc.wave_off3,
-    'c0_1':         mcmc.c0_1,
-    'c0_2':         mcmc.c0_2,
-    'c1_1':         mcmc.c1_1,
-    'c1_2':         mcmc.c1_2,
-    'c2_1':         mcmc.c2_1,
-    'c2_2':         mcmc.c2_2,
-    'noise':        mcmc.noise,
-    'snr':          np.median(spec.flux/spec.noise)
-}
+########## Spectrum Plot ##########
+alpha = 0.7
+lw = 0.8
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+for lower_border, upper_border in zip([-np.inf, *order_borders], [*order_borders, np.inf]):
+    idx = (spec.wave > lower_border) & (spec.wave < upper_border)
+    # ax1.plot(spec.wave[idx], spec.flux[idx], color='C7', alpha=alpha, lw=lw)
+    ax1.plot(model.wave[idx], model.flux[idx], color='C3', alpha=alpha, lw=lw)
+    ax1.plot(spec.wave[idx], spec.flux[idx], color='C7', alpha=alpha, lw=lw)
+    ax2.plot(spec.wave[idx], (spec.flux - model.flux)[idx], color='k', alpha=0.5, lw=lw)
+    ax2.fill_between(spec.wave, -spec.noise, spec.noise, facecolor='0.8')
 
-########## Write Parameters ##########
-with open(object_path + 'MCMC_Params.txt', 'w') as file:
-    for key, value in result.items():
-        if isinstance(value, Iterable) and (not isinstance(value, str)):
-            file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
-        else:
-            file.write('{}: \t{}\n'.format(key, value))
+ax1.minorticks_on()
+ax1.xaxis.tick_top()
+ax1.tick_params(axis='both', labelsize=12, labeltop=False)  # don't put tick labels at the top
+ax1.set_ylabel('Normalized Flux', fontsize=15)
+h1, l1 = ax1.get_legend_handles_labels()
+
+ax2.axhline(y=0, color='k', linestyle='--', dashes=(8, 2), alpha=alpha, lw=lw)
+ax2.minorticks_on()
+ax2.tick_params(axis='both', labelsize=12)
+ax2.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
+ax2.set_ylabel('Residual', fontsize=15)
+h2, l2 = ax2.get_legend_handles_labels()
+
+legend_elements = [
+    Line2D([], [], color='C7', alpha=alpha, lw=1.2, label='Combined Spectrum'),
+    Line2D([], [], color='C3', lw=1.2, label='Model'),
+    Line2D([], [], color='k', alpha=alpha, lw=1.2, label='Residual'),
+    Patch(facecolor='0.8', label='Noise')
+]
+
+ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
+fig.align_ylabels((ax1, ax2))
+plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+plt.savefig(object_path + 'Modeled_Spectrum.pdf', bbox_inches='tight')
+plt.show()

@@ -570,7 +570,7 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, max_mass_error=0.5, max_v_error=5., save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, max_mass_error=0.5, max_v_error=5., update_sources=False, save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
@@ -589,6 +589,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         Maximum mass error, by default 0.5
     v_max_error : float, optional
         Maximum velocity error, by default 5
+    update_sources : bool, optional
+        Update the original sources dataframe or not, by default False
     save_path : str, optional
         Save path, by default None
     kwargs:
@@ -689,6 +691,10 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     v_e = sources.loc[valid_idx, 'v_e'].to_numpy()
     
     print('Median neighbors in a group: {:.0f}'.format(np.median(n_neighbors)))
+    if save_path:
+        with open(save_path + '/Median neighbors.txt', 'w') as file:
+            file.write('Median neighbors in a group: {:.0f}'.format(np.median(n_neighbors)))
+    
     vrel_vector = v - vcom
     vrel = np.linalg.norm(vrel_vector, axis=1)
         
@@ -722,7 +728,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     
     R = np.corrcoef(mass, vrel)[1, 0]   # Pearson's R
     # Resampling
-    resampling = 100
+    resampling = 100000
     ks = np.empty(resampling)
     ebs = np.empty(resampling)
     Rs = np.empty(resampling)
@@ -822,7 +828,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     # Running Average Fill
     f2 = ax.fill_between(mass_binned_avrg, vrel_binned_avrg - vrel_binned_e, vrel_binned_avrg + vrel_binned_e, color='C3', edgecolor='none', alpha=0.5)
         
-    h4, = ax.plot(xs, model_func(xs, k_resample, b_resample), color='k', label='Best Linear Fit', zorder=3)
+    h4, = ax.plot(xs, model_func(xs, k_resample, b_resample), color='k', label='Best Fit', zorder=3)
     
     xlim = ax.get_xlim()
     ylim = ax.get_ylim()
@@ -883,12 +889,18 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
 
     if save_path:
-        plt.savefig(save_path + '/linear fit - symmetric error.pdf', bbox_inches='tight')
+        if model_type=='linear':
+            plt.savefig('{}/{}-linear-{}pc.pdf'.format(save_path, model_name, radius.value), bbox_inches='tight')
+        elif model_type=='power':
+            plt.savefig('{}/{}-power-{}pc.pdf'.format(save_path, model_name, radius.value), bbox_inches='tight')
     plt.show()
     
     ########## Updating the original DataFrame ##########
-    sources.loc[valid_idx, 'vrel_{}'.format(model_name)] = vrel
-    sources.loc[valid_idx, 'vrel_e_{}'.format(model_name)] = vrel_e
+    if update_sources:
+        sources.loc[valid_idx, 'vrel_{}'.format(model_name)] = vrel
+        sources.loc[valid_idx, 'vrel_e_{}'.format(model_name)] = vrel_e
+    else:
+        pass
     
     return mass, vrel, mass_e, vrel_e
 
@@ -1819,7 +1831,7 @@ C7 = '#7f7f7f'
 C9 = '#17becf'
 
 sources = pd.read_csv('/home/l3wei/ONC/Catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str})
-save_path = '/home/l3wei/ONC/Codes/Data Processing/'
+save_path = '/home/l3wei/ONC/Codes/starrynight/data_processing/'
 
 chris_table = pd.read_csv('/home/l3wei/ONC/Catalogs/Chris\'s Table.csv')
 
@@ -1986,15 +1998,31 @@ compare_chris(sources_2d)
 
 # Local velocity
 model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
-radii = [0.05, 0.1, 0.15, 0.2]*u.pc
+radii = [0.05, 0.15, 0.2, 0.25]*u.pc
+
 for radius in radii:
+    if radius == 0.1*u.pc:
+        update_sources = True
+    else:
+        update_sources = False
+    
     for model_name in model_names:
         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
             sources_2d, 
             model_name, 
             model_type='linear',
             radius=radius, 
-            save_path='{}linear fit - {} pc/{}/'.format(save_path, radius.value, model_name)
+            update_sources=update_sources,
+            save_path='{}linear-{}pc/'.format(save_path, radius.value, model_name)
+        )
+        
+        mass, vrel, mass_e, vrel_e = vrel_vs_mass(
+            sources_2d, 
+            model_name, 
+            model_type='power',
+            radius=radius, 
+            update_sources=update_sources,
+            save_path='{}power-{}pc/'.format(save_path, radius.value, model_name)
         )
 
 sources_2d.to_csv('/home/l3wei/ONC/Catalogs/sources with vrel.csv', index=False)
