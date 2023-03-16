@@ -1,0 +1,25 @@
+# Ignore Files #
+################
+starrynight/Data/
+starrynight/Figures/
+starrynight/Logs/
+starrynight/Models/Bressan/Z0.0001Y0.249/
+starrynight/Models/Feiden/iso/
+starrynight/Models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS/
+starrynight/Model/Siess/siess_for_lingfeng/
+starrynight/Star Formation Simulation/
+
+# Python Files #
+################
+__pycache__/
+.ipynb_checkpoints
+.vscode
+
+# Results #
+###########
+starrynight/Codes/data_processing/linear*
+starrynight/Codes/data_processing/power*
+starrynight/Codes/data_processing/offset fit/
+
+# Unused Files #
+################
