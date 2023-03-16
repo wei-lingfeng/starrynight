@@ -1,13 +1,13 @@
 # Ignore Files #
 ################
-/Data
-/Figures
-/Logs
-/Models/Bressan/Z0.0001Y0.249
-/Models/Feiden/iso
-/Models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS
-/Model/Siess/siess_for_lingfeng
-/Star Formation Simulation
+/data
+/figures
+/logs
+/models/Bressan/Z0.0001Y0.249
+/models/Feiden/iso
+/models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS
+/models/Siess/siess_for_lingfeng
+/star_formation_simulation
 
 # Python Files #
 ################
@@ -17,10 +17,18 @@ __pycache__
 
 # Results #
 ###########
-/Codes/data_processing/linear*
-/Codes/data_processing/power*
-/Codes/data_processing/offset fit/
+/codes/data_processing/linear*
+/codes/data_processing/power*
+/codes/data_processing/offset fit/
 
 # Unused Files #
 ################
-Observing/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits
+observing/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits
+codes/binary_proposal/
+codes/binary_simulation/
+codes/data_processing/vdisp/
+codes/data_processing/*.txt
+codes/data_processing/*.png
+models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_basic.iso
+models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_UBVRIplus.iso.cmd
+models/Palla/palla.mass

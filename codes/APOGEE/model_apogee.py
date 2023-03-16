@@ -29,7 +29,7 @@ instrument, order       = 'apogee', 'all'
 
 # get apogee ids.
 ap.apogee_hack.tools.download.allStar(dr=17)
-sources = pd.read_csv('/home/l3wei/ONC/Catalogs/sources 2d.csv')
+sources = pd.read_csv('/home/l3wei/ONC/starrynight/catalogs/sources 2d.csv')
 cross_matches = (~sources.teff_nirspec.isna()) & (~sources.teff_apogee.isna())
 sources_matched = sources.loc[abs(sources.loc[cross_matches].teff_nirspec - sources.loc[cross_matches].teff_apogee).sort_values(ascending=False).index].reset_index(drop=True)
 apogee_ids = list(sources_matched.ID_apogee)
@@ -42,7 +42,7 @@ day = list(sources_matched.day.astype(int))
 apogee_ids = ['2M05351259-0523440']
 apogee_id = apogee_ids[0]
 
-prefix = '/home/l3wei/ONC/Data/APOGEE/'
+prefix = '/home/l3wei/ONC/starrynight/data/APOGEE/'
 object_path = prefix + apogee_id + '/'
 if not os.path.exists(object_path):
     os.makedirs(object_path)

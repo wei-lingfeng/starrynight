@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 
 apogee_id = '2M05351259-0523440'
-prefix = '/home/l3wei/ONC/Data/APOGEE/'
+prefix = '/home/l3wei/ONC/starrynight/data/APOGEE/'
 object_path = prefix + apogee_id + '/'
 apstar_path  = f'{object_path}specs/apStar-{apogee_id}.fits'
 apvisit_path  = f'{object_path}specs/apVisit-{apogee_id}-1.fits'
@@ -13,7 +13,7 @@ modelset = 'phoenix-aces-agss-cond-2011'
 instrument = 'apogee'
 order = 'all'
 
-hdul = fits.open(f'/home/l3wei/ONC/Data/APOGEE/{apogee_id}/specs/apStar-{apogee_id}.fits')
+hdul = fits.open(f'/home/l3wei/ONC/starrynight/data/APOGEE/{apogee_id}/specs/apStar-{apogee_id}.fits')
 apstar = smart.Spectrum(name=apogee_id, path=apstar_path, instrument=instrument, apply_sigma_mask=True, datatype='apstar', applytell=True)
 apvisit = smart.Spectrum(name=apogee_id, path=apvisit_path, instrument=instrument, apply_sigma_mask=True, datatype='apvisit', applytell=True)
 
