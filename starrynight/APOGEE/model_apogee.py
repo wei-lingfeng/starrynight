@@ -17,20 +17,18 @@ from collections.abc import Iterable
 from scipy.interpolate import interp1d
 
 # set params
-MCMC = True
-Multiprocess = True
+MCMC = False
+Multiprocess = False
 Finetune = True
 # nparams, nwalkers, steps = 17, 100, 3000
 # nparams, nwalkers, steps = 17, 100, 500
-nparams, nwalkers, steps = 17, 50, 100
-discard = steps - 20
+nwalkers, steps = 100, 500
+discard = steps - 100
 modelset                = 'phoenix-aces-agss-cond-2011'
 instrument, order       = 'apogee', 'all'
 
 # get apogee ids.
 ap.apogee_hack.tools.download.allStar(dr=17)
-ap_path = '/home/l3wei/Software/apogee_data'
-prefix = '/home/l3wei/ONC/Data/APOGEE/'
 sources = pd.read_csv('/home/l3wei/ONC/Catalogs/sources 2d.csv')
 cross_matches = (~sources.teff_nirspec.isna()) & (~sources.teff_apogee.isna())
 sources_matched = sources.loc[abs(sources.loc[cross_matches].teff_nirspec - sources.loc[cross_matches].teff_apogee).sort_values(ascending=False).index].reset_index(drop=True)
@@ -44,12 +42,13 @@ day = list(sources_matched.day.astype(int))
 apogee_ids = ['2M05351259-0523440']
 apogee_id = apogee_ids[0]
 
+prefix = '/home/l3wei/ONC/Data/APOGEE/'
 object_path = prefix + apogee_id + '/'
 if not os.path.exists(object_path):
     os.makedirs(object_path)
 
 # download data
-# ap.download(apogee_id, type='apvisit', dir=object_path + 'specs/', ap_path=ap_path, dr=17)
+# ap.download(apogee_id, type='apvisit', dir=object_path + 'specs/', dr=17)
 
 # Get the LSF
 if not os.path.exists(object_path + 'lsf.npy'):
@@ -63,9 +62,10 @@ else:
         xlsf = np.load(file)
         lsf = np.load(file)
 
-n_visit = len([_ for _ in os.listdir(object_path + 'specs/') if os.path.isfile(object_path + 'specs/' + _) and _.startswith('apVisit')])
+nvisits = len([_ for _ in os.listdir(object_path + 'specs/') if os.path.isfile(object_path + 'specs/' + _) and _.startswith('apVisit')])
 
-params = ['teff', 'logg', 'metal', 'vsini', 'rv', 'airmass', 'pwv', 'wave_off1', 'wave_off2', 'wave_off3', 'c0_1', 'c0_2', 'c1_1', 'c1_2', 'c2_1', 'c2_2', 'noise']
+params = ['teff', 'logg', 'metal', 'vsini', 'rv', 'airmass', 'pwv', 'wave_off1', 'wave_off2', 'wave_off3', 'c0_1', 'c1_1', 'c2_1', 'noise']
+nparams = len(params)
 
 limits = { 
     'teff_min':2300,            'teff_max':7200,
@@ -77,11 +77,11 @@ limits = {
     'pwv_min':0.5,              'pwv_max':20,
     'wave_min':-0.5,            'wave_max':0.5,
     'c0_1_min':-1,              'c0_1_max':1,
-    'c0_2_min':-np.log(1.5),    'c0_2_max':-np.log(0.5),
+    # 'c0_2_min':-np.log(1.5),    'c0_2_max':-np.log(0.5),
     'c1_1_min':-1,              'c1_1_max':1,
-    'c1_2_min':-np.log(1.5),    'c1_2_max':-np.log(0.5),
+    # 'c1_2_min':-np.log(1.5),    'c1_2_max':-np.log(0.5),
     'c2_1_min':-1,              'c2_1_max':1,
-    'c2_2_min':-np.log(1.5),    'c2_2_max':-np.log(0.5),
+    # 'c2_2_min':-np.log(1.5),    'c2_2_max':-np.log(0.5),
     'noise_min':1.,             'noise_max':10.
 }
 
@@ -95,20 +95,20 @@ priors = {
     'pwv_min':0.5,              'pwv_max':20,
     'wave_min':-0.5,            'wave_max':0.5,
     'c0_1_min':-0.5,            'c0_1_max':0.5,
-    'c0_2_min':-np.log(1.2),    'c0_2_max':-np.log(0.8),
+    # 'c0_2_min':-np.log(1.2),    'c0_2_max':-np.log(0.8),
     'c1_1_min':-0.5,            'c1_1_max':0.5,
-    'c1_2_min':-np.log(1.2),    'c1_2_max':-np.log(0.8),
+    # 'c1_2_min':-np.log(1.2),    'c1_2_max':-np.log(0.8),
     'c2_1_min':-0.5,            'c2_1_max':0.5,
-    'c2_2_min':-np.log(1.2),    'c2_2_max':-np.log(0.8),
+    # 'c2_2_min':-np.log(1.2),    'c2_2_max':-np.log(0.8),
     'noise_min':1.,             'noise_max':5.
 }
 
 # read and normalize spectrums
 specs = []
 fig, ax = plt.subplots(figsize=(8, 3), dpi=300)
-for visit in range(1, n_visit + 1):
+for visit in range(1, nvisits + 1):
     data_path  = object_path + 'specs/' + 'apVisit-' + apogee_id + '-{}.fits'.format(visit)
-    spec = smart.Spectrum(name=apogee_id, path=data_path, instrument=instrument, applymask=True, datatype='apvisit', applytell=True)
+    spec = smart.Spectrum(name=apogee_id, path=data_path, instrument=instrument, apply_sigma_mask=True, datatype='apvisit', applytell=True)
     
     # Normalize
     spec.noise = spec.noise / np.median(spec.flux)
@@ -124,7 +124,7 @@ plt.show()
 ##################################################
 ################# Coadd Spectrum #################
 ##################################################
-if n_visit > 1:
+if nvisits > 1:
     # split spectrum
     order_border_idx = np.argsort(np.diff(specs[0].wave))[-2:][::-1]
     order_borders = [np.mean(specs[0].wave[[_, _+1]]) for _ in order_border_idx]
@@ -148,8 +148,8 @@ if n_visit > 1:
         wave_new = np.append(wave_new, np.array(wave_order))
 
 
-    flux_new = np.zeros((n_visit, np.size(wave_new)))
-    for i in range(n_visit):
+    flux_new = np.zeros((nvisits, np.size(wave_new)))
+    for i in range(nvisits):
         f_wave = interp1d(specs[i].wave, specs[i].flux)
         flux_new[i, :] = f_wave(wave_new)
 
@@ -161,6 +161,11 @@ if n_visit > 1:
     spec.flux = flux_med
     spec.noise = np.std(flux_new, axis=0)
 
+
+# Use apstar instead
+data_path  = f'{object_path}specs/apStar-{apogee_id}.fits'
+spec = smart.Spectrum(name=apogee_id, path=data_path, instrument=instrument, apply_sigma_mask=True, datatype='apstar', applytell=True)
+nvisits = spec.header['NVISITS']
 
 def lnlike(theta, spec, lsf, xlsf):
     """
@@ -179,13 +184,13 @@ def lnlike(theta, spec, lsf, xlsf):
     """
 
     # Parameters MCMC
-    teff, logg, metal, vsini, rv, airmass, pwv, wave_off1, wave_off2, wave_off3, c0_1, c0_2, c1_1, c1_2, c2_1, c2_2, noise = theta #A: flux offset; N: noise prefactor
+    teff, logg, metal, vsini, rv, airmass, pwv, wave_off1, wave_off2, wave_off3, c0_1, c1_1, c2_1, noise = theta #A: flux offset; N: noise prefactor
 
     # wavelength offset is set to 0
     model = smart.makeModel(
         teff=teff, logg=logg, metal=metal, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, lsf=lsf, xlsf=xlsf,
         wave_off1=wave_off1, wave_off2=wave_off2, wave_off3=wave_off3, 
-        c0_1=c0_1, c0_2=c0_2, c1_1=c1_1, c1_2=c1_2, c2_1=c2_1, c2_2=c2_2,
+        c0_1=c0_1, c1_1=c1_1, c2_1=c2_1,
         instrument=instrument, order=order, modelset=modelset, data=spec
     )
 
@@ -208,11 +213,11 @@ def get_result(mcmc, save_path=None):
         'wave_off2':    mcmc.wave_off2,
         'wave_off3':    mcmc.wave_off3,
         'c0_1':         mcmc.c0_1,
-        'c0_2':         mcmc.c0_2,
+        # 'c0_2':         mcmc.c0_2,
         'c1_1':         mcmc.c1_1,
-        'c1_2':         mcmc.c1_2,
+        # 'c1_2':         mcmc.c1_2,
         'c2_1':         mcmc.c2_1,
-        'c2_2':         mcmc.c2_2,
+        # 'c2_2':         mcmc.c2_2,
         'noise':        mcmc.noise,
         'snr':          np.median(spec.flux/spec.noise)
     }
@@ -235,7 +240,7 @@ def lnprior(theta, limits=limits):
     Specifies a flat prior
     """
     ## Parameters for theta
-    teff, logg, metal, vsini, rv, airmass, pwv, wave_off1, wave_off2, wave_off3, c0_1, c0_2, c1_1, c1_2, c2_1, c2_2, noise = theta
+    teff, logg, metal, vsini, rv, airmass, pwv, wave_off1, wave_off2, wave_off3, c0_1, c1_1, c2_1, noise = theta
 
     if  limits['teff_min']      < teff      < limits['teff_max']\
     and limits['logg_min']      < logg      < limits['logg_max']\
@@ -248,14 +253,11 @@ def lnprior(theta, limits=limits):
     and limits['wave_min']      < wave_off2 < limits['wave_max']\
     and limits['wave_min']      < wave_off3 < limits['wave_max']\
     and limits['c0_1_min']      < c0_1      < limits['c0_1_max']\
-    and limits['c0_2_min']      < c0_2      < limits['c0_2_max']\
     and limits['c1_1_min']      < c1_1      < limits['c1_1_max']\
-    and limits['c1_2_min']      < c1_2      < limits['c1_2_max']\
     and limits['c2_1_min']      < c2_1      < limits['c2_1_max']\
-    and limits['c2_2_min']      < c2_2      < limits['c2_2_max']\
     and limits['noise_min']     < noise     < limits['noise_max']:
         return 0.0
-
+    
     return -np.inf
 
 def lnprob(theta, spec, lsf, xlsf):
@@ -279,11 +281,11 @@ pos = [np.array([   priors['teff_min']      + (priors['teff_max']       - priors
                     priors['wave_min']      + (priors['wave_max']       - priors['wave_min'])       * np.random.uniform(), 
                     priors['wave_min']      + (priors['wave_max']       - priors['wave_min'])       * np.random.uniform(),   
                     priors['c0_1_min']      + (priors['c0_1_max']       - priors['c0_1_min'])       * np.random.uniform(), 
-                    priors['c0_2_min']      + (priors['c0_2_max']       - priors['c0_2_min'])       * np.random.uniform(), 
+                    # priors['c0_2_min']      + (priors['c0_2_max']       - priors['c0_2_min'])       * np.random.uniform(), 
                     priors['c1_1_min']      + (priors['c1_1_max']       - priors['c1_1_min'])       * np.random.uniform(), 
-                    priors['c1_2_min']      + (priors['c1_2_max']       - priors['c1_2_min'])       * np.random.uniform(), 
+                    # priors['c1_2_min']      + (priors['c1_2_max']       - priors['c1_2_min'])       * np.random.uniform(), 
                     priors['c2_1_min']      + (priors['c2_1_max']       - priors['c2_1_min'])       * np.random.uniform(), 
-                    priors['c2_2_min']      + (priors['c2_2_max']       - priors['c2_2_min'])       * np.random.uniform(),
+                    # priors['c2_2_min']      + (priors['c2_2_max']       - priors['c2_2_min'])       * np.random.uniform(),
                     priors['noise_min']     + (priors['noise_max']      - priors['noise_min'])      * np.random.uniform()
                 ]) for _ in range(nwalkers)]
 
@@ -328,7 +330,7 @@ mcmc = pd.DataFrame(mcmc, columns=params)
 model = smart.makeModel(
     teff=mcmc.teff[0], logg=mcmc.logg[0], metal=mcmc.metal[0], vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], lsf=lsf, xlsf=xlsf,
     wave_off1=mcmc.wave_off1[0], wave_off2=mcmc.wave_off2[0], wave_off3=mcmc.wave_off3[0], 
-    c0_1=mcmc.c0_1[0], c0_2=mcmc.c0_2[0], c1_1=mcmc.c1_1[0], c1_2=mcmc.c1_2[0], c2_1=mcmc.c2_1[0], c2_2=mcmc.c2_2[0],
+    c0_1=mcmc.c0_1[0], c1_1=mcmc.c1_1[0], c2_1=mcmc.c2_1[0], 
     instrument=instrument, order=order, modelset=modelset, data=spec
 )
 
@@ -390,7 +392,7 @@ if Finetune:
 model = smart.makeModel(
     teff=mcmc.teff[0], logg=mcmc.logg[0], metal=mcmc.metal[0], vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], lsf=lsf, xlsf=xlsf,
     wave_off1=mcmc.wave_off1[0], wave_off2=mcmc.wave_off2[0], wave_off3=mcmc.wave_off3[0], 
-    c0_1=mcmc.c0_1[0], c0_2=mcmc.c0_2[0], c1_1=mcmc.c1_1[0], c1_2=mcmc.c1_2[0], c2_1=mcmc.c2_1[0], c2_2=mcmc.c2_2[0],
+    c0_1=mcmc.c0_1[0], c1_1=mcmc.c1_1[0], c2_1=mcmc.c2_1[0],
     instrument=instrument, order=order, modelset=modelset, data=spec
 )
 
