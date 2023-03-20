@@ -14,7 +14,7 @@ Month = str(date[1]).zfill(2)
 Date = str(date[2]).zfill(2)
 
 Month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-common_prefix = '/home/l3wei/ONC/Data/20' + Year + Month_list[int(Month) - 1] + Date + '/reduced/'
+common_prefix = '/home/l3wei/ONC/data/NIRSPAO/20' + Year + Month_list[int(Month) - 1] + Date + '/reduced/'
 
 if int(Year) > 18:
     # For data after 2018, sci_names = [nspec200118_0027, ...]
@@ -47,7 +47,7 @@ sci_spec.wave  = np.delete(sci_spec.wave, BadPixMask_auto)
 
 # Model Spectrums:
 # mcmc parameters
-mcmc_path = '/home/l3wei/ONC/Data/20{}{}{}/reduced/mcmc_median/{}_O{}_params/MCMC_Params.txt'.format(Year, Month_list[int(Month) - 1], Date, name, [32, 33])
+mcmc_path = '/home/l3wei/ONC/data/NIRSPAO/20{}{}{}/reduced/mcmc_median/{}_O{}_params/MCMC_Params.txt'.format(Year, Month_list[int(Month) - 1], Date, name, [32, 33])
 
 with open(mcmc_path, 'r') as file:
     lines = file.readlines()

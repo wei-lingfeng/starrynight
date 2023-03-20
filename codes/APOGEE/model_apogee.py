@@ -17,13 +17,13 @@ from collections.abc import Iterable
 from scipy.interpolate import interp1d
 
 # set params
-MCMC = False
-Multiprocess = False
+MCMC = True
+Multiprocess = True
 Finetune = True
 # nparams, nwalkers, steps = 17, 100, 3000
 # nparams, nwalkers, steps = 17, 100, 500
-nwalkers, steps = 100, 500
-discard = steps - 100
+nwalkers, steps = 50, 50
+discard = steps - 10
 modelset                = 'phoenix-aces-agss-cond-2011'
 instrument, order       = 'apogee', 'all'
 
@@ -42,7 +42,7 @@ day = list(sources_matched.day.astype(int))
 apogee_ids = ['2M05351259-0523440']
 apogee_id = apogee_ids[0]
 
-prefix = '/home/l3wei/ONC/starrynight/data/APOGEE/'
+prefix = '/home/l3wei/ONC/data/APOGEE/'
 object_path = prefix + apogee_id + '/'
 if not os.path.exists(object_path):
     os.makedirs(object_path)
@@ -125,10 +125,10 @@ plt.show()
 ################# Coadd Spectrum #################
 ##################################################
 if nvisits > 1:
-    # split spectrum
-    order_border_idx = np.argsort(np.diff(specs[0].wave))[-2:][::-1]
-    order_borders = [np.mean(specs[0].wave[[_, _+1]]) for _ in order_border_idx]
-
+    
+    lower_bounds = np.array([_[-1] for _ in spec.oriWave0][::-1])
+    upper_bounds = np.array([_[0] for _ in spec.oriWave0][::-1])
+    
     # interpolate Δλ=f(λ)
     dlambda = np.diff(specs[0].wave)
     idx = dlambda < 0.2
@@ -136,9 +136,9 @@ if nvisits > 1:
 
     # for each order
     wave_new = np.array([])
-    supersample_rate = 1
-    for lower_border, upper_border in zip([-np.inf, *order_borders], [*order_borders, np.inf]):
-        waves = [_.wave[(_.wave > lower_border) & (_.wave < upper_border)] for _ in specs]
+    supersample_rate = 3
+    for lower_bound, upper_bound in zip(lower_bounds, upper_bounds):
+        waves = [_.wave[(_.wave >= lower_bound) & (_.wave <= upper_bound)] for _ in specs]
         wave_min = max([min(wave) for wave in waves])
         wave_max = min([max(wave) for wave in waves])
         wave_order = [wave_min]
@@ -163,9 +163,9 @@ if nvisits > 1:
 
 
 # Use apstar instead
-data_path  = f'{object_path}specs/apStar-{apogee_id}.fits'
-spec = smart.Spectrum(name=apogee_id, path=data_path, instrument=instrument, apply_sigma_mask=True, datatype='apstar', applytell=True)
-nvisits = spec.header['NVISITS']
+# data_path  = f'{object_path}specs/apStar-{apogee_id}.fits'
+# spec = smart.Spectrum(name=apogee_id, path=data_path, instrument=instrument, apply_sigma_mask=True, datatype='apstar', applytell=True)
+# nvisits = spec.header['NVISITS']
 
 def lnlike(theta, spec, lsf, xlsf):
     """
@@ -191,7 +191,7 @@ def lnlike(theta, spec, lsf, xlsf):
         teff=teff, logg=logg, metal=metal, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, lsf=lsf, xlsf=xlsf,
         wave_off1=wave_off1, wave_off2=wave_off2, wave_off3=wave_off3, 
         c0_1=c0_1, c1_1=c1_1, c2_1=c2_1,
-        instrument=instrument, order=order, modelset=modelset, data=spec
+        instrument=instrument, order=order, modelset=modelset, data=spec, supersample=True
     )
 
     chisquare = smart.chisquare(spec, model)/noise**2
@@ -341,6 +341,7 @@ result = get_result(mcmc, save_path=object_path)
 with open(object_path + 'sci_specs.pkl', 'wb') as file:
     pickle.dump(spec, file)
 
+
 ##################################################
 #################### Fine Tune ###################
 ##################################################
@@ -381,20 +382,20 @@ if Finetune:
         mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
 
     mcmc = pd.DataFrame(mcmc, columns=params)
+
+    ##################################################
+    ############### Re-Construct Model ###############
+    ##################################################
+    model = smart.makeModel(
+        teff=mcmc.teff[0], logg=mcmc.logg[0], metal=mcmc.metal[0], vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], lsf=lsf, xlsf=xlsf,
+        wave_off1=mcmc.wave_off1[0], wave_off2=mcmc.wave_off2[0], wave_off3=mcmc.wave_off3[0], 
+        c0_1=mcmc.c0_1[0], c1_1=mcmc.c1_1[0], c2_1=mcmc.c2_1[0],
+        instrument=instrument, order=order, modelset=modelset, data=spec
+    )
     
     # writing result
     result = get_result(mcmc, save_path=object_path)
 
-
-##################################################
-############### Re-Construct Model ###############
-##################################################
-model = smart.makeModel(
-    teff=mcmc.teff[0], logg=mcmc.logg[0], metal=mcmc.metal[0], vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], lsf=lsf, xlsf=xlsf,
-    wave_off1=mcmc.wave_off1[0], wave_off2=mcmc.wave_off2[0], wave_off3=mcmc.wave_off3[0], 
-    c0_1=mcmc.c0_1[0], c1_1=mcmc.c1_1[0], c2_1=mcmc.c2_1[0],
-    instrument=instrument, order=order, modelset=modelset, data=spec
-)
 
 
 ##################################################
@@ -430,13 +431,13 @@ plt.close()
 alpha = 0.7
 lw = 0.8
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
-for lower_border, upper_border in zip([-np.inf, *order_borders], [*order_borders, np.inf]):
-    idx = (spec.wave > lower_border) & (spec.wave < upper_border)
+for lower_bound, upper_bound in zip(lower_bounds, upper_bounds):
+    idx = (spec.wave >= lower_bound) & (spec.wave <= upper_bound)
     # ax1.plot(spec.wave[idx], spec.flux[idx], color='C7', alpha=alpha, lw=lw)
     ax1.plot(model.wave[idx], model.flux[idx], color='C3', alpha=alpha, lw=lw)
     ax1.plot(spec.wave[idx], spec.flux[idx], color='C7', alpha=alpha, lw=lw)
     ax2.plot(spec.wave[idx], (spec.flux - model.flux)[idx], color='k', alpha=0.5, lw=lw)
-    ax2.fill_between(spec.wave, -spec.noise, spec.noise, facecolor='0.8')
+    ax2.fill_between(spec.wave[idx], -spec.noise[idx], spec.noise[idx], facecolor='0.8')
 
 ax1.minorticks_on()
 ax1.xaxis.tick_top()

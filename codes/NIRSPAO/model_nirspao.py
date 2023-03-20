@@ -50,7 +50,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     order = sci_spec.header['ECHLORD']
     if mark_CO:
         # Read CO lines
-        co_lines = pd.read_csv('/home/l3wei/ONC/Codes/starrynight/plot_spectrum/CO lines.csv')
+        co_lines = pd.read_csv('/home/l3wei/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
         co_lines.intensity = np.log10(co_lines.intensity)
         if order==32:
             co_lines = co_lines[co_lines.intensity >= -25].reset_index(drop=True)
@@ -176,8 +176,8 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     day = str(date[2]).zfill(2)
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    common_prefix = '/home/l3wei/ONC/Data/NIRSPAO/20{}{}{}/reduced/'.format(year, month_list[int(month) - 1], day)
-    save_path = '{}mcmc_median/{}_O{}_params/'.format(common_prefix, name, orders)
+    prefix = f'/home/l3wei/ONC/data/NIRSPAO/20{year}{month_list[int(month) - 1]}{day}/reduced/'
+    save_path = f'{prefix}mcmc_median/{name}_O{orders}_params/'
     
     if MCMC:
         if os.path.exists(save_path): shutil.rmtree(save_path)
@@ -185,10 +185,10 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     if not os.path.exists(save_path): os.makedirs(save_path)
     
     print('\n\n')
-    print('Date:\t20{}'.format("-".join(str(_).zfill(2) for _ in date)))
-    print('Object:\t{}'.format(name))
-    print('Science  Frames:\t{}'.format(sci_frames))
-    print('Telluric Frames:\t{}'.format(tel_frames))
+    print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
+    print(f'Object:\t{name}')
+    print(f'Science  Frames:\t{sci_frames}')
+    print(f'Telluric Frames:\t{tel_frames}')
     print('\n\n')
     
     sys.stdout.flush()
@@ -229,16 +229,16 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             tel_names.append(tel_name)
             
             if name.endswith('A'):
-                sci_spec = smart.Spectrum(name=sci_name + '_A', order=order, path=common_prefix + 'extracted_binaries/' + sci_name + '/O' + str(order))
+                sci_spec = smart.Spectrum(name=f'{sci_name}_A', order=order, path=f'{prefix}extracted_binaries/{sci_name}/O{order}')
             elif name.endswith('B'):
-                sci_spec = smart.Spectrum(name=sci_name + '_B', order=order, path=common_prefix + 'extracted_binaries/' + sci_name + '/O' + str(order))
+                sci_spec = smart.Spectrum(name=f'{sci_name}_B', order=order, path=f'{prefix}extracted_binaries/{sci_name}/O{order}')
             else:
-                sci_spec = smart.Spectrum(name=sci_name, order=order, path=common_prefix + 'nsdrp_out/fits/all')
+                sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}nsdrp_out/fits/all')
             
-            # if os.path.exists(common_prefix + tel_name + '_defringe/O{}/'.format(order)):
+            # if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
             #     tel_name = tel_name + '_defringe'
             
-            tel_spec = smart.Spectrum(name=tel_name + '_calibrated', order=order, path=common_prefix + tel_name + '/O{}/'.format(order))
+            tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}{tel_name}/O{order}/')
             
             # Update the wavelength solution
             sci_spec.updateWaveSol(tel_spec)
@@ -280,7 +280,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             ax.legend()
             ax.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
             ax.set_ylabel('Flux (counts/s)', fontsize=15)
-            plt.savefig(save_path + 'O{}_{}_Spectrum.png'.format(order, sci_frame), dpi=300, bbox_inches='tight')
+            plt.savefig(save_path + f'O{order}_{sci_frame}_Spectrum.png', dpi=300, bbox_inches='tight')
             plt.close()
             
             # Special Case
@@ -346,7 +346,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         ax.set_xlabel('$\lambda$ ($\AA$)', fontsize=15)
         ax.set_ylabel('Flux (count/s)', fontsize=15)
         ax.minorticks_on()
-        plt.savefig(save_path + 'Spectrum_O{}.png'.format(order), dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + f'Spectrum_O{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         fig, ax = plt.subplots(figsize=(16, 6))
@@ -358,7 +358,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         ax.set_xlabel('$\lambda$ ($\AA$)', fontsize=15)
         ax.set_ylabel('Flux (count/s)', fontsize=15)
         ax.minorticks_on()
-        plt.savefig(save_path + 'Noise_O{}.png'.format(order), dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + f'Noise_O{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
     barycorr = np.median(barycorrs)
@@ -525,10 +525,10 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         
         print('\n\n')
         print('Finetuning......')
-        print('Date:\t20{}'.format("-".join(str(_).zfill(2) for _ in date)))
-        print('Object:\t{}'.format(name))
-        print('Science  Frames:\t%s' %str(sci_frames))
-        print('Telluric Frames:\t%s' %str(tel_frames))
+        print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
+        print(f'Object:\t{name}')
+        print(f'Science  Frames:\t{sci_frames}')
+        print(f'Telluric Frames:\t{tel_frames}')
         print('\n\n')
         
         if Multiprocess:
@@ -621,8 +621,8 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             model_notel=models_notel[i], 
             model=models[i], 
             rv=mcmc.rv[0], 
-            wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], 
-            save_path=save_path + 'Modeled_Spectrum_O{}.pdf'.format(order)
+            wave_offset=mcmc.loc[0, f'wave_offset_O{order}'], 
+            save_path=save_path + f'Modeled_Spectrum_O{order}.pdf'
         )
         plt.close()
         # fig, ax = plt.subplots(figsize=(12, 5))
