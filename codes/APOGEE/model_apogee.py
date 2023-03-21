@@ -167,6 +167,10 @@ if nvisits > 1:
 # spec = smart.Spectrum(name=apogee_id, path=data_path, instrument=instrument, apply_sigma_mask=True, datatype='apstar', applytell=True)
 # nvisits = spec.header['NVISITS']
 
+with open(object_path + 'sci_specs.pkl', 'wb') as file:
+    pickle.dump(spec, file)
+
+
 def lnlike(theta, spec, lsf, xlsf):
     """
     Log-likelihood, computed from chi-squared.
@@ -291,9 +295,11 @@ pos = [np.array([   priors['teff_min']      + (priors['teff_max']       - priors
 
 ## multiprocessing
 if MCMC:
+    print('MCMC...')
+    print(f'Object:\t{apogee_id}')
+    print('\n\n')
     backend = emcee.backends.HDFBackend(object_path + 'sampler1.h5')
     backend.reset(nwalkers, nparams)
-    
     if Multiprocess:
         with Pool(64) as pool:
             sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(spec, lsf, xlsf), pool=pool, moves=emcee.moves.KDEMove(), backend=backend)
@@ -301,10 +307,11 @@ if MCMC:
     else:
         sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(spec, lsf, xlsf), moves=emcee.moves.KDEMove(), backend=backend)
         sampler.run_mcmc(pos, steps, progress=True)
-
+    
     print("Mean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
     print(sampler.acceptance_fraction)
-
+    print('\n\n')
+    
 else:
     sampler = emcee.backends.HDFBackend(object_path + 'sampler1.h5')
 
@@ -338,16 +345,15 @@ model = smart.makeModel(
 ################# Writing Result #################
 ##################################################
 result = get_result(mcmc, save_path=object_path)
-with open(object_path + 'sci_specs.pkl', 'wb') as file:
-    pickle.dump(spec, file)
 
 
 ##################################################
 #################### Fine Tune ###################
 ##################################################
-
 if Finetune:
     print('Finetuning...')
+    print(f'Object:\t{apogee_id}')
+    print('\n\n')
     residual = spec.flux - model.flux
     mask_finetune = np.where(abs(residual) > np.nanmedian(residual) + 3*np.nanstd(residual))[0]
     spec.wave   = np.delete(spec.wave, mask_finetune)
@@ -367,8 +373,9 @@ if Finetune:
             sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(spec, lsf, xlsf), moves=emcee.moves.KDEMove(), backend=backend)
             sampler.run_mcmc(pos, steps, progress=True)
         
-        print("Mean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
+        print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
         print(sampler.acceptance_fraction)
+        print('\n\n')
         
     else:
         sampler = emcee.backends.HDFBackend(object_path + 'sampler2.h5')
@@ -464,3 +471,6 @@ fig.align_ylabels((ax1, ax2))
 plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
 plt.savefig(object_path + 'Modeled_Spectrum.pdf', bbox_inches='tight')
 plt.show()
+
+print('--------------------Finished--------------------')
+print('\n\n')
