@@ -127,22 +127,20 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
 def lnprior(theta):
     
     # Modify Orders
-    teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, flux_offset1, wave_offset2, flux_offset2 = theta
+    teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2 = theta
     
     # Modify Orders
     if  \
-        2300    < teff          < 7000  \
-    and 0       < vsini         < 100   \
-    and -100    < rv            < 100   \
-    and 1       < airmass       < 3     \
-    and 0.5     < pwv           < 20    \
-    and 0       < veiling       < 1e20  \
-    and 1       < lsf           < 20    \
-    and 1       < noise         < 50    \
-    and -10     < wave_offset1  < 10    \
-    and -1e5    < flux_offset1  < 1e5   \
-    and -10     < wave_offset2  < 10    \
-    and -1e5    < flux_offset2  < 1e5   :
+        2300                < teff          < 7000  \
+    and 0                   < vsini         < 100   \
+    and -100                < rv            < 100   \
+    and 1                   < airmass       < 3     \
+    and 0.5                 < pwv           < 20    \
+    and 0                   < veiling       < 1e20  \
+    and 1                   < lsf           < 20    \
+    and 1                   < noise         < 50    \
+    and -10                 < wave_offset1  < 10    \
+    and -10                 < wave_offset2  < 10    :
         return 0.0
     else:
         return -np.inf
@@ -151,11 +149,10 @@ def lnprior(theta):
 def lnlike(theta, sci_specs, orders):
     
     # Modify Orders
-    teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, flux_offset1, wave_offset2, flux_offset2 = theta
+    teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2 = theta
 
     # Modify Orders
     wave_offsets = [wave_offset1, wave_offset2]
-    flux_offsets = [flux_offset1, flux_offset2]
     
     sci_noises = np.array([])
     sci_fluxes = np.array([])
@@ -163,7 +160,7 @@ def lnlike(theta, sci_specs, orders):
 
     for i, order in enumerate(orders):
         try:
-            model = smart.makeModel(teff, logg = 4.0, vsini = vsini, rv = rv, airmass = airmass, pwv = pwv, veiling = veiling, lsf = lsf, z = 0, wave_offset = wave_offsets[i], flux_offset = flux_offsets[i], order = str(order), data = sci_specs[i], modelset = 'phoenix-aces-agss-cond-2011')
+            model = smart.makeModel(teff, logg = 4.0, vsini = vsini, rv = rv, airmass = airmass, pwv = pwv, veiling = veiling, lsf = lsf, z = 0, wave_offset = wave_offsets[i], order = str(order), data = sci_specs[i], modelset = 'phoenix-aces-agss-cond-2011')
         except:
             print(f'order:{order}')
             print(f'theta:{theta}')
@@ -176,9 +173,6 @@ def lnlike(theta, sci_specs, orders):
     sigma2 = sci_noises**2
     chi = -1/2 * np.sum( (sci_fluxes - model_fluxes)**2 / sigma2 + np.log(2*np.pi*sigma2) )
     if np.isnan(chi):
-        # print('sci_fluxes:\t{}'.format(sci_fluxes))
-        # print('model_fluxes:\t{}'.format(model_fluxes))
-        # print('sigma2:\t{}'.format(sigma2))
         return -np.inf
     else:
         return chi
@@ -195,7 +189,7 @@ def lnprob(theta, sci_specs, orders):
 ##################################################
 ################## Model NIRSPAO #################
 ##################################################
-def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune=True, nwalkers=100, steps=500):
+def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, nwalkers=100, steps=500):
     """Fit teff and other params using emcee
 
     Parameters
@@ -204,12 +198,14 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         dictionary with keywords 'date' (tuple), 'name' (int or str), 'sci_frames' (list of int), 'tel_frames' (list of int)
     orders : list, optional
         list of orders, by default [32, 33]
-    Multiprocess : bool, optional
-        use multiprocess or not, by default True
-    MCMC : bool, optional
+    initial_mcmc : bool, optional
         run a new emcee sampler or read existing results, by default True
-    Finetune : bool, optional
+    finetune : bool, optional
         run another finetuning mcmc sampler after removing pixels different from the model larger than 3σ or not, by default True
+    finetune_mcmc : bool, optional
+        run mcmc for finetune or read from previously saved file, by default True
+    multiprocess : bool, optional
+        use multiprocess or not, by default True
     nwalkers : int, optional
         number of walkers in emcee, by default 100
     steps : int, optional
@@ -228,20 +224,18 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     tel_frames = infos['tel_frames']
     
     # Testing purposes
-    # MCMC = True          
-    # Multiprocess=False 
-    # Finetune=True
+    # initial_mcmc = True
+    # multiprocess=False
+    # finetune=True
+    # finetune_mcmc=True
+    # orders=[32, 33]
+    # nwalkers=100
+    # steps=100
 
-    # name = '145'
-    # date = (19, 1, 12)
-    # sci_frames = [42, 43, 44, 45]
-    # tel_frames = [40, 41, 41, 40]
-    # orders = [32, 33]
-    
     # Modify Parameters
     params = ['teff', 'vsini', 'rv', 'airmass', 'pwv', 'veiling', 'lsf', 'noise']
     for order in orders:
-        params += ['wave_offset_O{}'.format(order), 'flux_offset_O{}'.format(order)]
+        params += ['wave_offset_O{}'.format(order)]
 
     nparams = len(params)
     discard = steps - 100
@@ -254,7 +248,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     prefix = f'/home/l3wei/ONC/data/NIRSPAO/20{year}{month_list[int(month) - 1]}{day}/reduced/'
     save_path = f'{prefix}mcmc_median/{name}_O{orders}_params/'
     
-    if MCMC:
+    if initial_mcmc:
         if os.path.exists(save_path): shutil.rmtree(save_path)
     
     if not os.path.exists(save_path): os.makedirs(save_path)
@@ -263,7 +257,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     print(f'Object:\t{name}')
     print(f'Science  Frames:\t{sci_frames}')
     print(f'Telluric Frames:\t{tel_frames}')
-    print('\n\n')
+    print()
     
     sys.stdout.flush()
     
@@ -271,8 +265,11 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     ############### Construct Spectrums ##############
     ##################################################
     # sci_specs = [order 32 median combined sci_spec, order 33 median combined sci_spec]
+    sci_specs_ori = []
     sci_specs = []
     barycorrs = []
+    global flux_min
+    flux_min = {}
     
     for order in orders:    
         sci_abba = []
@@ -308,6 +305,11 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             else:
                 sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}nsdrp_out/fits/all')
             
+            # # interpolate Δλ=f(λ)
+            # if sci_frame == sci_frames[0]:
+            #     dlambda = np.diff(sci_spec.wave)
+            #     f_dlambda = interp1d(x=sci_spec.wave[:-1], y=dlambda, bounds_error=False, fill_value=dlambda[-1])
+
             # if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
             #     tel_name = tel_name + '_defringe'
             
@@ -328,17 +330,17 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             sci_spec.noise  = np.delete(sci_spec.noise, mask1)
             
             # Mask flux > median + 3 sigma
-            median_flux = np.nanmedian(sci_spec.flux)
-            upper_bound = median_flux + 3.*np.nanstd(sci_spec.flux - median_flux)
+            median_flux = np.median(sci_spec.flux)
+            upper_bound = median_flux + 3.*np.std(sci_spec.flux - median_flux)
             mask2 = np.where(sci_spec.flux > upper_bound)[0]
             sci_spec.wave   = np.delete(sci_spec.wave, mask2)
             sci_spec.flux   = np.delete(sci_spec.flux, mask2)
             sci_spec.noise  = np.delete(sci_spec.noise, mask2)
             
             # Mask isolated bad pixels
-            median_flux = np.nanmedian(sci_spec.flux)
-            lower_bound = median_flux - 3.5*np.nanstd(sci_spec.flux - median_flux)
-            lowest_bound = median_flux - 5.*np.nanstd(sci_spec.flux - median_flux)
+            median_flux = np.median(sci_spec.flux)
+            lower_bound = median_flux - 3.5*np.std(sci_spec.flux - median_flux)
+            lowest_bound = median_flux - 5.*np.std(sci_spec.flux - median_flux)
             mask3 = np.array([i for i in np.arange(1, len(sci_spec.wave)-1) if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound)], dtype=int)
             sci_spec.wave   = np.delete(sci_spec.wave, mask3)
             sci_spec.flux   = np.delete(sci_spec.flux, mask3)
@@ -363,8 +365,8 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
                 sci_spec.wave = sci_spec.wave[sci_spec.wave < 23980]
             
             # Normalize
-            sci_spec.noise = sci_spec.noise / np.nanmedian(sci_spec.flux)
-            sci_spec.flux  = sci_spec.flux  / np.nanmedian(sci_spec.flux)
+            sci_spec.noise = sci_spec.noise / np.median(sci_spec.flux)
+            sci_spec.flux  = sci_spec.flux  / np.median(sci_spec.flux)
             
             
             sci_abba.append(copy.deepcopy(sci_spec))  # Type: smart.Spectrum
@@ -383,11 +385,13 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         # ]
         
         # interpolate spectrum
-        wave_min = np.nanmax([np.nanmin(_.wave) for _ in sci_abba])
-        wave_max = np.nanmin([np.nanmax(_.wave) for _ in sci_abba])
-        resolution = 0.1
+        wave_min = max([min(_.wave) for _ in sci_abba])
+        wave_max = min([max(_.wave) for _ in sci_abba])
+        supersample_rate = 3
+        dlambda_min = min([min(np.diff(_.wave)) for _ in sci_abba])
+        wave_new = np.arange(wave_min, wave_max, dlambda_min/supersample_rate)
+        wave_new = np.append(wave_new, wave_max)
         
-        wave_new = np.arange(wave_min, wave_max, resolution)
         flux_new = np.zeros((np.size(sci_frames), np.size(wave_new)))
         noise_new = np.zeros(np.shape(flux_new))
         
@@ -399,14 +403,18 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             noise_new[i, :] = f_noise(wave_new)
         
         # Median among all the frames     
-        flux_med  = np.nanmedian(flux_new, axis=0)
+        flux_med  = np.median(flux_new, axis=0)
+        noise_med = np.median(noise_new, axis=0)
         
         sci_spec.wave = wave_new
         sci_spec.flux = flux_med
+        sci_spec.noise = noise_med
+        sci_specs_ori.append(copy.deepcopy(sci_spec))
         sci_spec.noise = np.sqrt(np.std(flux_new, axis=0)**2 + np.sum(noise_new**2, axis=0)/4)
         
         sci_specs.append(copy.deepcopy(sci_spec))
         
+        flux_min[f'O{order}'] = min(sci_spec.flux)
         
         fig, ax = plt.subplots(figsize=(16, 6))
         # original interpolated spectrum
@@ -437,6 +445,10 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     # Save sci_specs
     with open(save_path + 'sci_specs.pkl', 'wb') as file:
         pickle.dump(sci_specs, file)
+        
+    # Save sci_specs_ori
+    with open(save_path + 'sci_specs_ori.pkl', 'wb') as file:
+        pickle.dump(sci_specs_ori, file)
     
     ##################################################
     ################## MCMC Fitting ##################
@@ -455,24 +467,24 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     ],
         list(np.reshape([[
         np.random.uniform(-5, 5),       # wave offset n
-        np.random.uniform(-10, 10)      # flux offset n
-        ] for j in range(np.size(orders))], -1))
+        np.random.uniform(-flux_min[f'O{order}'], 0.2)      # flux offset n
+        ] for order in orders], -1))
     )
-    for i in range(nwalkers)]
+    for _ in range(nwalkers)]
     
     
     move = [emcee.moves.KDEMove()]
     
-    if MCMC:
-        print('MCMC......')
+    if initial_mcmc:
+        print('MCMC...')
         print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
         print(f'Object:\t{name}')
         print(f'Science  Frames:\t{sci_frames}')
         print(f'Telluric Frames:\t{tel_frames}')
-        print('\n\n')
+        print()
         backend = emcee.backends.HDFBackend(save_path + 'sampler1.h5')
         backend.reset(nwalkers, nparams)
-        if Multiprocess:
+        if multiprocess:
             with Pool(64) as pool:
                 sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend, pool=pool)
                 sampler.run_mcmc(pos, steps, progress=True)
@@ -480,13 +492,11 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend)
             sampler.run_mcmc(pos, steps, progress=True)
         
-        print('\n\n')
         print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
         print(sampler.acceptance_fraction)
-        print('\n\n')
         
     else:
-        sampler = emcee.backends.HDFBackend(save_path + 'sampler.h5')
+        sampler = emcee.backends.HDFBackend(save_path + 'sampler1.h5')
     
     
     ##################################################
@@ -518,7 +528,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     model_dips = []
     model_stds = []
     for i, order in enumerate(orders):
-        model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], flux_offset=mcmc.loc[0, 'flux_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+        model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
         models.append(copy.deepcopy(model))
         models_notel.append(copy.deepcopy(model_notel))
         
@@ -530,7 +540,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     ################# Writing Result #################
     ##################################################
     
-    # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, flux_offset1, wave_offset2, flux_offset2
+    # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2
     result = {
         'HC2000':               name,
         'year':                 date[0],
@@ -555,9 +565,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         'model_dip_O33':        model_dips[1],
         'model_std_O33':        model_stds[1],
         'wave_offset_O32':      mcmc.wave_offset_O32, 
-        'flux_offset_O32':      mcmc.flux_offset_O32, 
         'wave_offset_O33':      mcmc.wave_offset_O33, 
-        'flux_offset_O33':      mcmc.flux_offset_O33, 
         'snr_O32':              np.median(sci_specs[0].flux/sci_specs[0].noise), 
         'snr_O33':              np.median(sci_specs[1].flux/sci_specs[1].noise)
     }
@@ -575,19 +583,19 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     #################### Fine Tune ###################
     ##################################################
     # Update spectrums for each order
-    if Finetune:
+    if finetune:
         print('Finetuning...')
         print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
         print(f'Object:\t{name}')
         print(f'Science  Frames:\t{sci_frames}')
         print(f'Telluric Frames:\t{tel_frames}')
-        print('\n\n')
+        print()
         sci_specs_new = []
         for i, order in enumerate(orders):
             sci_spec = copy.deepcopy(sci_specs[i])
             # Update mask
             residual = sci_specs[i].flux - models[i].flux
-            mask_finetune = np.where(abs(residual) > np.nanmedian(residual) + 3*np.nanstd(residual))[0]
+            mask_finetune = np.where(abs(residual) > np.median(residual) + 3*np.std(residual))[0]
             
             # Mask out bad pixels after fine-tuning
             sci_spec.wave   = np.delete(sci_spec.wave, mask_finetune)
@@ -606,10 +614,10 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     ##################################################
     ################### Re-run MCMC ##################
     ##################################################
-        if MCMC:
+        if finetune_mcmc:
             backend = emcee.backends.HDFBackend(save_path + 'sampler2.h5')
             backend.reset(nwalkers, nparams)
-            if Multiprocess:
+            if multiprocess:
                 with Pool(64) as pool:
                     sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend, pool=pool)
                     sampler.run_mcmc(pos, steps, progress=True)
@@ -621,7 +629,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
             print(sampler.acceptance_fraction)
         
         else:
-            sampler = emcee.backends.HDFBackend(save_path + 'sampler.h5')
+            sampler = emcee.backends.HDFBackend(save_path + 'sampler2.h5')
 
 
         ##################################################
@@ -652,7 +660,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         model_dips = []
         model_stds = []
         for i, order in enumerate(orders):
-            model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], flux_offset=mcmc.loc[0, 'flux_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+            model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
             models.append(copy.deepcopy(model))
             models_notel.append(copy.deepcopy(model_notel))
             
@@ -663,7 +671,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     ##################################################
     ################# Writing Result #################
     ##################################################
-    # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, flux_offset1, wave_offset2, flux_offset2
+    # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2
     result = {
         'HC2000':               name,
         'year':                 date[0],
@@ -688,9 +696,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         'model_dip_O33':        model_dips[1],
         'model_std_O33':        model_stds[1], 
         'wave_offset_O32':      mcmc.wave_offset_O32, 
-        'flux_offset_O32':      mcmc.flux_offset_O32, 
         'wave_offset_O33':      mcmc.wave_offset_O33, 
-        'flux_offset_O33':      mcmc.flux_offset_O33, 
         'snr_O32':              np.median(sci_specs[0].flux/sci_specs[0].noise), 
         'snr_O33':              np.median(sci_specs[1].flux/sci_specs[1].noise)
     }
@@ -709,7 +715,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
     ##################################################
 
     ########## Walker Plot ##########
-    fig, axes = plt.subplots(nrows=nparams, ncols=1, figsize=(10, 18), sharex=True)
+    fig, axes = plt.subplots(nrows=nparams, ncols=1, figsize=(10, 1.5*nparams), sharex=True)
     samples = sampler.get_chain()
 
     for i in range(nparams):
@@ -746,7 +752,7 @@ def model_nirspao(infos, orders=[32, 33], Multiprocess=True, MCMC=True, Finetune
         plt.close()
         
     print('--------------------Finished--------------------')
-    print('\n\n')
+    print('\n')
     
     return result
 
@@ -919,4 +925,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, MCMC=True, Finetune=True, Multiprocess=True, steps=500)
+        result = model_nirspao(infos=infos, initial_mcmc=False, finetune=True, finetune_mcmc=False, multiprocess=False, steps=100)

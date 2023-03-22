@@ -295,9 +295,9 @@ pos = [np.array([   priors['teff_min']      + (priors['teff_max']       - priors
 
 ## multiprocessing
 if MCMC:
-    print('MCMC...')
+    print('MCMC......')
     print(f'Object:\t{apogee_id}')
-    print('\n\n')
+    print()
     backend = emcee.backends.HDFBackend(object_path + 'sampler1.h5')
     backend.reset(nwalkers, nparams)
     if Multiprocess:
@@ -310,7 +310,6 @@ if MCMC:
     
     print("Mean acceptance fraction: {0:.3f}".format(np.mean(sampler.acceptance_fraction)))
     print(sampler.acceptance_fraction)
-    print('\n\n')
     
 else:
     sampler = emcee.backends.HDFBackend(object_path + 'sampler1.h5')
@@ -353,7 +352,7 @@ result = get_result(mcmc, save_path=object_path)
 if Finetune:
     print('Finetuning...')
     print(f'Object:\t{apogee_id}')
-    print('\n\n')
+    print()
     residual = spec.flux - model.flux
     mask_finetune = np.where(abs(residual) > np.nanmedian(residual) + 3*np.nanstd(residual))[0]
     spec.wave   = np.delete(spec.wave, mask_finetune)
@@ -375,7 +374,6 @@ if Finetune:
         
         print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
         print(sampler.acceptance_fraction)
-        print('\n\n')
         
     else:
         sampler = emcee.backends.HDFBackend(object_path + 'sampler2.h5')
@@ -473,4 +471,4 @@ plt.savefig(object_path + 'Modeled_Spectrum.pdf', bbox_inches='tight')
 plt.show()
 
 print('--------------------Finished--------------------')
-print('\n\n')
+print('\n')

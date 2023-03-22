@@ -21,6 +21,10 @@ __pycache__
 /codes/data_processing/power*
 /codes/data_processing/offset fit/
 
+# Test Files #
+##############
+test*
+
 # Unused Files #
 ################
 /observing/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits
