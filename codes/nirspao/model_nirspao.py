@@ -126,7 +126,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
 
 def lnprior(theta, orders):
     
-    teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)-1]
+    teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)]
     wave_offsets = theta[-len(orders):]
     
     if  \
