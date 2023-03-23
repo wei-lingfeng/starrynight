@@ -146,7 +146,7 @@ def lnprior(theta, orders):
 
 def lnlike(theta, sci_specs, orders):
     
-    teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)-1]
+    teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)]
 
     wave_offsets = theta[-len(orders):]
     
