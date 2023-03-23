@@ -42,7 +42,7 @@ day = list(sources_matched.day.astype(int))
 apogee_ids = ['2M05351259-0523440']
 apogee_id = apogee_ids[0]
 
-prefix = '/home/l3wei/ONC/data/APOGEE/'
+prefix = '/home/l3wei/ONC/data/apogee/'
 object_path = prefix + apogee_id + '/'
 if not os.path.exists(object_path):
     os.makedirs(object_path)
@@ -420,15 +420,15 @@ for i in range(nparams):
 ax.set_xlabel("Step Number");
 plt.minorticks_on()
 fig.align_ylabels()
-plt.savefig(object_path + 'MCMC_Walker.png', dpi=300, bbox_inches='tight')
+plt.savefig(object_path + 'mcmc_walker.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 ########## Corner Plot ##########
 fig = corner.corner(
     flat_samples, labels=params, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
 )
-plt.savefig(object_path + 'MCMC_Corner.png', dpi=300, bbox_inches='tight')
-# plt.savefig(object_path + 'MCMC_Corner.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(object_path + 'mcmc_corner.png', dpi=300, bbox_inches='tight')
+# plt.savefig(object_path + 'mcmc_corner.pdf', dpi=300, bbox_inches='tight')
 plt.close()
 
 
@@ -467,7 +467,7 @@ legend_elements = [
 ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
 fig.align_ylabels((ax1, ax2))
 plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-plt.savefig(object_path + 'Modeled_Spectrum.pdf', bbox_inches='tight')
+plt.savefig(object_path + 'spectrum_modeled.pdf', bbox_inches='tight')
 plt.show()
 
 print('--------------------Finished--------------------')
