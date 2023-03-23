@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 apogee_id = '2M05351259-0523440'
 instrument = 'apogee'
-object_path = '/home/l3wei/ONC/Data/APOGEE/{}/'.format(apogee_id)
+object_path = '/home/l3wei/ONC/data/APOGEE/{}/'.format(apogee_id)
 
 def plot_specs(specs):
     fig_data = []

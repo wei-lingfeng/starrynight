@@ -124,23 +124,21 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
 ############## Probability Function ##############
 ##################################################
 
-def lnprior(theta):
+def lnprior(theta, orders):
     
-    # Modify Orders
-    teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2 = theta
+    teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)-1]
+    wave_offsets = theta[-len(orders):]
     
-    # Modify Orders
     if  \
-        2300                < teff          < 7000  \
-    and 0                   < vsini         < 100   \
-    and -100                < rv            < 100   \
-    and 1                   < airmass       < 3     \
-    and 0.5                 < pwv           < 20    \
-    and 0                   < veiling       < 1e20  \
-    and 1                   < lsf           < 20    \
-    and 1                   < noise         < 50    \
-    and -10                 < wave_offset1  < 10    \
-    and -10                 < wave_offset2  < 10    :
+        2300    < teff              < 7000  \
+    and 0       < vsini             < 100   \
+    and -100    < rv                < 100   \
+    and 1       < airmass           < 3     \
+    and 0.5     < pwv               < 20    \
+    and 0       < veiling           < 1e20  \
+    and 1       < lsf               < 20    \
+    and 1       < noise             < 50    \
+    and -10     < all(wave_offsets) < 10:
         return 0.0
     else:
         return -np.inf
@@ -148,24 +146,16 @@ def lnprior(theta):
 
 def lnlike(theta, sci_specs, orders):
     
-    # Modify Orders
-    teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2 = theta
+    teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)-1]
 
-    # Modify Orders
-    wave_offsets = [wave_offset1, wave_offset2]
+    wave_offsets = theta[-len(orders):]
     
     sci_noises = np.array([])
     sci_fluxes = np.array([])
     model_fluxes = np.array([])
 
     for i, order in enumerate(orders):
-        try:
-            model = smart.makeModel(teff, logg = 4.0, vsini = vsini, rv = rv, airmass = airmass, pwv = pwv, veiling = veiling, lsf = lsf, z = 0, wave_offset = wave_offsets[i], order = str(order), data = sci_specs[i], modelset = 'phoenix-aces-agss-cond-2011')
-        except:
-            print(f'order:{order}')
-            print(f'theta:{theta}')
-            sys.exit()
-
+        model = smart.makeModel(teff, logg = 4.0, vsini = vsini, rv = rv, airmass = airmass, pwv = pwv, veiling = veiling, lsf = lsf, z = 0, wave_offset = wave_offsets[i], order = str(order), data = sci_specs[i], modelset = 'phoenix-aces-agss-cond-2011')
         sci_noises = np.concatenate((sci_noises, sci_specs[i].noise * noise))
         sci_fluxes = np.concatenate((sci_fluxes, sci_specs[i].flux))
         model_fluxes = np.concatenate((model_fluxes, model.flux))
@@ -232,7 +222,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     # nwalkers=100
     # steps=100
 
-    # Modify Parameters
+    # modify parameters
     params = ['teff', 'vsini', 'rv', 'airmass', 'pwv', 'veiling', 'lsf', 'noise']
     for order in orders:
         params += ['wave_offset_O{}'.format(order)]
@@ -265,21 +255,19 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     ############### Construct Spectrums ##############
     ##################################################
     # sci_specs = [order 32 median combined sci_spec, order 33 median combined sci_spec]
-    sci_specs_ori = []
     sci_specs = []
     barycorrs = []
-    global flux_min
-    flux_min = {}
     
-    for order in orders:    
+    for order in orders:
         sci_abba = []
+        tel_abba = []
         sci_names = []
         tel_names = []
         
         ##################################################
         ####### Construct Spectrums for each order #######
         ##################################################
-        for sci_frame, tel_frame in zip(sci_frames, tel_frames):        
+        for sci_frame, tel_frame in zip(sci_frames, tel_frames):
             
             if int(year) > 18:
                 # For data after 2018, sci_names = [nspec200118_0027, ...]
@@ -305,137 +293,104 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             else:
                 sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}nsdrp_out/fits/all')
             
-            # # interpolate Δλ=f(λ)
-            # if sci_frame == sci_frames[0]:
-            #     dlambda = np.diff(sci_spec.wave)
-            #     f_dlambda = interp1d(x=sci_spec.wave[:-1], y=dlambda, bounds_error=False, fill_value=dlambda[-1])
-
             # if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
             #     tel_name = tel_name + '_defringe'
             
             tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}{tel_name}/O{order}/')
             
-            # Update the wavelength solution
-            sci_spec.updateWaveSol(tel_spec)
-            
-            # Plot original spectrums:
-            fig, ax = plt.subplots(figsize=(16, 6))
-            ax.plot(sci_spec.wave, sci_spec.flux, alpha=0.7, lw=0.7, label='Original Spectrum')
-            
-            # Automatically mask out edge & flux < 0
-            auto_mask = np.where(sci_spec.flux < 0)[0]
-            mask1 = reduce(np.union1d, (auto_mask, np.arange(0, pixel_start), np.arange(len(sci_spec.wave) + pixel_end, len(sci_spec.wave))))
-            sci_spec.wave   = np.delete(sci_spec.wave, mask1)
-            sci_spec.flux   = np.delete(sci_spec.flux, mask1)
-            sci_spec.noise  = np.delete(sci_spec.noise, mask1)
-            
-            # Mask flux > median + 3 sigma
-            median_flux = np.median(sci_spec.flux)
-            upper_bound = median_flux + 3.*np.std(sci_spec.flux - median_flux)
-            mask2 = np.where(sci_spec.flux > upper_bound)[0]
-            sci_spec.wave   = np.delete(sci_spec.wave, mask2)
-            sci_spec.flux   = np.delete(sci_spec.flux, mask2)
-            sci_spec.noise  = np.delete(sci_spec.noise, mask2)
-            
-            # Mask isolated bad pixels
-            median_flux = np.median(sci_spec.flux)
-            lower_bound = median_flux - 3.5*np.std(sci_spec.flux - median_flux)
-            lowest_bound = median_flux - 5.*np.std(sci_spec.flux - median_flux)
-            mask3 = np.array([i for i in np.arange(1, len(sci_spec.wave)-1) if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound)], dtype=int)
-            sci_spec.wave   = np.delete(sci_spec.wave, mask3)
-            sci_spec.flux   = np.delete(sci_spec.flux, mask3)
-            sci_spec.noise  = np.delete(sci_spec.noise, mask3)
-            
-            # Plot masked spectrum
-            ax.axhline(y=upper_bound, linestyle='--', label='Upper bound')
-            ax.axhline(y=lower_bound, linestyle='--', label='Lower bound')
-            ax.axhline(y=lowest_bound, linestyle='--', label='Lowest bound')
-            ax.plot(sci_spec.wave, sci_spec.flux, color='C3', alpha=0.7, lw=0.7, label='Masked Spectrum')
-            ax.minorticks_on()
-            ax.legend()
-            ax.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
-            ax.set_ylabel('Flux (counts/s)', fontsize=15)
-            plt.savefig(save_path + f'O{order}_{sci_frame}_Spectrum.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Special Case
-            if date == (19, 1, 12) and order == 32:
-                sci_spec.flux = sci_spec.flux[sci_spec.wave < 23980]
-                sci_spec.noise = sci_spec.noise[sci_spec.wave < 23980]
-                sci_spec.wave = sci_spec.wave[sci_spec.wave < 23980]
-            
-            # Normalize
-            sci_spec.noise = sci_spec.noise / np.median(sci_spec.flux)
-            sci_spec.flux  = sci_spec.flux  / np.median(sci_spec.flux)
-            
-            
-            sci_abba.append(copy.deepcopy(sci_spec))  # Type: smart.Spectrum
-            barycorrs.append(smart.barycorr(sci_spec.header).value)
+            sci_abba.append(copy.deepcopy(sci_spec))
+            tel_abba.append(copy.deepcopy(tel_spec))
         
-        itime = sci_abba[0].header['ITIME']
+        tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
         
-        ##################################################
-        ################# Median Combine #################
-        ##################################################
-        # sci spectrum flux table: 
-        # flux_new = [
-        #   flux 1
-        #   flux 2
-        #   ...
-        # ]
+        sci_spec = copy.deepcopy(sci_abba[np.argmin([abs(_.header['AIRMASS'] - tel_spec.header['AIRMASS']) for _ in sci_abba])])
+        sci_spec.flux = np.median(np.array([_.flux for _ in sci_abba]), axis=0)
+        sci_spec.noise = np.sqrt(np.std(np.array([_.flux for _ in sci_abba]), axis=0)**2 + np.sum(np.array([_.noise for _ in sci_abba])**2, axis=0)/4)
         
-        # interpolate spectrum
-        wave_min = max([min(_.wave) for _ in sci_abba])
-        wave_max = min([max(_.wave) for _ in sci_abba])
-        supersample_rate = 3
-        dlambda_min = min([min(np.diff(_.wave)) for _ in sci_abba])
-        wave_new = np.arange(wave_min, wave_max, dlambda_min/supersample_rate)
-        wave_new = np.append(wave_new, wave_max)
+        # Update the wavelength solution
+        sci_spec.updateWaveSol(tel_spec)
         
-        flux_new = np.zeros((np.size(sci_frames), np.size(wave_new)))
-        noise_new = np.zeros(np.shape(flux_new))
+        # Plot original spectrums:
+        fig, ax = plt.subplots(figsize=(16, 6))
+        ax.plot(sci_spec.wave, sci_spec.flux, alpha=0.7, lw=0.7, label='Original Spectrum')
         
-        for i in range(np.size(sci_frames)):
-            # interpolate flux and noise function
-            f_flux  = interp1d(sci_abba[i].wave, sci_abba[i].flux)
-            f_noise = interp1d(sci_abba[i].wave, sci_abba[i].noise)
-            flux_new[i, :] = f_flux(wave_new)
-            noise_new[i, :] = f_noise(wave_new)
+        sci_spec.pixel = np.arange(len(sci_spec.wave))
+        # Automatically mask out edge & flux < 0
+        auto_mask = np.where(sci_spec.flux < 0)[0]
+        mask1 = reduce(np.union1d, (auto_mask, np.arange(0, pixel_start), np.arange(len(sci_spec.wave) + pixel_end, len(sci_spec.wave))))
+        sci_spec.pixel  = np.delete(sci_spec.pixel, mask1)
+        sci_spec.wave   = np.delete(sci_spec.wave, mask1)
+        sci_spec.flux   = np.delete(sci_spec.flux, mask1)
+        sci_spec.noise  = np.delete(sci_spec.noise, mask1)
         
-        # Median among all the frames     
-        flux_med  = np.median(flux_new, axis=0)
-        noise_med = np.median(noise_new, axis=0)
+        # Mask flux > median + 3 sigma
+        median_flux = np.median(sci_spec.flux)
+        upper_bound = median_flux + 3.*np.std(sci_spec.flux - median_flux)
+        mask2 = np.where(sci_spec.flux > upper_bound)[0]
+        sci_spec.pixel  = np.delete(sci_spec.pixel, mask2)
+        sci_spec.wave   = np.delete(sci_spec.wave, mask2)
+        sci_spec.flux   = np.delete(sci_spec.flux, mask2)
+        sci_spec.noise  = np.delete(sci_spec.noise, mask2)
         
-        sci_spec.wave = wave_new
-        sci_spec.flux = flux_med
-        sci_spec.noise = noise_med
-        sci_specs_ori.append(copy.deepcopy(sci_spec))
-        sci_spec.noise = np.sqrt(np.std(flux_new, axis=0)**2 + np.sum(noise_new**2, axis=0)/4)
+        # Mask isolated bad pixels
+        median_flux = np.median(sci_spec.flux)
+        lower_bound = median_flux - 3.5*np.std(sci_spec.flux - median_flux)
+        lowest_bound = median_flux - 5.*np.std(sci_spec.flux - median_flux)
+        mask3 = np.array([i for i in np.arange(1, len(sci_spec.wave)-1) if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound)], dtype=int)
+        sci_spec.pixel  = np.delete(sci_spec.pixel, mask3)
+        sci_spec.wave   = np.delete(sci_spec.wave, mask3)
+        sci_spec.flux   = np.delete(sci_spec.flux, mask3)
+        sci_spec.noise  = np.delete(sci_spec.noise, mask3)
+        
+        # Plot masked spectrum
+        ax.axhline(y=upper_bound, linestyle='--', label='Upper bound')
+        ax.axhline(y=lower_bound, linestyle='--', label='Lower bound')
+        ax.axhline(y=lowest_bound, linestyle='--', label='Lowest bound')
+        ax.plot(sci_spec.wave, sci_spec.flux, color='C3', alpha=0.7, lw=0.7, label='Masked Spectrum')
+        ax.minorticks_on()
+        ax.legend()
+        ax.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
+        ax.set_ylabel('Flux (counts/s)', fontsize=15)
+        plt.savefig(save_path + f'Masked_Spectrum_O{order}.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # Special Case
+        if date == (19, 1, 12) and order == 32:
+            sci_spec.pixel  = sci_spec.pixel[sci_spec.wave < 23980]
+            sci_spec.flux   = sci_spec.flux [sci_spec.wave < 23980]
+            sci_spec.noise  = sci_spec.noise[sci_spec.wave < 23980]
+            sci_spec.wave   = sci_spec.wave [sci_spec.wave < 23980]
+        
+        # Normalize
+        median_flux = np.median(sci_spec.flux)
+        sci_spec.noise = sci_spec.noise / median_flux
+        sci_spec.flux  = sci_spec.flux  / median_flux
+        
+        barycorrs.append(smart.barycorr(sci_spec.header).value)
+        itime = sci_spec.header['ITIME']
         
         sci_specs.append(copy.deepcopy(sci_spec))
         
-        flux_min[f'O{order}'] = min(sci_spec.flux)
-        
         fig, ax = plt.subplots(figsize=(16, 6))
         # original interpolated spectrum
-        for i in range(np.size(sci_frames)):
-            ax.plot(wave_new, flux_new[i, :], color='C0', alpha=0.5, lw=0.5)
+        for spec in sci_abba:
+            ax.plot(np.arange(len(spec.wave)), spec.flux/median_flux, color='C0', alpha=0.5, lw=0.5)
         # median combined spectrum
-        ax.plot(wave_new, flux_med, 'C3', alpha=1, lw=0.5)
-        ax.set_xlabel('$\lambda$ ($\AA$)', fontsize=15)
-        ax.set_ylabel('Flux (count/s)', fontsize=15)
+        ax.plot(sci_spec.pixel, sci_spec.flux, 'C3', alpha=1, lw=0.5)
+        ax.set_xlabel('Pixel', fontsize=15)
+        ax.set_ylabel('Normalized Flux', fontsize=15)
         ax.minorticks_on()
         plt.savefig(save_path + f'Spectrum_O{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         fig, ax = plt.subplots(figsize=(16, 6))
         # original noise
-        for i in range(np.size(sci_frames)):
-            ax.plot(sci_abba[i].wave, sci_abba[i].noise, color='C0', alpha=0.5, lw=0.5)
+        for spec in sci_abba:
+            ax.plot(np.arange(len(spec.wave)), spec.noise/median_flux, color='C0', alpha=0.5, lw=0.5)
         # median combined noise
-        ax.plot(sci_spec.wave, sci_spec.noise, 'C3', alpha=1, lw=0.5)
-        ax.set_xlabel('$\lambda$ ($\AA$)', fontsize=15)
-        ax.set_ylabel('Flux (count/s)', fontsize=15)
+        ax.plot(sci_spec.pixel, sci_spec.noise, 'C3', alpha=1, lw=0.5)
+        ax.set_xlabel('Pixel', fontsize=15)
+        ax.set_ylabel('Normalized Flux', fontsize=15)
         ax.minorticks_on()
         plt.savefig(save_path + f'Noise_O{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
@@ -445,16 +400,12 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     # Save sci_specs
     with open(save_path + 'sci_specs.pkl', 'wb') as file:
         pickle.dump(sci_specs, file)
-        
-    # Save sci_specs_ori
-    with open(save_path + 'sci_specs_ori.pkl', 'wb') as file:
-        pickle.dump(sci_specs_ori, file)
     
     ##################################################
     ################## MCMC Fitting ##################
     ##################################################
     
-    # Modify params
+    # Modify parameters
     pos = [np.append([
         np.random.uniform(2300, 7000),  # Teff
         np.random.uniform(0, 40),       # vsini
@@ -466,8 +417,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         np.random.uniform(1, 5),        # noise
     ],
         list(np.reshape([[
-        np.random.uniform(-5, 5),       # wave offset n
-        np.random.uniform(-flux_min[f'O{order}'], 0.2)      # flux offset n
+        np.random.uniform(-5, 5)        # wave offset n
         ] for order in orders], -1))
     )
     for _ in range(nwalkers)]
@@ -494,7 +444,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         
         print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
         print(sampler.acceptance_fraction)
-        
+        print()
     else:
         sampler = emcee.backends.HDFBackend(save_path + 'sampler1.h5')
     
@@ -627,7 +577,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             
             print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
             print(sampler.acceptance_fraction)
-        
+            print()
         else:
             sampler = emcee.backends.HDFBackend(save_path + 'sampler2.h5')
 
@@ -734,7 +684,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     fig = corner.corner(
         flat_samples, labels=params, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
     )
-    plt.savefig(save_path + 'MCMC_Corner.png', dpi=300, bbox_inches='tight')
     plt.savefig(save_path + 'MCMC_Corner.pdf', dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -750,7 +699,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             save_path=save_path + f'Modeled_Spectrum_O{order}.pdf'
         )
         plt.close()
-        
+    
     print('--------------------Finished--------------------')
     print('\n')
     
@@ -925,4 +874,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, initial_mcmc=False, finetune=True, finetune_mcmc=False, multiprocess=False, steps=100)
+        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, steps=500)
