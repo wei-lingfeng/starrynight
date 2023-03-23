@@ -293,6 +293,11 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             else:
                 sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}nsdrp_out/fits/all')
             
+            # Normalize
+            median_flux = np.median(sci_spec.flux)
+            sci_spec.flux /= median_flux
+            sci_spec.noise /= median_flux
+            
             # if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
             #     tel_name = tel_name + '_defringe'
             
@@ -360,11 +365,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             sci_spec.flux   = sci_spec.flux [sci_spec.wave < 23980]
             sci_spec.noise  = sci_spec.noise[sci_spec.wave < 23980]
             sci_spec.wave   = sci_spec.wave [sci_spec.wave < 23980]
-        
-        # Normalize
-        median_flux = np.median(sci_spec.flux)
-        sci_spec.noise = sci_spec.noise / median_flux
-        sci_spec.flux  = sci_spec.flux  / median_flux
         
         barycorrs.append(smart.barycorr(sci_spec.header).value)
         itime = sci_spec.header['ITIME']
