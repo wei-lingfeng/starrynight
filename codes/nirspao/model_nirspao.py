@@ -169,7 +169,7 @@ def lnlike(theta, sci_specs, orders):
 
     
 def lnprob(theta, sci_specs, orders):
-    lp = lnprior(theta)
+    lp = lnprior(theta, orders)
     if not np.isfinite(lp):
         return -np.inf
     else:
