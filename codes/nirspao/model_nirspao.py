@@ -351,7 +351,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ax.legend()
         ax.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
         ax.set_ylabel('Flux (counts/s)', fontsize=15)
-        plt.savefig(save_path + f'Masked_Spectrum_O{order}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + f'spectrum_masked_o{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         # Special Case
@@ -380,7 +380,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ax.set_xlabel('Pixel', fontsize=15)
         ax.set_ylabel('Normalized Flux', fontsize=15)
         ax.minorticks_on()
-        plt.savefig(save_path + f'Spectrum_O{order}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + f'spectrum_coadd_o{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         fig, ax = plt.subplots(figsize=(16, 6))
@@ -392,7 +392,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ax.set_xlabel('Pixel', fontsize=15)
         ax.set_ylabel('Normalized Flux', fontsize=15)
         ax.minorticks_on()
-        plt.savefig(save_path + f'Noise_O{order}.png', dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + f'noise_o{order}.png', dpi=300, bbox_inches='tight')
         plt.close()
 
     barycorr = np.median(barycorrs)
@@ -521,7 +521,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     }
     
     ########## Write Parameters ##########
-    with open(save_path + 'MCMC_Params.txt', 'w') as file:
+    with open(save_path + 'mcmc_params.txt', 'w') as file:
         for key, value in result.items():
             if isinstance(value, Iterable) and (not isinstance(value, str)):
                 file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
@@ -677,14 +677,14 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     ax.set_xlabel("step number");
     plt.minorticks_on()
     fig.align_ylabels()
-    plt.savefig(save_path + 'MCMC_Walker.png', dpi=300, bbox_inches='tight')
+    plt.savefig(save_path + 'mcmc_walker.png', dpi=300, bbox_inches='tight')
     plt.close()
 
     ########## Corner Plot ##########
     fig = corner.corner(
         flat_samples, labels=params, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
     )
-    plt.savefig(save_path + 'MCMC_Corner.pdf', dpi=300, bbox_inches='tight')
+    plt.savefig(save_path + 'mcmc_corner.pdf', dpi=300, bbox_inches='tight')
     plt.close()
 
     ########## Spectrum Plot ##########
@@ -695,8 +695,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             model_notel=models_notel[i], 
             model=models[i], 
             rv=mcmc.rv[0], 
-            wave_offset=mcmc.loc[0, f'wave_offset_O{order}'], 
-            save_path=save_path + f'Modeled_Spectrum_O{order}.pdf'
+            wave_offset=mcmc.loc[0, f'wave_offset_o{order}'], 
+            save_path=save_path + f'spectrum_modeled_o{order}.pdf'
         )
         plt.close()
     
