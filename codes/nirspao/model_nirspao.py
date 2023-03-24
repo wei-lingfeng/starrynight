@@ -293,10 +293,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             else:
                 sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}nsdrp_out/fits/all')
             
-            # Normalize
-            median_flux = np.median(sci_spec.flux)
-            sci_spec.flux /= median_flux
-            sci_spec.noise /= median_flux
+            sci_spec.pixel = np.arange(len(sci_spec.wave))
+            sci_spec.snr = np.median(sci_spec.flux / sci_spec.noise)
             
             # if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
             #     tel_name = tel_name + '_defringe'
@@ -306,20 +304,22 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             sci_abba.append(copy.deepcopy(sci_spec))
             tel_abba.append(copy.deepcopy(tel_spec))
         
+        # Normalize to the highest snr frame
+        median_flux = np.median(sci_abba[np.argmax([_.snr for _ in sci_abba])].flux)
+        for spec in sci_abba:
+            normalize_factor = median_flux / np.median(spec.flux)
+            spec.flux   *= normalize_factor
+            spec.noise  *= normalize_factor
+        
         tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
         
         sci_spec = copy.deepcopy(sci_abba[np.argmin([abs(_.header['AIRMASS'] - tel_spec.header['AIRMASS']) for _ in sci_abba])])
-        sci_spec.flux = np.median(np.array([_.flux for _ in sci_abba]), axis=0)
+        sci_spec.flux = np.average(np.array([_.flux for _ in sci_abba]), weights=1/np.array([_.noise for _ in sci_abba])**2, axis=0)
         sci_spec.noise = np.sqrt(np.std(np.array([_.flux for _ in sci_abba]), axis=0)**2 + np.sum(np.array([_.noise for _ in sci_abba])**2, axis=0)/4)
         
         # Update the wavelength solution
         sci_spec.updateWaveSol(tel_spec)
         
-        # Plot original spectrums:
-        fig, ax = plt.subplots(figsize=(16, 6))
-        ax.plot(sci_spec.wave, sci_spec.flux, alpha=0.7, lw=0.7, label='Original Spectrum')
-        
-        sci_spec.pixel = np.arange(len(sci_spec.wave))
         # Automatically mask out edge & flux < 0
         auto_mask = np.where(sci_spec.flux < 0)[0]
         mask1 = reduce(np.union1d, (auto_mask, np.arange(0, pixel_start), np.arange(len(sci_spec.wave) + pixel_end, len(sci_spec.wave))))
@@ -347,18 +347,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         sci_spec.flux   = np.delete(sci_spec.flux, mask3)
         sci_spec.noise  = np.delete(sci_spec.noise, mask3)
         
-        # Plot masked spectrum
-        ax.axhline(y=upper_bound, linestyle='--', label='Upper bound')
-        ax.axhline(y=lower_bound, linestyle='--', label='Lower bound')
-        ax.axhline(y=lowest_bound, linestyle='--', label='Lowest bound')
-        ax.plot(sci_spec.wave, sci_spec.flux, color='C3', alpha=0.7, lw=0.7, label='Masked Spectrum')
-        ax.minorticks_on()
-        ax.legend()
-        ax.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
-        ax.set_ylabel('Flux (counts/s)', fontsize=15)
-        plt.savefig(save_path + f'spectrum_masked_O{order}.png', dpi=300, bbox_inches='tight')
-        plt.close()
-        
         # Special Case
         if date == (19, 1, 12) and order == 32:
             sci_spec.pixel  = sci_spec.pixel[sci_spec.wave < 23980]
@@ -371,28 +359,32 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         
         sci_specs.append(copy.deepcopy(sci_spec))
         
-        fig, ax = plt.subplots(figsize=(16, 6))
-        # original interpolated spectrum
-        for spec in sci_abba:
-            ax.plot(np.arange(len(spec.wave)), spec.flux/median_flux, color='C0', alpha=0.5, lw=0.5)
-        # median combined spectrum
-        ax.plot(sci_spec.pixel, sci_spec.flux, 'C3', alpha=1, lw=0.5)
-        ax.set_xlabel('Pixel', fontsize=15)
-        ax.set_ylabel('Normalized Flux', fontsize=15)
-        ax.minorticks_on()
-        plt.savefig(save_path + f'spectrum_coadd_O{order}.png', dpi=300, bbox_inches='tight')
-        plt.close()
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+        for i, spec in enumerate(sci_abba):
+            ax1.plot(spec.pixel, spec.flux, color='C7', lw=1, alpha=0.8)
+            ax2.plot(spec.pixel, spec.noise, color='C7', lw=1, alpha=0.7)
+        ax1.plot(sci_spec.pixel, sci_spec.flux, color='C0', lw=1)
+        ax2.plot(sci_spec.pixel, sci_spec.noise, color='C0', lw=1)
         
-        fig, ax = plt.subplots(figsize=(16, 6))
-        # original noise
-        for spec in sci_abba:
-            ax.plot(np.arange(len(spec.wave)), spec.noise/median_flux, color='C0', alpha=0.5, lw=0.5)
-        # median combined noise
-        ax.plot(sci_spec.pixel, sci_spec.noise, 'C3', alpha=1, lw=0.5)
-        ax.set_xlabel('Pixel', fontsize=15)
-        ax.set_ylabel('Normalized Flux', fontsize=15)
-        ax.minorticks_on()
-        plt.savefig(save_path + f'noise_O{order}.png', dpi=300, bbox_inches='tight')
+        ax1.minorticks_on()
+        ax1.xaxis.tick_top()
+        ax1.tick_params(axis='both', labelsize=12, labeltop=False)  # don't put tick labels at the top
+        ax1.set_ylabel('Flux (counts/s)', fontsize=15)
+        
+        ax2.minorticks_on()
+        ax2.tick_params(axis='both', labelsize=12)
+        ax2.set_xlabel('Pixel', fontsize=15)
+        ax2.set_ylabel('Noise', fontsize=15)
+        
+        legend_elements = [
+            Line2D([], [], color='C7', lw=1, alpha=0.8, label=f"Original Spectrum\nS/N={', '.join([f'{_.snr:.2f}' for _ in sci_abba])}"),
+            Line2D([], [], color='C0', lw=1, label='Coadded Spectrum')
+        ]
+        
+        ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
+        fig.align_ylabels((ax1, ax2))
+        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+        plt.savefig(save_path + f'spectrum_coadd_O{order}.pdf', dpi=300, bbox_inches='tight')
         plt.close()
 
     barycorr = np.median(barycorrs)
@@ -710,6 +702,7 @@ if __name__=='__main__':
     
     test = False
     if not test:
+        skip = 0
         # all data:
         dates = [
             *list(repeat((15, 12, 23), 4)),
@@ -855,6 +848,12 @@ if __name__=='__main__':
             # 2022-1-20, left out 172
             [28, 29, 29, 28], [28, 29, 29, 28], [49, 50, 50, 49], [49, 50, 50, 49], [28, 29, 29, 28], [28, 29, 29]
         ]
+        
+        if skip > 0:
+            dates = dates[skip:]
+            names = names[skip:]
+            sci_frames = sci_frames[skip:]
+            tel_frames = tel_frames[skip:]
     
     else:
         dates = [(22, 1, 20)]
