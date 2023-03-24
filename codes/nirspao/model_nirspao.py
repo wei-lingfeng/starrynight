@@ -359,7 +359,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         
         sci_specs.append(copy.deepcopy(sci_spec))
         
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+        # Plot coadd spectrum
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
         for i, spec in enumerate(sci_abba):
             ax1.plot(spec.pixel, spec.flux, color='C7', lw=1, alpha=0.8)
             ax2.plot(spec.pixel, spec.noise, color='C7', lw=1, alpha=0.7)
@@ -377,7 +378,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ax2.set_ylabel('Noise', fontsize=15)
         
         legend_elements = [
-            Line2D([], [], color='C7', lw=1, alpha=0.8, label=f"Original Spectrum\nS/N={', '.join([f'{_.snr:.2f}' for _ in sci_abba])}"),
+            Line2D([], [], color='C7', lw=0.8, alpha=0.7, label='Original Spectra'),
             Line2D([], [], color='C0', lw=1, label='Coadded Spectrum')
         ]
         
@@ -385,7 +386,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         fig.align_ylabels((ax1, ax2))
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(save_path + f'spectrum_coadd_O{order}.pdf', dpi=300, bbox_inches='tight')
-        plt.close()
+        plt.show()
 
     barycorr = np.median(barycorrs)
     
