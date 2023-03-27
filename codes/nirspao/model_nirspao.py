@@ -5,11 +5,13 @@ import pickle
 import copy
 os.environ["OMP_NUM_THREADS"] = "1" # Limit number of threads
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 import matplotlib.pyplot as plt 
 import smart 
 import emcee
 import corner
+import plotly.graph_objects as go
 from itertools import repeat
 from functools import reduce
 from scipy.interpolate import interp1d
@@ -69,13 +71,13 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
     if mark_CO:
         if order==32:
-            ax1.vlines(co_lines.wavelength + wave_offset, max(sci_spec.flux) + 0.02, max(sci_spec.flux) + 0.1, colors='k', alpha=co_lines.alpha, lw=1.2)
-            ax1.text(min(co_lines.wavelength) + wave_offset - 10, max(sci_spec.flux) + 0.055, 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
+            ax1.vlines(co_lines.wavelength + wave_offset, ymin=max(sci_spec.flux) + 0.02*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.12*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
+            ax1.text(min(co_lines.wavelength) + wave_offset - 10, max(sci_spec.flux) + 0.065*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.03)
             ax2.margins(x=0.03)
         elif order==33:
-            ax1.vlines(co_lines.wavelength + wave_offset, max(sci_spec.flux) + 0.02, max(sci_spec.flux) + 0.08, colors='k', alpha=co_lines.alpha, lw=1.2)
-            ax1.text(min(co_lines.wavelength) + wave_offset - 15, max(sci_spec.flux) + 0.048, 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
+            ax1.vlines(co_lines.wavelength + wave_offset, ymin=max(sci_spec.flux) + 0.02*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.07*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
+            ax1.text(min(co_lines.wavelength) + wave_offset - 15, max(sci_spec.flux) + 0.043*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.05)
             ax2.margins(x=0.05)
         else:
@@ -155,7 +157,7 @@ def lnlike(theta, sci_specs, orders):
     model_fluxes = np.array([])
 
     for i, order in enumerate(orders):
-        model = smart.makeModel(teff, logg = 4.0, vsini = vsini, rv = rv, airmass = airmass, pwv = pwv, veiling = veiling, lsf = lsf, z = 0, wave_offset = wave_offsets[i], order = str(order), data = sci_specs[i], modelset = 'phoenix-aces-agss-cond-2011')
+        model = smart.makeModel(teff, logg=4.0, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, veiling=veiling, lsf=lsf, z=0, wave_offset=wave_offsets[i], order=str(order), data=sci_specs[i], modelset='phoenix-aces-agss-cond-2011')
         sci_noises = np.concatenate((sci_noises, sci_specs[i].noise * noise))
         sci_fluxes = np.concatenate((sci_fluxes, sci_specs[i].flux))
         model_fluxes = np.concatenate((model_fluxes, model.flux))
@@ -261,8 +263,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     for order in orders:
         sci_abba = []
         tel_abba = []
-        sci_names = []
-        tel_names = []
         
         ##################################################
         ####### Construct Spectrums for each order #######
@@ -274,7 +274,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
                 sci_name = 'nspec' + year + month + day + '_' + str(sci_frame).zfill(4)
                 tel_name = 'nspec' + year + month + day + '_' + str(tel_frame).zfill(4)
                 pixel_start = 20
-                pixel_end = -50
+                pixel_end = -48
             
             else:
                 # For data prior to 2018 (2018 included)
@@ -282,9 +282,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
                 tel_name = month_list[int(month) - 1] + day + 's' + str(tel_frame).zfill(4)
                 pixel_start = 10
                 pixel_end = -30
-            
-            sci_names.append(sci_name)
-            tel_names.append(tel_name)
             
             if name.endswith('A'):
                 sci_spec = smart.Spectrum(name=f'{sci_name}_A', order=order, path=f'{prefix}extracted_binaries/{sci_name}/O{order}')
@@ -296,70 +293,98 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             sci_spec.pixel = np.arange(len(sci_spec.wave))
             sci_spec.snr = np.median(sci_spec.flux / sci_spec.noise)
             
-            # if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
-            #     tel_name = tel_name + '_defringe'
+            if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
+                tel_name = tel_name + '_defringe'
             
             tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}{tel_name}/O{order}/')
             
+            # Update the wavelength solution
+            sci_spec.updateWaveSol(tel_spec)
+            
+            # Automatically mask out edge & flux < 0
+            mask1 = [True if (sci_spec.flux[i] < 0) or (i < pixel_start) or (i >= len(sci_spec.wave) + pixel_end) else False for i in np.arange(len(sci_spec.wave))]
+            sci_spec.pixel  = ma.MaskedArray(sci_spec.pixel, mask=mask1)
+            sci_spec.wave   = ma.MaskedArray(sci_spec.wave,  mask=mask1)
+            sci_spec.flux   = ma.MaskedArray(sci_spec.flux,  mask=mask1)
+            sci_spec.noise  = ma.MaskedArray(sci_spec.noise, mask=mask1)
+
+            # Mask flux > median + 3 sigma
+            median_flux = ma.median(sci_spec.flux)
+            upper_bound = median_flux + 3.*ma.std(sci_spec.flux - median_flux)
+            mask2 = sci_spec.flux > upper_bound
+            sci_spec.pixel  = ma.MaskedArray(sci_spec.pixel, mask=mask2)
+            sci_spec.wave   = ma.MaskedArray(sci_spec.wave,  mask=mask2)
+            sci_spec.flux   = ma.MaskedArray(sci_spec.flux,  mask=mask2)
+            sci_spec.noise  = ma.MaskedArray(sci_spec.noise, mask=mask2)
+
+            # Mask isolated bad pixels
+            median_flux = ma.median(sci_spec.flux)
+            lower_bound = median_flux - 3.5*ma.std(sci_spec.flux - median_flux)
+            lowest_bound = median_flux - 5.*ma.std(sci_spec.flux - median_flux)
+            mask3 = [False, *[True if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound) else False for i in np.arange(1, len(sci_spec.wave)-1)], False]
+            sci_spec.pixel  = ma.MaskedArray(sci_spec.pixel, mask=mask3)
+            sci_spec.wave   = ma.MaskedArray(sci_spec.wave,  mask=mask3)
+            sci_spec.flux   = ma.MaskedArray(sci_spec.flux,  mask=mask3)
+            sci_spec.noise  = ma.MaskedArray(sci_spec.noise, mask=mask3)
+            
             sci_abba.append(copy.deepcopy(sci_spec))
             tel_abba.append(copy.deepcopy(tel_spec))
-        
+
         # Normalize to the highest snr frame
-        median_flux = np.median(sci_abba[np.argmax([_.snr for _ in sci_abba])].flux)
+        median_flux = ma.median(sci_abba[np.argmax([_.snr for _ in sci_abba])].flux)
         for spec in sci_abba:
-            normalize_factor = median_flux / np.median(spec.flux)
+            normalize_factor = median_flux / ma.median(spec.flux)
             spec.flux   *= normalize_factor
             spec.noise  *= normalize_factor
-        
-        tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
-        
-        sci_spec = copy.deepcopy(sci_abba[np.argmin([abs(_.header['AIRMASS'] - tel_spec.header['AIRMASS']) for _ in sci_abba])])
-        sci_spec.flux = np.average(np.array([_.flux for _ in sci_abba]), weights=1/np.array([_.noise for _ in sci_abba])**2, axis=0)
-        sci_spec.noise = np.sqrt(np.std(np.array([_.flux for _ in sci_abba]), axis=0)**2 + np.sum(np.array([_.noise for _ in sci_abba])**2, axis=0)/4)
-        
-        # Update the wavelength solution
-        sci_spec.updateWaveSol(tel_spec)
-        
-        # Automatically mask out edge & flux < 0
-        auto_mask = np.where(sci_spec.flux < 0)[0]
-        mask1 = reduce(np.union1d, (auto_mask, np.arange(0, pixel_start), np.arange(len(sci_spec.wave) + pixel_end, len(sci_spec.wave))))
-        sci_spec.pixel  = np.delete(sci_spec.pixel, mask1)
-        sci_spec.wave   = np.delete(sci_spec.wave, mask1)
-        sci_spec.flux   = np.delete(sci_spec.flux, mask1)
-        sci_spec.noise  = np.delete(sci_spec.noise, mask1)
-        
-        # Mask flux > median + 3 sigma
-        median_flux = np.median(sci_spec.flux)
-        upper_bound = median_flux + 3.*np.std(sci_spec.flux - median_flux)
-        mask2 = np.where(sci_spec.flux > upper_bound)[0]
-        sci_spec.pixel  = np.delete(sci_spec.pixel, mask2)
-        sci_spec.wave   = np.delete(sci_spec.wave, mask2)
-        sci_spec.flux   = np.delete(sci_spec.flux, mask2)
-        sci_spec.noise  = np.delete(sci_spec.noise, mask2)
-        
-        # Mask isolated bad pixels
-        median_flux = np.median(sci_spec.flux)
-        lower_bound = median_flux - 3.5*np.std(sci_spec.flux - median_flux)
-        lowest_bound = median_flux - 5.*np.std(sci_spec.flux - median_flux)
-        mask3 = np.array([i for i in np.arange(1, len(sci_spec.wave)-1) if (sci_spec.flux[i] < lowest_bound) and (sci_spec.flux[i-1] >= lower_bound) and (sci_spec.flux[i+1] >= lower_bound)], dtype=int)
-        sci_spec.pixel  = np.delete(sci_spec.pixel, mask3)
-        sci_spec.wave   = np.delete(sci_spec.wave, mask3)
-        sci_spec.flux   = np.delete(sci_spec.flux, mask3)
-        sci_spec.noise  = np.delete(sci_spec.noise, mask3)
-        
+
+        # tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
+
+        sci_spec = copy.deepcopy(sci_abba[np.argmin([_.header['RMS'] for _ in tel_abba])])
+        sci_spec.flux = ma.average(ma.array([_.flux for _ in sci_abba]), weights=1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
+        sci_spec.noise = ma.sqrt(ma.std(ma.array([_.flux for _ in sci_abba]), axis=0)**2 + ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
+        # sci_spec.noise = ma.sqrt(ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
+        sci_spec.pixel.mask = sci_spec.flux.mask
+        sci_spec.wave.mask = sci_spec.flux.mask
+
+        sci_spec.pixel  = sci_spec.pixel.compressed()
+        sci_spec.wave   = sci_spec.wave.compressed()
+        sci_spec.flux   = sci_spec.flux.compressed()
+        sci_spec.noise  = sci_spec.noise.compressed()
+
         # Special Case
         if date == (19, 1, 12) and order == 32:
-            sci_spec.pixel  = sci_spec.pixel[sci_spec.wave < 23980]
-            sci_spec.flux   = sci_spec.flux [sci_spec.wave < 23980]
-            sci_spec.noise  = sci_spec.noise[sci_spec.wave < 23980]
-            sci_spec.wave   = sci_spec.wave [sci_spec.wave < 23980]
-        
+            idx = sci_spec.wave < 23980
+            sci_spec.pixel  = sci_spec.pixel[idx]
+            sci_spec.flux   = sci_spec.flux [idx]
+            sci_spec.noise  = sci_spec.noise[idx]
+            sci_spec.wave   = sci_spec.wave [idx]
+
         barycorrs.append(smart.barycorr(sci_spec.header).value)
         itime = sci_spec.header['ITIME']
         
         sci_specs.append(copy.deepcopy(sci_spec))
         
-        # Plot coadd spectrum
+        # plot coadded spectrum
+        fig_data = []
+        for i, spec in enumerate(sci_abba):
+            spec.pixel  = spec.pixel.compressed()
+            spec.wave   = spec.wave.compressed()
+            spec.flux   = spec.flux.compressed()
+            spec.noise  = spec.noise.compressed()
+            fig_data.append(go.Scatter(x=spec.pixel, y=spec.flux, mode='lines+markers', name=f'Frame {i+1}', line=dict(width=1, color='#7f7f7f'), marker=dict(size=3)))
+            fig_data.append(go.Scatter(x=spec.pixel, y=spec.noise, mode='lines+markers', name=f'Noise {i+1}', line=dict(width=1, color='#7f7f7f'), marker=dict(size=3)))
+
+        fig_data.append(go.Scatter(x=sci_spec.pixel, y=sci_spec.flux, mode='lines+markers', name='Coadd Spectrum', line=dict(width=1, color='#1f77b4'), marker=dict(size=3)))
+        fig_data.append(go.Scatter(x=sci_spec.pixel, y=sci_spec.noise, mode='lines+markers', name='Coadd Noise', line=dict(width=1, color='#1f77b4'), marker=dict(size=3)))
+
+        fig = go.Figure()
+        fig.add_traces(fig_data)
+        fig.update_layout(width=1000, height=500, xaxis = dict(tickformat='000'))
+        fig.update_layout(xaxis_title='Pixel', yaxis_title='Flux')
+        fig.write_html(save_path + f'spectrum_coadd_plotly_O{order}.html')
+        
+        
+        # plot coadd spectrum
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
         for i, spec in enumerate(sci_abba):
             ax1.plot(spec.pixel, spec.flux, color='C7', lw=1, alpha=0.8)
@@ -386,7 +411,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         fig.align_ylabels((ax1, ax2))
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(save_path + f'spectrum_coadd_O{order}.pdf', dpi=300, bbox_inches='tight')
-        plt.show()
+        plt.close()
 
     barycorr = np.median(barycorrs)
     
@@ -703,7 +728,8 @@ if __name__=='__main__':
     
     test = False
     if not test:
-        skip = 0
+        skip = 1
+        Multiprocess=True
         # all data:
         dates = [
             *list(repeat((15, 12, 23), 4)),
@@ -724,7 +750,7 @@ if __name__=='__main__':
             *list(repeat((21, 10, 20), 4)),
             *list(repeat((22, 1, 18), 6)),
             *list(repeat((22, 1, 19), 5)),
-            *list(repeat((22, 1, 20), 6))
+            *list(repeat((22, 1, 20), 7))
         ]
 
         names = [
@@ -764,8 +790,8 @@ if __name__=='__main__':
             457, 479, 490, 478, 456, 170, 
             # 2022-1-19
             453, 438, 530, 287, 171, 
-            # 2022-1-20, left out 172
-            238, 266, 247, 165, 177, 163
+            # 2022-1-20
+            238, 266, 247, 165, 172, 177, 163
         ]
         
         sci_frames = [
@@ -805,8 +831,8 @@ if __name__=='__main__':
             [24, 25, 26, 27], [31, 32, 33, 34], [35, 36, 37, 38], [41, 42, 43, 44], [45, 46, 47, 49], [52, 53, 54, 55], 
             # 2022-1-19
             [26, 27, 28, 29], [32, 33, 34, 35], [36, 37, 38, 39], [42, 43, 44, 45], [46, 47, 48, 49], 
-            # 2022-1-20, left out 172
-            [23, 25, 27, 26], [30, 31, 33, 32], [34, 35, 36, 37], [44, 45, 46, 47], [51, 52, 53, 55], [56, 57, 58]
+            # 2022-1-20
+            [23, 25, 27, 26], [30, 31, 33, 32], [34, 35, 36, 37], [40, 41, 42, 43], [44, 45, 46, 47], [51, 52, 53, 55], [56, 57, 58]
         ]
         
         tel_frames = [
@@ -846,8 +872,8 @@ if __name__=='__main__':
             [28, 29, 29, 28], [28, 29, 29, 28], [39, 40, 40, 39], [39, 40, 40, 39], [50, 51, 51, 50], [50, 51, 51, 50], 
             # 2022-1-19
             [30, 31, 31, 30], [30, 31, 31, 30], [30, 31, 31, 30], [30, 31, 31, 30], [30, 31, 31, 30], 
-            # 2022-1-20, left out 172
-            [28, 29, 29, 28], [28, 29, 29, 28], [49, 50, 50, 49], [49, 50, 50, 49], [28, 29, 29, 28], [28, 29, 29]
+            # 2022-1-20
+            [28, 29, 29, 28], [28, 29, 29, 28], [49, 50, 50, 49], [49, 50, 50, 49], [49, 50, 50, 49], [28, 29, 29, 28], [28, 29, 29]
         ]
         
         if skip > 0:
@@ -857,10 +883,11 @@ if __name__=='__main__':
             tel_frames = tel_frames[skip:]
     
     else:
-        dates = [(22, 1, 20)]
-        names = [172]
-        sci_frames = [[40, 41, 42, 43]]
-        tel_frames = [[49, 50, 50, 49]]
+        Multiprocess=True
+        dates = [(15, 12, 23)]
+        names = [322]
+        sci_frames = [[75, 76, 77, 78]]
+        tel_frames = [[79, 80, 80, 79]]
 
     
     dim_check = [len(_) for _ in [dates, names, sci_frames, tel_frames]]
@@ -875,4 +902,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, steps=500)
+        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=Multiprocess, steps=500)
