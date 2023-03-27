@@ -13,8 +13,6 @@ import emcee
 import corner
 import plotly.graph_objects as go
 from itertools import repeat
-from functools import reduce
-from scipy.interpolate import interp1d
 from multiprocessing import Pool
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
