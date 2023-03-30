@@ -3,12 +3,13 @@
 import os, sys, shutil
 import pickle
 import copy
+os.environ["OPENBLAS_NUM_THREADS"] = "1" # Limit number of threads
 os.environ["OMP_NUM_THREADS"] = "1" # Limit number of threads
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
 import matplotlib.pyplot as plt 
-import smart 
+import smart
 import emcee
 import corner
 import plotly.graph_objects as go
@@ -50,7 +51,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     order = sci_spec.header['ECHLORD']
     if mark_CO:
         # Read CO lines
-        co_lines = pd.read_csv('/home/l3wei/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
+        co_lines = pd.read_csv('/home/weilingfeng/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
         co_lines.intensity = np.log10(co_lines.intensity)
         if order==32:
             co_lines = co_lines[co_lines.intensity >= -25].reset_index(drop=True)
@@ -69,8 +70,8 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
     if mark_CO:
         if order==32:
-            ax1.vlines(co_lines.wavelength + wave_offset, ymin=max(sci_spec.flux) + 0.02*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.12*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
-            ax1.text(min(co_lines.wavelength) + wave_offset - 10, max(sci_spec.flux) + 0.065*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
+            ax1.vlines(co_lines.wavelength + wave_offset, ymin=max(sci_spec.flux) + 0.03*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.12*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
+            ax1.text(min(co_lines.wavelength) + wave_offset - 10, max(sci_spec.flux) + 0.07*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.03)
             ax2.margins(x=0.03)
         elif order==33:
@@ -130,15 +131,15 @@ def lnprior(theta, orders):
     wave_offsets = theta[-len(orders):]
     
     if  \
-        2300    < teff              < 7000  \
-    and 0       < vsini             < 100   \
-    and -100    < rv                < 100   \
-    and 1       < airmass           < 3     \
-    and 0.5     < pwv               < 20    \
-    and 0       < veiling           < 1e20  \
-    and 1       < lsf               < 20    \
-    and 1       < noise             < 50    \
-    and -10     < all(wave_offsets) < 10:
+        2300    < teff      < 7000  \
+    and 0       < vsini     < 100   \
+    and -100    < rv        < 100   \
+    and 1       < airmass   < 3     \
+    and 0.5     < pwv       < 10    \
+    and 0       < veiling   < 1e20  \
+    and 1       < lsf       < 20    \
+    and 1       < noise     < 50    \
+    and all(-1  < _         < 1 for _ in wave_offsets):
         return 0.0
     else:
         return -np.inf
@@ -147,17 +148,16 @@ def lnprior(theta, orders):
 def lnlike(theta, sci_specs, orders):
     
     teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)]
-
     wave_offsets = theta[-len(orders):]
     
     sci_noises = np.array([])
     sci_fluxes = np.array([])
     model_fluxes = np.array([])
 
-    for i, order in enumerate(orders):
-        model = smart.makeModel(teff, logg=4.0, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, veiling=veiling, lsf=lsf, z=0, wave_offset=wave_offsets[i], order=str(order), data=sci_specs[i], modelset='phoenix-aces-agss-cond-2011')
-        sci_noises = np.concatenate((sci_noises, sci_specs[i].noise * noise))
-        sci_fluxes = np.concatenate((sci_fluxes, sci_specs[i].flux))
+    for sci_spec, wave_offset, order in zip(sci_specs, wave_offsets, orders):
+        model = smart.makeModel(teff, logg=4.0, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, veiling=veiling, lsf=lsf, z=0, wave_offset=wave_offset, order=str(order), data=sci_spec, modelset='phoenix-aces-agss-cond-2011')
+        sci_noises = np.concatenate((sci_noises, sci_spec.noise * noise))
+        sci_fluxes = np.concatenate((sci_fluxes, sci_spec.flux))
         model_fluxes = np.concatenate((model_fluxes, model.flux))
 
     sigma2 = sci_noises**2
@@ -179,7 +179,7 @@ def lnprob(theta, sci_specs, orders):
 ##################################################
 ################## Model NIRSPAO #################
 ##################################################
-def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, nwalkers=100, steps=500):
+def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, nwalkers=100, steps=300):
     """Fit teff and other params using emcee
 
     Parameters
@@ -235,7 +235,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     day = str(date[2]).zfill(2)
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    prefix = f'/home/l3wei/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced/'
+    prefix = f'/home/weilingfeng/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced/'
     save_path = f'{prefix}mcmc_median/{name}_O{orders}_params/'
     
     if initial_mcmc:
@@ -325,10 +325,25 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             sci_spec.flux   = ma.MaskedArray(sci_spec.flux,  mask=mask3)
             sci_spec.noise  = ma.MaskedArray(sci_spec.noise, mask=mask3)
             
+            # Special Case
+            if date == (19, 1, 12) and order == 32:
+                idx = sci_spec.wave < 23980
+                sci_spec.pixel  = sci_spec.pixel[idx]
+                sci_spec.flux   = sci_spec.flux [idx]
+                sci_spec.noise  = sci_spec.noise[idx]
+                sci_spec.wave   = sci_spec.wave [idx]
+            
+            barycorrs.append(smart.barycorr(sci_spec.header).value)
+            
             sci_abba.append(copy.deepcopy(sci_spec))
             tel_abba.append(copy.deepcopy(tel_spec))
-
-        # Normalize to the highest snr frame
+        
+        itime = sci_spec.header['ITIME']
+        
+        ##################################################
+        ################ Weighted Average ################
+        ##################################################
+        # normalize to the highest snr frame
         median_flux = ma.median(sci_abba[np.argmax([_.snr for _ in sci_abba])].flux)
         for spec in sci_abba:
             normalize_factor = median_flux / ma.median(spec.flux)
@@ -336,11 +351,12 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             spec.noise  *= normalize_factor
 
         # tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
-
+        
+        # weighted average of abba frames
         sci_spec = copy.deepcopy(sci_abba[np.argmin([_.header['RMS'] for _ in tel_abba])])
         sci_spec.flux = ma.average(ma.array([_.flux for _ in sci_abba]), weights=1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
-        sci_spec.noise = ma.sqrt(ma.std(ma.array([_.flux for _ in sci_abba]), axis=0)**2 + ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
-        # sci_spec.noise = ma.sqrt(ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
+        # sci_spec.noise = ma.sqrt(ma.std(ma.array([_.flux for _ in sci_abba]), axis=0)**2 + ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
+        sci_spec.noise = ma.sqrt(ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
         sci_spec.pixel.mask = sci_spec.flux.mask
         sci_spec.wave.mask = sci_spec.flux.mask
 
@@ -348,18 +364,24 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         sci_spec.wave   = sci_spec.wave.compressed()
         sci_spec.flux   = sci_spec.flux.compressed()
         sci_spec.noise  = sci_spec.noise.compressed()
-
-        # Special Case
-        if date == (19, 1, 12) and order == 32:
-            idx = sci_spec.wave < 23980
-            sci_spec.pixel  = sci_spec.pixel[idx]
-            sci_spec.flux   = sci_spec.flux [idx]
-            sci_spec.noise  = sci_spec.noise[idx]
-            sci_spec.wave   = sci_spec.wave [idx]
-
-        barycorrs.append(smart.barycorr(sci_spec.header).value)
-        itime = sci_spec.header['ITIME']
         
+        # numpy version instead of masked array:
+        # fluxes = np.array([_.flux for _ in sci_abba])
+        # noises = np.array([_.noise for _ in sci_abba])
+        # weights = 1/noises**2
+        # weighted_flux = fluxes*weights
+        
+        # sci_spec.flux = np.nansum(weighted_flux, axis=0) / np.nansum(weights, axis=0)
+        # sci_spec.noise = np.sqrt(np.nansum(noises**2, axis=0) / np.sum(~np.isnan(noises), axis=0))
+        
+        # # drop nans
+        # valid_idx = ~np.isnan(sci_spec.flux)
+        # sci_spec.pixel = sci_spec.pixel[valid_idx]
+        # sci_spec.wave  = sci_spec.wave [valid_idx]
+        # sci_spec.flux  = sci_spec.flux [valid_idx]
+        # sci_spec.noise = sci_spec.noise[valid_idx]
+        
+        # append sci_specs        
         sci_specs.append(copy.deepcopy(sci_spec))
         
         # plot coadded spectrum
@@ -427,13 +449,13 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         np.random.uniform(0, 40),       # vsini
         np.random.uniform(-100, 100),   # rv
         np.random.uniform(1, 3),        # airmass
-        np.random.uniform(0.5, 20),     # pwv
+        np.random.uniform(.5, 10),      # pwv
         np.random.uniform(0, 1e5),      # veiling
         np.random.uniform(1, 10),       # lsf
         np.random.uniform(1, 5),        # noise
     ],
         list(np.reshape([[
-        np.random.uniform(-5, 5)        # wave offset n
+        np.random.uniform(-.2, .2)      # wave offset n
         ] for order in orders], -1))
     )
     for _ in range(nwalkers)]
@@ -727,7 +749,7 @@ if __name__=='__main__':
     test = False
     if not test:
         skip = 1
-        Multiprocess=True
+        multiprocess=True
         # all data:
         dates = [
             *list(repeat((15, 12, 23), 4)),
@@ -874,14 +896,14 @@ if __name__=='__main__':
             [28, 29, 29, 28], [28, 29, 29, 28], [49, 50, 50, 49], [49, 50, 50, 49], [49, 50, 50, 49], [28, 29, 29, 28], [28, 29, 29]
         ]
         
-        if skip > 0:
+        if skip >= 0:
             dates = dates[skip:]
             names = names[skip:]
             sci_frames = sci_frames[skip:]
             tel_frames = tel_frames[skip:]
     
     else:
-        Multiprocess=True
+        multiprocess=True
         dates = [(15, 12, 23)]
         names = [322]
         sci_frames = [[75, 76, 77, 78]]
@@ -900,4 +922,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=Multiprocess, steps=500)
+        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=multiprocess, steps=300)
