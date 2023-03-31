@@ -209,7 +209,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     result : dict
         result.
     """
-        
+    
     date = infos['date']
     name = infos['name']
     name = str(name)
