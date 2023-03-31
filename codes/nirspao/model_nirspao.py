@@ -456,9 +456,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     ##################################################
     ################## MCMC Fitting ##################
     ##################################################
-    
-    # Modify parameters
-
     initial_state = np.array([
         np.random.uniform(priors[f'{param}'][0], priors[f'{param}'][1], size=nwalkers) for param in params_stripped
     ]).transpose()
@@ -581,13 +578,14 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         print()
         
         sci_specs_new = []
-        for i, order in enumerate(orders):
+        for i in range(len(orders)):
             sci_spec = copy.deepcopy(sci_specs[i])
             # Update mask
             residual = sci_specs[i].flux - models[i].flux
             mask_finetune = np.where(abs(residual) > np.median(residual) + 3*np.std(residual))[0]
             
             # Mask out bad pixels after fine-tuning
+            sci_spec.pixel   = np.delete(sci_spec.pixel, mask_finetune)
             sci_spec.wave   = np.delete(sci_spec.wave, mask_finetune)
             sci_spec.flux   = np.delete(sci_spec.flux, mask_finetune)
             sci_spec.noise  = np.delete(sci_spec.noise, mask_finetune)
@@ -604,13 +602,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ##################################################
         ################### Re-run MCMC ##################
         ##################################################
-        # update the initial state to follow N(μ, σ), μ=truth, σ=(max - min) / nsigma
-        # min <= N(truth, sqrt((max - min) / nsigma)) <= max
-        # min <= N(0, 1) * (max - min) / nsigma + truth <= max
-        # nsigma*(min - truth) / (max - min) <= N(0, 1) <= nsigma * (max - truth) / (max - min)
-        nsigma = 6
         initial_state = np.array([
-            truncnorm.rvs(nsigma*(limits[f'{limits_param}'][0] - mcmc[f'{mcmc_param}'][0]) / np.diff(limits[f'{limits_param}']), nsigma*(limits[f'{limits_param}'][1] - mcmc[f'{mcmc_param}'][0]) / np.diff(limits[f'{limits_param}']), size=nwalkers) * np.diff(limits[f'{limits_param}']) / nsigma + mcmc[f'{mcmc_param}'][0] for limits_param, mcmc_param in zip(params_stripped, params)
+            np.random.uniform(priors[f'{param}'][0], priors[f'{param}'][1], size=nwalkers) for param in params_stripped
         ]).transpose()
         
         if finetune_mcmc:
@@ -889,11 +882,11 @@ if __name__=='__main__':
         sys.exit('Dimensions not agree! dates: {}, names: {}, sci_frames:{}, tel_frames:{}.'.format(*dim_check))
     
     priors = {
-        'vsini': (0, 40),
-        'veiling': (0, 1e5),
-        'lsf': (1, 10),
-        'noise': (1, 5),
-        'wave_offset': (-.2, .2)
+        'vsini':        (0, 40),
+        'veiling':      (0, 1e5),
+        'lsf':          (1, 10),
+        'noise':        (1, 5),
+        'wave_offset':  (-.2, .2)
     }
     
     for i in range(len(names)):
