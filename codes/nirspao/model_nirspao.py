@@ -1,10 +1,10 @@
-# Median combine spectrums of each object
+# Weighted average spectrums of each object
 
 import os, sys, shutil
 import pickle
 import copy
 os.environ["OPENBLAS_NUM_THREADS"] = "1" # Limit number of threads
-os.environ["OMP_NUM_THREADS"] = "1" # Limit number of threads
+os.environ["OMP_NUM_THREADS"] = "4" # Limit number of threads
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
@@ -748,7 +748,7 @@ if __name__=='__main__':
     
     test = False
     if not test:
-        skip = 1
+        skip = 0
         multiprocess=True
         # all data:
         dates = [
