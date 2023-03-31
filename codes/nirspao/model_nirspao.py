@@ -15,6 +15,7 @@ import corner
 import plotly.graph_objects as go
 from itertools import repeat
 from multiprocessing import Pool
+from scipy.stats import truncnorm
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from collections.abc import Iterable
@@ -125,21 +126,20 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
 ############## Probability Function ##############
 ##################################################
 
-def lnprior(theta, orders):
+def lnprior(theta, orders, limits):
     
     teff, vsini, rv, airmass, pwv, veiling, lsf, noise = theta[:-len(orders)]
     wave_offsets = theta[-len(orders):]
     
-    if  \
-        2300    < teff      < 7000  \
-    and 0       < vsini     < 100   \
-    and -100    < rv        < 100   \
-    and 1       < airmass   < 3     \
-    and 0.5     < pwv       < 10    \
-    and 0       < veiling   < 1e20  \
-    and 1       < lsf       < 20    \
-    and 1       < noise     < 50    \
-    and all(-1  < _         < 1 for _ in wave_offsets):
+    if      limits.teff[0]          < teff      < limits.teff[1]    \
+    and     limits.vsini[0]         < vsini     < limits.vsini[1]   \
+    and     limits.rv[0]            < rv        < limits.rv[1]      \
+    and     limits.airmass[0]       < airmass   < limits.airmass[1] \
+    and     limits.pwv[0]           < pwv       < limits.pwv[1]     \
+    and     limits.veiling[0]       < veiling   < limits.veiling[1] \
+    and     limits.lsf[0]           < lsf       < limits.lsf[1]     \
+    and     limits.noise[0]         < noise     < limits.noise[1]   \
+    and all(limits.wave_offset[0]   < _         < limits.wave_offset[1] for _ in wave_offsets):
         return 0.0
     else:
         return -np.inf
@@ -155,7 +155,7 @@ def lnlike(theta, sci_specs, orders):
     model_fluxes = np.array([])
 
     for sci_spec, wave_offset, order in zip(sci_specs, wave_offsets, orders):
-        model = smart.makeModel(teff, logg=4.0, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, veiling=veiling, lsf=lsf, z=0, wave_offset=wave_offset, order=str(order), data=sci_spec, modelset='phoenix-aces-agss-cond-2011')
+        model = smart.makeModel(teff, logg=4.0, vsini=vsini, rv=rv, airmass=airmass, pwv=pwv, veiling=veiling, lsf=lsf, z=0, wave_offset=wave_offset, order=order, data=sci_spec, modelset='phoenix-aces-agss-cond-2011')
         sci_noises = np.concatenate((sci_noises, sci_spec.noise * noise))
         sci_fluxes = np.concatenate((sci_fluxes, sci_spec.flux))
         model_fluxes = np.concatenate((model_fluxes, model.flux))
@@ -168,24 +168,23 @@ def lnlike(theta, sci_specs, orders):
         return chi
 
     
-def lnprob(theta, sci_specs, orders):
-    lp = lnprior(theta, orders)
+def lnprob(theta, sci_specs, orders, limits):
+    lp = lnprior(theta, orders, limits)
     if not np.isfinite(lp):
         return -np.inf
     else:
         return lp + lnlike(theta, sci_specs, orders)
 
-
 ##################################################
 ################## Model NIRSPAO #################
 ##################################################
-def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, nwalkers=100, steps=300):
+def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, nwalkers=100, steps=300, **kwargs):
     """Fit teff and other params using emcee
 
     Parameters
     ----------
     infos : dict
-        dictionary with keywords 'date' (tuple), 'name' (int or str), 'sci_frames' (list of int), 'tel_frames' (list of int)
+        dictionary with keys 'date' (tuple), 'name' (int or str), 'sci_frames' (list of int), 'tel_frames' (list of int)
     orders : list, optional
         list of orders, by default [32, 33]
     initial_mcmc : bool, optional
@@ -200,32 +199,34 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         number of walkers in emcee, by default 100
     steps : int, optional
         number of steps in emcee, by default 500
-
+    kwargs : 
+        limits : dict, optional
+            dictonary with keys teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset
+        priors : dict, optional
+            begining priors, same as limits if any key is unspecified by default
     Returns
     -------
     result : dict
         result.
     """
-    
+        
     date = infos['date']
     name = infos['name']
     name = str(name)
     sci_frames = infos['sci_frames']
     tel_frames = infos['tel_frames']
-    
-    # Testing purposes
-    # initial_mcmc = True
-    # multiprocess=False
-    # finetune=True
-    # finetune_mcmc=True
-    # orders=[32, 33]
-    # nwalkers=100
-    # steps=100
 
+    print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
+    print(f'Object:\t{name}')
+    print(f'Science  Frames:\t{sci_frames}')
+    print(f'Telluric Frames:\t{tel_frames}')
+    print()
+    
     # modify parameters
     params = ['teff', 'vsini', 'rv', 'airmass', 'pwv', 'veiling', 'lsf', 'noise']
     for order in orders:
         params += ['wave_offset_O{}'.format(order)]
+    params_stripped = [_.strip('|'.join([f'_O{order}' for order in orders])) for _ in params]
 
     nparams = len(params)
     discard = steps - 100
@@ -243,14 +244,27 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     
     if not os.path.exists(save_path): os.makedirs(save_path)
     
-    print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
-    print(f'Object:\t{name}')
-    print(f'Science  Frames:\t{sci_frames}')
-    print(f'Telluric Frames:\t{tel_frames}')
-    print()
+    limits = kwargs.get('limits', {
+        'teff':         (2300, 7000),
+        'vsini':        (0, 100),
+        'rv':           (-100, 100),
+        'airmass':      (1, 3),
+        'pwv':          (.5, 10),
+        'veiling':      (0, 1e20),
+        'lsf':          (1, 20),
+        'noise':        (1, 50),
+        'wave_offset':  (-1, 1)
+    })
     
-    sys.stdout.flush()
+    priors = kwargs.get('priors', limits)
+    for key, value in limits.items():
+        if key not in priors.keys():
+            priors[key] = value
     
+    limits = pd.DataFrame(limits)
+    priors = pd.DataFrame(priors)
+    
+        
     ##################################################
     ############### Construct Spectrums ##############
     ##################################################
@@ -291,10 +305,10 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             sci_spec.pixel = np.arange(len(sci_spec.wave))
             sci_spec.snr = np.median(sci_spec.flux / sci_spec.noise)
             
-            if os.path.exists(prefix + tel_name + '_defringe/O{}/'.format(order)):
+            if os.path.exists(f'{prefix}{tel_name}_defringe/O{order}/{tel_name}_defringe_{order}_all.fits'):
                 tel_name = tel_name + '_defringe'
             
-            tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}{tel_name}/O{order}/')
+            tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}{tel_name}/O{order}')
             
             # Update the wavelength solution
             sci_spec.updateWaveSol(tel_spec)
@@ -444,22 +458,10 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     ##################################################
     
     # Modify parameters
-    pos = [np.append([
-        np.random.uniform(2300, 7000),  # Teff
-        np.random.uniform(0, 40),       # vsini
-        np.random.uniform(-100, 100),   # rv
-        np.random.uniform(1, 3),        # airmass
-        np.random.uniform(.5, 10),      # pwv
-        np.random.uniform(0, 1e5),      # veiling
-        np.random.uniform(1, 10),       # lsf
-        np.random.uniform(1, 5),        # noise
-    ],
-        list(np.reshape([[
-        np.random.uniform(-.2, .2)      # wave offset n
-        ] for order in orders], -1))
-    )
-    for _ in range(nwalkers)]
-    
+
+    initial_state = np.array([
+        np.random.uniform(priors[f'{param}'][0], priors[f'{param}'][1], size=nwalkers) for param in params_stripped
+    ]).transpose()
     
     move = [emcee.moves.KDEMove()]
     
@@ -474,11 +476,11 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         backend.reset(nwalkers, nparams)
         if multiprocess:
             with Pool(64) as pool:
-                sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend, pool=pool)
-                sampler.run_mcmc(pos, steps, progress=True)
+                sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders, limits), moves=move, backend=backend, pool=pool)
+                sampler.run_mcmc(initial_state, steps, progress=True)
         else:
-            sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend)
-            sampler.run_mcmc(pos, steps, progress=True)
+            sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders, limits), moves=move, backend=backend)
+            sampler.run_mcmc(initial_state, steps, progress=True)
         
         print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
         print(sampler.acceptance_fraction)
@@ -499,73 +501,72 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
     
     mcmc = pd.DataFrame(mcmc, columns=params)
-    
-    # calculate veiling params
-    veiling_params = []
-    for order in orders:
-        model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=str(order), modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
-        veiling_params.append(mcmc.veiling[0] / np.median(model_veiling.flux))
-    
+        
     
     ##################################################
     ################ Construct Models ################
     ##################################################
-    
     models = []
     models_notel = []
-    model_dips = []
-    model_stds = []
+    other_params = {}
     for i, order in enumerate(orders):
-        model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+        model, model_notel = smart.makeModel(mcmc.teff[0], data=sci_specs[i], order=order, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
         models.append(copy.deepcopy(model))
         models_notel.append(copy.deepcopy(model_notel))
         
-        model_dips.append(np.median(model_notel.flux) - min(model_notel.flux))
-        model_stds.append(np.std(model_notel.flux))
-    
+        # calculate veiling params and snrs        
+        model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=str(order), modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
+        other_params[f'veiling_param_O{order}'] = mcmc.veiling[0] / np.median(model_veiling.flux)
+        other_params[f'snr_O{order}'] = np.median(sci_specs[0].flux/sci_specs[0].noise)
+
+        # calculate model dips and stds
+        other_params[f'model_dip_O{order}'] = np.median(model_notel.flux) - min(model_notel.flux)
+        other_params[f'model_std_O{order}'] = np.std(model_notel.flux)
+        
     
     ##################################################
     ################# Writing Result #################
     ##################################################
     
-    # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2
-    result = {
-        'HC2000':               name,
-        'year':                 date[0],
-        'month':                date[1],
-        'day':                  date[2],
-        'sci_frames':           sci_frames,
-        'tel_frames':           tel_frames,
-        'itime':                itime,
-        'teff':                 mcmc.teff,
-        'vsini':                mcmc.vsini,
-        'rv':                   mcmc.rv, 
-        'rv_helio':             mcmc.rv[0] + barycorr, 
-        'airmass':              mcmc.airmass, 
-        'pwv':                  mcmc.pwv, 
-        'veiling':              mcmc.veiling,
-        'veiling_param_O32':    veiling_params[0],
-        'veiling_param_O33':    veiling_params[1],
-        'lsf':                  mcmc.lsf, 
-        'noise':                mcmc.noise,
-        'model_dip_O32':        model_dips[0],
-        'model_std_O32':        model_stds[0],
-        'model_dip_O33':        model_dips[1],
-        'model_std_O33':        model_stds[1],
-        'wave_offset_O32':      mcmc.wave_offset_O32, 
-        'wave_offset_O33':      mcmc.wave_offset_O33, 
-        'snr_O32':              np.median(sci_specs[0].flux/sci_specs[0].noise), 
-        'snr_O33':              np.median(sci_specs[1].flux/sci_specs[1].noise)
-    }
+    def get_result(mcmc, infos=infos, orders=orders):
+        # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2
+        result = {
+            'HC2000':               infos['name'],
+            'year':                 infos['date'][0],
+            'month':                infos['date'][1],
+            'day':                  infos['date'][2],
+            'sci_frames':           infos['sci_frames'],
+            'tel_frames':           infos['tel_frames'],
+            'itime':                itime,
+            'teff':                 mcmc.teff,
+            'vsini':                mcmc.vsini,
+            'rv':                   mcmc.rv, 
+            'rv_helio':             mcmc.rv[0] + barycorr, 
+            'airmass':              mcmc.airmass, 
+            'pwv':                  mcmc.pwv, 
+            'veiling':              mcmc.veiling,
+            'lsf':                  mcmc.lsf, 
+            'noise':                mcmc.noise
+        }
+        
+        for order in orders:
+            result[f'wave_offset_O{order}'] = mcmc[f'wave_offset_O{order}']
+            
+        for param in ['veiling_param', 'model_dip', 'model_std', 'snr']:
+            for order in orders:
+                result[f'{param}_O{order}'] = other_params[f'{param}_O{order}']
+        
+        ########## Write Parameters ##########
+        with open(save_path + 'mcmc_params.txt', 'w') as file:
+            for key, value in result.items():
+                if isinstance(value, Iterable) and (not isinstance(value, str)):
+                    file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
+                else:
+                    file.write('{}: \t{}\n'.format(key, value))
+        
+        return result
     
-    ########## Write Parameters ##########
-    with open(save_path + 'mcmc_params.txt', 'w') as file:
-        for key, value in result.items():
-            if isinstance(value, Iterable) and (not isinstance(value, str)):
-                file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
-            else:
-                file.write('{}: \t{}\n'.format(key, value))
-    
+    result = get_result(mcmc)
     
     ##################################################
     #################### Fine Tune ###################
@@ -578,6 +579,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         print(f'Science  Frames:\t{sci_frames}')
         print(f'Telluric Frames:\t{tel_frames}')
         print()
+        
         sci_specs_new = []
         for i, order in enumerate(orders):
             sci_spec = copy.deepcopy(sci_specs[i])
@@ -597,21 +599,30 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         # Save sci_specs
         with open(save_path + 'sci_specs.pkl', 'wb') as file:
             pickle.dump(sci_specs, file)
-    
-    
-    ##################################################
-    ################### Re-run MCMC ##################
-    ##################################################
+        
+        
+        ##################################################
+        ################### Re-run MCMC ##################
+        ##################################################
+        # update the initial state to follow N(μ, σ), μ=truth, σ=(max - min) / nsigma
+        # min <= N(truth, sqrt((max - min) / nsigma)) <= max
+        # min <= N(0, 1) * (max - min) / nsigma + truth <= max
+        # nsigma*(min - truth) / (max - min) <= N(0, 1) <= nsigma * (max - truth) / (max - min)
+        nsigma = 6
+        initial_state = np.array([
+            truncnorm.rvs(nsigma*(limits[f'{limits_param}'][0] - mcmc[f'{mcmc_param}'][0]) / np.diff(limits[f'{limits_param}']), nsigma*(limits[f'{limits_param}'][1] - mcmc[f'{mcmc_param}'][0]) / np.diff(limits[f'{limits_param}']), size=nwalkers) * np.diff(limits[f'{limits_param}']) / nsigma + mcmc[f'{mcmc_param}'][0] for limits_param, mcmc_param in zip(params_stripped, params)
+        ]).transpose()
+        
         if finetune_mcmc:
             backend = emcee.backends.HDFBackend(save_path + 'sampler2.h5')
             backend.reset(nwalkers, nparams)
             if multiprocess:
                 with Pool(64) as pool:
-                    sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend, pool=pool)
-                    sampler.run_mcmc(pos, steps, progress=True)
+                    sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders, limits), moves=move, backend=backend, pool=pool)
+                    sampler.run_mcmc(initial_state, steps, progress=True)
             else:
-                sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders), moves=move, backend=backend)
-                sampler.run_mcmc(pos, steps, progress=True)
+                sampler = emcee.EnsembleSampler(nwalkers, nparams, lnprob, args=(sci_specs, orders, limits), moves=move, backend=backend)
+                sampler.run_mcmc(initial_state, steps, progress=True)
             
             print(f"Mean acceptance fraction: {np.mean(sampler.acceptance_fraction):.3f}")
             print(sampler.acceptance_fraction)
@@ -624,20 +635,14 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ############### Re-Analyze Output ################
         ##################################################
 
-        flat_samples = sampler.get_chain(discard=discard,  flat=True)
-        
+        flat_samples = sampler.get_chain(discard=discard, flat=True)
+
         # mcmc[:, i] (3 by N) = [value, lower, upper]
         mcmc = np.empty((3, nparams))
         for i in range(nparams):
             mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
         
         mcmc = pd.DataFrame(mcmc, columns=params)
-        
-        # calculate veiling params
-        veiling_params = []
-        for order in orders:
-            model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=str(order), modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
-            veiling_params.append(mcmc.veiling[0] / np.median(model_veiling.flux))
 
             
         ##################################################
@@ -645,57 +650,26 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ##################################################
         models = []
         models_notel = []
-        model_dips = []
-        model_stds = []
+        other_params = {}
         for i, order in enumerate(orders):
-            model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_specs[i], logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+            model, model_notel = smart.makeModel(mcmc.teff[0], data=sci_specs[i], order=order, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
             models.append(copy.deepcopy(model))
             models_notel.append(copy.deepcopy(model_notel))
             
-            model_dips.append(np.median(model_notel.flux) - min(model_notel.flux))
-            model_stds.append(np.std(model_notel.flux))
+            # calculate veiling params and snrs        
+            model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=str(order), modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
+            other_params[f'veiling_param_O{order}'] = mcmc.veiling[0] / np.median(model_veiling.flux)
+            other_params[f'snr_O{order}'] = np.median(sci_specs[0].flux/sci_specs[0].noise)
+
+            # calculate model dips and stds
+            other_params[f'model_dip_O{order}'] = np.median(model_notel.flux) - min(model_notel.flux)
+            other_params[f'model_std_O{order}'] = np.std(model_notel.flux)
 
 
-    ##################################################
-    ################# Writing Result #################
-    ##################################################
-    # teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset1, wave_offset2
-    result = {
-        'HC2000':               name,
-        'year':                 date[0],
-        'month':                date[1],
-        'day':                  date[2],
-        'sci_frames':           sci_frames,
-        'tel_frames':           tel_frames,
-        'itime':                itime,
-        'teff':                 mcmc.teff,
-        'vsini':                mcmc.vsini,
-        'rv':                   mcmc.rv, 
-        'rv_helio':             mcmc.rv[0] + barycorr, 
-        'airmass':              mcmc.airmass, 
-        'pwv':                  mcmc.pwv, 
-        'veiling':              mcmc.veiling, 
-        'veiling_param_O32':    veiling_params[0],
-        'veiling_param_O33':    veiling_params[1],
-        'lsf':                  mcmc.lsf, 
-        'noise':                mcmc.noise,
-        'model_dip_O32':        model_dips[0],
-        'model_std_O32':        model_stds[0],
-        'model_dip_O33':        model_dips[1],
-        'model_std_O33':        model_stds[1], 
-        'wave_offset_O32':      mcmc.wave_offset_O32, 
-        'wave_offset_O33':      mcmc.wave_offset_O33, 
-        'snr_O32':              np.median(sci_specs[0].flux/sci_specs[0].noise), 
-        'snr_O33':              np.median(sci_specs[1].flux/sci_specs[1].noise)
-    }
-    
-    ########## Write Parameters ##########
-    with open(save_path + 'MCMC_Params.txt', 'w') as file:
-        for key, value in result.items():
-            if isinstance(value, Iterable) and (not isinstance(value, str)):
-                file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
-            else:
-                file.write('{}: \t{}\n'.format(key, value))
+        ##################################################
+        ################# Writing Result #################
+        ##################################################
+        result = get_result(mcmc)
 
 
     ##################################################
@@ -904,15 +878,23 @@ if __name__=='__main__':
     
     else:
         multiprocess=True
-        dates = [(15, 12, 23)]
-        names = [322]
-        sci_frames = [[75, 76, 77, 78]]
-        tel_frames = [[79, 80, 80, 79]]
+        dates = [(22, 1, 20)]
+        names = [172]
+        sci_frames = [[40, 41, 42, 43]]
+        tel_frames = [[49, 50, 50, 49]]
 
     
     dim_check = [len(_) for _ in [dates, names, sci_frames, tel_frames]]
     if not all(_==dim_check[0] for _ in dim_check):
         sys.exit('Dimensions not agree! dates: {}, names: {}, sci_frames:{}, tel_frames:{}.'.format(*dim_check))
+    
+    priors = {
+        'vsini': (0, 40),
+        'veiling': (0, 1e5),
+        'lsf': (1, 10),
+        'noise': (1, 5),
+        'wave_offset': (-.2, .2)
+    }
     
     for i in range(len(names)):
         infos = {
@@ -922,4 +904,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=multiprocess, steps=300)
+        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=multiprocess, steps=300, priors=priors)
