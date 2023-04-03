@@ -1,8 +1,10 @@
+import os
 import csv
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 
+user_path = os.path.expanduser('~') 
 
 def fit(teff):
     '''Fit for mass, and logL using Palla model assuming a 2-Myr age.
@@ -12,7 +14,7 @@ def fit(teff):
     '''
     
     model_name = 'Palla'
-    model_path = '/home/l3wei/ONC/Models/' + model_name + '/' + model_name + '_Model.csv'
+    model_path = f'{user_path}/ONC/starrynight/models/' + model_name + '/' + model_name + '_Model.csv'
     
     if np.shape(teff)[1] == 2:
         teff = np.array([teff[:, 0], teff[:, 0] - teff[:, 1], teff[:, 0] + teff[:, 1]]).transpose()
@@ -62,7 +64,7 @@ if __name__ == '__main__':
     
     # read sample teff
     teff = []
-    data_path = '/home/l3wei/ONC/Data/nirspec sources.csv'
+    data_path = f'{user_path}/ONC/Data/nirspec sources.csv'
     with open(data_path, 'r') as file:
         reader = csv.DictReader(file)
         for line in reader:

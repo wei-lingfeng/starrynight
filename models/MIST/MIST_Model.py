@@ -4,7 +4,9 @@ import csv
 import matplotlib.pyplot as plt
 from scipy import interpolate
 
-model_path = "/home/l3wei/ONC/Models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS"
+user_path = os.path.expanduser('~') 
+
+model_path = f"{user_path}/ONC/starrynight/models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_EEPS"
 save_path = 'MIST_Model.csv'
 
 mass = []

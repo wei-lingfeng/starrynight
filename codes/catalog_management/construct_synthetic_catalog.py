@@ -1,3 +1,4 @@
+import os
 import copy
 import collections
 import numpy as np
@@ -7,15 +8,13 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.coordinates import ICRS
 
-# sys.path.insert(0, r'/home/l3wei/ONC')
+from starrynight.models.BHAC15 import BHAC15_Fit
+from starrynight.models.Feiden import Feiden_Fit
+from starrynight.models.MIST import MIST_Fit
+from starrynight.models.Palla import Palla_Fit
+from starrynight.models.DAntona import DAntona_Fit
 
-from Models.BHAC15 import BHAC15_Fit
-from Models.Feiden import Feiden_Fit
-from Models.MIST import MIST_Fit
-from Models.Palla import Palla_Fit
-from Models.DAntona import DAntona_Fit
-
-
+user_path = os.path.expanduser('~')
 ###############################################
 ################## Functions ##################
 ###############################################
@@ -636,7 +635,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     trapezium_stars.insert(2, '_DEJ2000', np.nan)
     
     # Get RA DEC from nirspec catalog
-    hc2000 = pd.read_csv('/home/l3wei/ONC/Catalogs/HC2000.csv', dtype={'[HC2000]': str})
+    hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
     for i in range(len(trapezium_stars)):
         index = list(hc2000['[HC2000]']).index(trapezium_stars.loc[i, 'HC2000'])
         coord = SkyCoord(' '.join((hc2000['RAJ2000'][index], hc2000['DEJ2000'][index])), unit=(u.hourangle, u.deg))
@@ -895,14 +894,14 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
 
 
 if __name__=='__main__':
-    nirspec_path        = '/home/l3wei/ONC/Catalogs/nirspec sources.csv'
-    chris_table_path    = '/home/l3wei/ONC/Catalogs/Chris\'s Table.csv'
-    apogee_path         = '/home/l3wei/ONC/Catalogs/apogee x 2mass.csv'
-    kounkel_path        = '/home/l3wei/ONC/Catalogs/kounkel 2018.csv'
-    pm_path             = '/home/l3wei/ONC/Catalogs/proper motion.csv'
-    gaia_path           = '/home/l3wei/ONC/Catalogs/gaia dr3.csv'
-    hillenbrand_path    = '/home/l3wei/ONC/Catalogs/hillenbrand mass.csv'
-    tobin_path          = '/home/l3wei/ONC/Catalogs/tobin 2009.csv'
-    save_path           = '/home/l3wei/ONC/Catalogs/'
+    nirspec_path        = f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv'
+    chris_table_path    = f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv'
+    apogee_path         = f'{user_path}/ONC/starrynight/catalogs/apogee x 2mass.csv'
+    kounkel_path        = f'{user_path}/ONC/starrynight/catalogs/kounkel 2018.csv'
+    pm_path             = f'{user_path}/ONC/starrynight/catalogs/proper motion.csv'
+    gaia_path           = f'{user_path}/ONC/starrynight/catalogs/gaia dr3.csv'
+    hillenbrand_path    = f'{user_path}/ONC/starrynight/catalogs/hillenbrand mass.csv'
+    tobin_path          = f'{user_path}/ONC/starrynight/catalogs/tobin 2009.csv'
+    save_path           = f'{user_path}/ONC/starrynight/catalogs/'
 
     sources, sources_epoch_combined = construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kounkel_path, pm_path, gaia_path, hillenbrand_path, tobin_path, save_path)

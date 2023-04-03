@@ -215,7 +215,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     name = str(name)
     sci_frames = infos['sci_frames']
     tel_frames = infos['tel_frames']
-
+    
     print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
     print(f'Object:\t{name}')
     print(f'Science  Frames:\t{sci_frames}')
@@ -227,7 +227,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     for order in orders:
         params += ['wave_offset_O{}'.format(order)]
     params_stripped = [_.strip('|'.join([f'_O{order}' for order in orders])) for _ in params]
-
+    
     nparams = len(params)
     discard = steps - 100
     
@@ -341,11 +341,11 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             
             # Special Case
             if date == (19, 1, 12) and order == 32:
-                idx = sci_spec.wave < 23980
-                sci_spec.pixel  = sci_spec.pixel[idx]
-                sci_spec.flux   = sci_spec.flux [idx]
-                sci_spec.noise  = sci_spec.noise[idx]
-                sci_spec.wave   = sci_spec.wave [idx]
+                mask4 = sci_spec.wave > 23980
+                sci_spec.pixel  = ma.MaskedArray(sci_spec.pixel, mask=mask4)
+                sci_spec.wave   = ma.MaskedArray(sci_spec.wave,  mask=mask4)
+                sci_spec.flux   = ma.MaskedArray(sci_spec.flux,  mask=mask4)
+                sci_spec.noise  = ma.MaskedArray(sci_spec.noise, mask=mask4)
             
             barycorrs.append(smart.barycorr(sci_spec.header).value)
             

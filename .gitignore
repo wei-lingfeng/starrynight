@@ -17,8 +17,7 @@ __pycache__
 
 # Results #
 ###########
-/codes/data_processing/linear*
-/codes/data_processing/power*
+/codes/data_processing/vrel_results
 /codes/data_processing/offset fit/
 
 # Test Files #
