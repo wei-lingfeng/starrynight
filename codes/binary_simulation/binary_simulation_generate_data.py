@@ -1,0 +1,164 @@
+# -*- coding: utf-8 -*-
+# Generate binary simulation data using python 2 for later plotting.
+from __future__ import division
+import os
+import velbin
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+from scipy.stats import norm
+
+user_path = os.path.expanduser('~')
+
+def simulate_binaries(sources, fbin, n_sims, plot=False):
+    n_sims = int(n_sims)
+
+    sources = sources.loc[sources.theta_orionis.isna()].reset_index(drop=True)
+
+    N = len(sources)
+    print('N={}'.format(N))
+    vr = sources.vr
+    vr_err = sources.vr_e
+    mass_MIST = sources.loc[~sources.mass_MIST.isna(), 'mass_MIST']
+
+    # sort the data
+    vr_err_sorted = np.sort(vr_err)
+    mass_MIST_sorted = np.sort(mass_MIST)
+
+    # calculate the porportional values of samples
+    p_vr_err = 1. * np.arange(len(vr)) / (len(vr) - 1)
+    p_mass_MIST = 1. * np.arange(len(mass_MIST)) / (len(mass_MIST) - 1)
+
+    # interpolate inverse cdf
+    # cdf_vr_err(vr_err_sorted) = p_vr_err
+    # cdf_vr_err(mass_MIST_sorted) = p_mass_MIST
+    inv_cdf_vr_err = interp1d(p_vr_err, vr_err_sorted)
+    inv_cdf_mass_MIST = interp1d(p_mass_MIST, mass_MIST_sorted)
+    
+    # if fbin==0.5:
+    #     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 8))
+    #     # plot cdf
+    #     ax1.plot(vr_err_sorted, p_vr_err)
+    #     ax1.set_title('CDF $v_\mathrm{err}$')
+    #     ax1.set_xlabel('$v_\mathrm{err}$')
+    #     ax1.set_ylabel('$p$')
+
+    #     ax2.plot(mass_MIST_sorted, p_mass_MIST)
+    #     ax2.set_title('CDF Mass')
+    #     ax2.set_xlabel('Mass ($M_\odot$)')
+    #     ax2.set_ylabel('$p$')
+
+    #     # plot inverse cdf
+    #     ax3.plot(p_vr_err, inv_cdf_vr_err(p_vr_err))
+    #     ax3.set_title('Inverse CDF $v_\mathrm{err}$')
+    #     ax3.set_xlabel('$p$')
+    #     ax3.set_ylabel('$v_\mathrm{err}$')
+
+    #     ax4.plot(p_mass_MIST, inv_cdf_mass_MIST(p_mass_MIST))
+    #     ax4.set_title('Inverse CDF Mass')
+    #     ax4.set_xlabel('$p$')
+    #     ax4.set_ylabel('$v_\mathrm{err}$')
+    #     plt.subplots_adjust(hspace=0.3)
+    #     plt.show()
+
+    # Parameters
+    dates = (0., )
+    sigma = 2
+
+    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
+        raw = file.readlines()
+    raw = [line for line in raw if line.startswith('σ_vr:')][0]
+    vdisp_vr, vdisp_vr_e = eval(raw.strip('σ_vr:\t\n'))
+
+    limit_low, limit_high = 1, 4
+
+    # Simulation
+    valid_sims = 0
+    v_dispersions = np.empty(n_sims)
+
+    print('Start generating data for fbin={}...'.format(fbin))
+    while valid_sims < n_sims:
+        all_binaries = velbin.solar(nbinaries=N)
+        all_binaries.draw_mass_ratio('flat')
+        all_binaries.draw_eccentricities()
+
+        # masses = np.random.uniform(mass_low, mass_high, N)
+        masses = inv_cdf_mass_MIST(np.random.uniform(low=0, high=1., size=N))
+
+        velocities = all_binaries.velocity(masses)
+        
+        vdisp = np.random.uniform(low=limit_low, high=limit_high, size=1)
+        sigvel = inv_cdf_vr_err(np.random.uniform(low=0, high=1., size=N))
+
+        # fake dataset
+        v_systematic = np.random.randn(N) * vdisp
+        v_bin_offset = np.array([all_binaries[:N].velocity(masses, time)[0, :] for time in dates])
+        v_bin_offset[:, np.random.rand(N) > fbin] = 0.
+        v_meas_offset = np.random.randn(v_bin_offset.size).reshape(v_bin_offset.shape) * np.atleast_1d(sigvel)
+        
+        mock_dataset = np.squeeze(v_systematic[np.newaxis, :] + v_bin_offset + v_meas_offset)
+        v_intrinsic = v_systematic
+        v_binary = np.squeeze(v_bin_offset)
+        v_errors = np.squeeze(v_meas_offset)
+        v_syst_errors = np.squeeze(v_systematic[np.newaxis, :] + v_meas_offset)
+        # plt.hist(v_binary[~np.isnan(v_binary)], bins=np.linspace(-10, 10, 20), density=True, histtype='step', label='Binary')
+        # plt.hist(v_intrinsic[~np.isnan(v_intrinsic)], bins=np.linspace(-10, 10, 20), density=True, histtype='step', label='Intrinsic')
+        # plt.legend()
+        # plt.show()
+
+        mean_mock, std_mock = norm.fit(mock_dataset[abs(mock_dataset) <= 7])
+        # mean_mock, std_mock = norm.fit(mock_dataset)
+        
+        if abs(std_mock - vdisp_vr) > vdisp_vr_e * sigma:
+            continue
+        
+        v_dispersions[valid_sims] = vdisp
+        valid_sims += 1
+    
+    # Plot
+    if plot & (fbin==0.5):
+        vr_offset = vr - np.mean(vr)
+        mean_obs, std_obs = norm.fit(vr_offset[abs(vr_offset) <= 7])
+        x = np.linspace(-10, 10, 1000)
+        y_mock = norm.pdf(x, mean_mock, std_mock)
+        y_intrinsic = norm.pdf(x, 0, vdisp)
+        y_obs = norm.pdf(x, mean_obs, std_obs)
+
+
+        bins = np.linspace(-10, 10, 20)
+        linewidth = 1.5
+        alpha = 0.7
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.hist(mock_dataset, color='C0', bins=bins, histtype='step', density=True, alpha=alpha, linewidth=linewidth)
+        ax.hist(vr - np.mean(vr), color='C7', label='Observed', bins=bins, histtype='step', density=True, alpha=alpha, linewidth=linewidth)
+        ax.hist(v_errors, color='C2', label='Errors', bins=bins, histtype='step', density=True, alpha=alpha, linestyle='-.', linewidth=linewidth)
+        ax.hist(v_binary, color='C6', label=r'Binaries ({0:.0%})'.format(fbin), bins=bins, histtype='step', density=True, alpha=alpha, linestyle='--', linewidth=linewidth)
+        ax.plot(x, y_intrinsic, color='C3', label='Intrinsic', linestyle=':', linewidth=linewidth*1.2)
+        ax.plot(x, y_mock, color='C0', label='Intrinsic +' + '\n' + 'Binaries +'  + '\n' + 'Errors', linewidth=1)
+        ax.plot(x, y_obs, color='C7', label='Observed', linewidth=1)
+        ax.legend(fontsize=12)
+        ax.set_ylim((0, 0.2))
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.set_xlabel(r'$\Delta v_r$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+        ax.set_ylabel('Normalized Distribution', fontsize=15)
+        plt.savefig(f'{user_path}/ONC/figures/Binary Simulation Histogram.pdf')
+        plt.show()
+    
+    else:
+        with open(f'{user_path}/ONC/starrynight/codes/binary_simulation/v_dispersion fbin={fbin:.2f}.npy', 'wb') as file:
+            np.save(file, v_dispersions)
+        print(f'Simulation of fbin {fbin:.0%} is now finished!')
+    return v_dispersions
+
+
+# n_sims = 1e5
+# fbins = np.linspace(0, 1, 5, endpoint=True)
+# plot = False
+
+n_sims = 1
+fbins=[0.5]
+plot = True
+
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv')
+v_dispersions = [simulate_binaries(sources=sources, fbin=fbin, n_sims=n_sims, plot=plot) for fbin in fbins]

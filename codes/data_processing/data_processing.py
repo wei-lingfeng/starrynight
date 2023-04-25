@@ -943,7 +943,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     print('Fitting for all velocity dispersion...')
     vdisps_all = fit_vdisp(
         sources,
-        save_path=save_path + 'All/', 
+        save_path=save_path + 'all/', 
         MCMC=MCMC
     )
     
@@ -952,18 +952,18 @@ def vdisp_all(sources, save_path, MCMC=True):
     vdisp_1d[0] = ((vdisps_all['sigma_RA'][0]**2 + vdisps_all['sigma_DE'][0]**2 + vdisps_all['sigma_vr'][0]**2)/3)**(1/2)
     vdisp_1d[1] = np.sqrt(1 / (3*vdisp_1d[0])**2 * ((vdisps_all['sigma_RA'][0] * vdisps_all['sigma_RA'][1])**2 + (vdisps_all['sigma_DE'][0] * vdisps_all['sigma_DE'][1])**2 + (vdisps_all['sigma_vr'][0] * vdisps_all['sigma_vr'][1])**2))
     
-    with open(save_path + 'All/MCMC Params.txt', 'r') as file:
+    with open(save_path + 'all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
     if not any([line.startswith('σ_1D:') for line in raw]):
         raw.insert(6, 'σ_1D:\t{}, {}\n'.format(vdisp_1d[0], vdisp_1d[1]))
-        with open(save_path + 'All/MCMC Params.txt', 'w') as file:
+        with open(save_path + 'all/mcmc_params.txt', 'w') as file:
             file.writelines(raw)
     
     # kim velocity dispersions
     print('Fitting for Kim velocity dispersion...')
     fit_vdisp(
         sources.loc[~sources.ID_kim.isna()].reset_index(drop=True),
-        save_path=save_path + 'Kim/', 
+        save_path=save_path + 'kim/', 
         MCMC=MCMC
     )
 
@@ -971,7 +971,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     print('Fitting for Gaia velocity dispersion...')
     fit_vdisp(
         sources.loc[~sources.ID_gaia.isna()].reset_index(drop=True),
-        save_path=save_path + 'Gaia/',
+        save_path=save_path + 'gaia/',
         MCMC=MCMC
     )
     

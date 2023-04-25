@@ -153,19 +153,19 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         ax.set_xlabel("step number");
         plt.minorticks_on()
         fig.align_ylabels()
-        plt.savefig(save_path + 'MCMC Walker.png', dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + 'mcmc_walker.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         ########## Corner Plot ##########
         fig = corner.corner(
             flat_samples, labels=labels, truths=results[:, 0], quantiles=[0.16, 0.84]
         )
-        plt.savefig(save_path + 'MCMC_Corner.png', dpi=300, bbox_inches='tight')
+        plt.savefig(save_path + 'mcmc_corner.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         
         ########## Write Parameters ##########
-        with open(save_path + 'MCMC Params.txt', 'w') as file:
+        with open(save_path + 'mcmc_params.txt', 'w') as file:
             for ylabel, values in zip(labels, results):
                 file.write('{}:\t{}\n'.format(ylabel, ", ".join(str(value) for value in values)))
     
