@@ -68,7 +68,10 @@ def corner_plot(data, labels, limit, save_path):
                     axs[i, j].tick_params(axis='both', which='major', labelsize=12)
     
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     return fig
 
 
@@ -291,7 +294,10 @@ def compare_velocity(sources, save_path=None):
     
     fig.subplots_adjust(wspace=0.28)
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     plt.show()
 
 
@@ -299,7 +305,7 @@ def compare_velocity(sources, save_path=None):
 #################### Plot 2D ####################
 #################################################
 
-def plot_2d(sources, scale=0.0025):
+def plot_2d(sources, scale=0.003):
     '''Generate 2D plots of position and velocity.
     - Parameters:
         - sources_coord: astropy coordinates with ra, dec, pm_ra_cosdec, pm_dec.
@@ -423,7 +429,7 @@ def plot_2d(sources, scale=0.0025):
 
 def plot_pm_vr(sources, save_path=None):
     center = SkyCoord("05h35m17.5s", "-05d23m16.4s")
-    image_path = f'{user_path}/ONC/figures/Skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
+    image_path = f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
     hdu = fits.open(image_path)[0]
     wcs = WCS(image_path)
     box_size = 5200
@@ -465,7 +471,10 @@ def plot_pm_vr(sources, save_path=None):
     cax.set_label(label=r'RV $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', size=12, labelpad=10)
     
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     plt.show()
 
 
@@ -891,7 +900,10 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
 
     if save_path:
-        plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight')
     plt.close()
     
     ########## Updating the original DataFrame ##########
@@ -1243,6 +1255,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.pdf', bbox_inches='tight')
+    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.png', bbox_inches='tight', transparent=True)
     plt.show()
 
 
@@ -1419,6 +1432,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     plt.savefig(f'{user_path}/ONC/figures/vdisp vs mass.pdf', bbox_inches='tight')
+    plt.savefig(f'{user_path}/ONC/figures/vdisp vs mass.png', bbox_inches='tight', transparent=True)
     plt.show()
 
 
@@ -1726,7 +1740,10 @@ def pm_angle_distribution(sources, save_path=None):
     xticklabels[0] = '±180°   '
     ax.set_xticklabels(xticklabels)
     if save_path:
-        plt.savefig(save_path, bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     plt.show()
 
 
@@ -1767,7 +1784,10 @@ def compare_chris(sources, save_path=None):
     ax.set_xlabel('Veiling Param O33', fontsize=12)
     ax.set_ylabel('Counts', fontsize=12)
     if save_path:
-        plt.savefig(save_path + '/compare Chris veiling_param_O33.pdf', bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(save_path + '/compare Chris veiling_param_O33.pdf', bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path + '/compare Chris veiling_param_O33.pdf', bbox_inches='tight')
     plt.show()
     
     # compare teff
@@ -1789,22 +1809,29 @@ def compare_chris(sources, save_path=None):
     ax.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     ax.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     if save_path:
-        plt.savefig(save_path + '/compare Chris vr.pdf', bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(save_path + '/compare Chris vr.pdf', bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path + '/compare Chris vr.pdf', bbox_inches='tight')
     plt.show()
 
 
-def compare_teff_with_apogee(sources):
+def compare_teff_with_apogee(sources, save_path=None):
     median_diff = np.nanmedian(abs(sources.teff_apogee - sources.teff_nirspec))
     max_diff = np.nanmax(abs(sources.teff_apogee - sources.teff_nirspec))
     
-    fig, ax = plt.subplots(figsize=(4, 3))
-    ax.errorbar(sources.teff_nirspec, sources.teff_apogee, xerr=sources.teff_e_nirspec, yerr=sources.teff_e_apogee, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
+    fig, ax = plt.subplots(figsize=(5, 4))
+    ax.errorbar(sources.teff_nirspec.values, sources.teff_apogee.values, xerr=sources.teff_e_nirspec.values, yerr=sources.teff_e_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
     ax.plot([3600, 4800], [3600, 4800], linestyle='--', color='C3', label='Equal Line')
-    ax.plot([3600, 4800], [3600 + median_diff, 4800 + median_diff], linestyle='--', color='C0', label='Median Difference')
-    ax.plot([3600, 4800], [3600 + max_diff, 4800 + max_diff], linestyle='--', color='C1', label='Maximum Difference')
+    ax.plot([3400, 4600], [3400 + median_diff, 4600 + median_diff], linestyle=':', color='C0', label=f'Median Difference: {median_diff:.2f} K')
     ax.legend()
-    ax.set_xlim((3400, 5000))
-    ax.set_ylim((3550, 6200))
+    ax.set_xlabel('NIRSPAO Teff (K)')
+    ax.set_ylabel('APOGEE Teff (K)')
+    if save_path:
+        if save_path.endswith('.png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     plt.show()
     
     return median_diff, max_diff
@@ -1899,7 +1926,7 @@ def preprocessing(sources):
     offset_RA = np.nanmedian(sources.pmRA_gaia - sources.pmRA_kim)
     offset_DE = np.nanmedian(sources.pmDE_gaia - sources.pmDE_kim)
     print('offset in RA and DEC is {} mas/yr.'.format((offset_RA, offset_DE)))
-    with open('pm_offset.txt', 'w') as file:
+    with open(f'{user_path}/ONC/starrynight/codes/data_processing/pm_offset.txt', 'w') as file:
         file.write('pmRA_gaia - pmRA_kim = {}\npmDE_gaia - pmDE_kim = {}'.format(offset_RA, offset_DE))
 
     # Plot pm comparison
@@ -1985,14 +2012,14 @@ def preprocessing(sources):
     ))
 
     sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', index=False)
-    return sources_2d
+    return sources, sources_2d
 
 #################################################
 ############# End of Pre-Processing #############
 #################################################
 
 # preprocessing
-sources_2d = preprocessing(sources)
+sources, sources_2d = preprocessing(sources)
 
 compare_velocity(sources_2d, save_path=f'{user_path}/ONC/figures/Velocity Comparison.pdf')
 # Save html figures
@@ -2000,11 +2027,11 @@ fig_2d = plot_2d(sources_2d)
 # fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
 # fig_3d1, fig_3d2 = plot_3d(sources_coord_3d)
 # fig_3d2.write_html(f'{user_path}/ONC/figures/sky 3d small.html')
-plot_pm_vr(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
+plot_pm_vr(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.png')
 
 # pm angle distribution
 # pm_angle_distribution(sources_2d)
-pm_angle_distribution(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/pm direction.pdf')
+pm_angle_distribution(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/pm direction.png')
 
 # compare mass
 compare_mass(sources_2d, save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
@@ -2039,12 +2066,12 @@ radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
 # # write the original
 # sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.csv', index=False)
 
-# # Remove the high relative velocity sources.
-# vr_threshold = 40
-# print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
-# sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
+# Remove the high relative velocity sources.
+vr_threshold = 40
+print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
+sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
 
-# median_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
+median_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
 # print(f'Median difference in teff: {median_diff:.2f} K')
 # print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
@@ -2130,58 +2157,56 @@ for i, radius in enumerate(radii):
         if line_maximum_offset.startswith('k_resample:\t'):
             ks_maximum_offset[:, i] = np.array([float(_) for _ in line_maximum_offset.strip('k_resample:\t\n').split('± ')])
 
-colors = ['C7', 'C1', 'C0', 'C3']
+colors = ['C0', 'C3']
 fig, ax = plt.subplots()
-gray_errorbar   = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5)
-amber_errorbar  = ax.errorbar(radii.value, ks_remove_high_vrs[0], yerr=ks_remove_high_vrs[1], color=colors[1], fmt='o-', markersize=5, capsize=5)
-blue_errorbar   = ax.errorbar(radii.value, ks_median_offset[0], yerr=ks_median_offset[1], color=colors[2], fmt='o-', markersize=5, capsize=5)
-red_errorbar    = ax.errorbar(radii.value, ks_maximum_offset[0], yerr=ks_maximum_offset[1], color=colors[3], fmt='o-', markersize=5, capsize=5)
-gray_fill       = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor='C7', alpha=0.4)
-amber_fill      = ax.fill_between(radii.value, y1=ks_remove_high_vrs[0]-ks_remove_high_vrs[1], y2=ks_remove_high_vrs[0]+ks_remove_high_vrs[1], edgecolor='none', facecolor=colors[1], alpha=0.4)
-blue_fill       = ax.fill_between(radii.value, y1=ks_median_offset[0]-ks_median_offset[1], y2=ks_median_offset[0]+ks_median_offset[1], edgecolor='none', facecolor=colors[2], alpha=0.4)
-red_fill        = ax.fill_between(radii.value, y1=ks_maximum_offset[0]-ks_maximum_offset[1], y2=ks_maximum_offset[0]+ks_maximum_offset[1], edgecolor='none', facecolor=colors[3], alpha=0.4)
-hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles='--', colors='k')
-ax.legend(handles=[(gray_errorbar, gray_fill), (amber_errorbar, amber_fill), (blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Remove High RVs', 'Median Offset', f'Maximum Offset', 'Zero Slope'], fontsize=12)
+blue_errorbar  = ax.errorbar(radii.value, ks_remove_high_vrs[0], yerr=ks_remove_high_vrs[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=1)
+red_errorbar   = ax.errorbar(radii.value, ks_median_offset[0], yerr=ks_median_offset[1], color=colors[1], fmt='o-', markersize=5, capsize=5, zorder=2)
+blue_fill      = ax.fill_between(radii.value, y1=ks_remove_high_vrs[0]-ks_remove_high_vrs[1], y2=ks_remove_high_vrs[0]+ks_remove_high_vrs[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=0)
+red_fill       = ax.fill_between(radii.value, y1=ks_median_offset[0]-ks_median_offset[1], y2=ks_median_offset[0]+ks_median_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=3)
+
+hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles='--', colors='k', lw=2, zorder=4)
+ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Median Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
 ax.set_xlabel('Separation Limits of Neighbors (pc)')
 ax.set_ylabel('Slope of Linear Fit (k)')
+# plt.savefig(f'{user_path}/ONC/figures/slope vs sep.png', bbox_inches='tight', transparent=True)
 plt.show()
 
 
 #################################################
 ############## Velocity Dispersion ##############
 #################################################
-# # Apply rv constraint
-# rv_constraint = ((
-#     abs(sources_2d.vr - np.nanmean(sources_2d.vr)) <= 3*np.nanstd(sources_2d.vr)
-#     ) | (
-#         ~sources_2d.theta_orionis.isna()
-# ))
-# print('3σ RV constraint for velocity dispersion: {} out of {} remains.'.format(sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna()), len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())))
-# print('Accepted radial velocity range: {:.3f} ± {:.3f} km/s.'.format(np.nanmean(sources.vr), 3*np.nanstd(sources.vr)))
-# with open('mean_rv.txt', 'w') as file:
-#     file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'vr'])))
+# Apply rv constraint
+rv_constraint = ((
+    abs(sources_2d.vr - np.nanmean(sources_2d.vr)) <= 3*np.nanstd(sources_2d.vr)
+    ) | (
+        ~sources_2d.theta_orionis.isna()
+))
+print('3σ RV constraint for velocity dispersion: {} out of {} remains.'.format(sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna()), len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())))
+print('Accepted radial velocity range: {:.3f} ± {:.3f} km/s.'.format(np.nanmean(sources.vr), 3*np.nanstd(sources.vr)))
+with open('vdisp results/mean_rv.txt', 'w') as file:
+    file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'vr'])))
 
-# fig, ax = plt.subplots(figsize=(6, 4))
-# ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.vr, yerr=sources_2d.vr_e, fmt='.', label='Measurements')
-# ax.hlines([np.nanmean(sources_2d.vr) - 3*np.nanstd(sources_2d.vr), np.nanmean(sources_2d.vr) + 3*np.nanstd(sources_2d.vr)], xmin=min(sources_2d.sep_to_trapezium), xmax=max(sources_2d.sep_to_trapezium), linestyles='--', colors='C1', label='3σ range')
-# ax.set_xlabel('Separation From Trapezium (arcmin)')
-# ax.set_ylabel('Radial Velocity')
-# ax.legend()
-# plt.show()
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.vr, yerr=sources_2d.vr_e, fmt='.', label='Measurements')
+ax.hlines([np.nanmean(sources_2d.vr) - 3*np.nanstd(sources_2d.vr), np.nanmean(sources_2d.vr) + 3*np.nanstd(sources_2d.vr)], xmin=min(sources_2d.sep_to_trapezium), xmax=max(sources_2d.sep_to_trapezium), linestyles='--', colors='C1', label='3σ range')
+ax.set_xlabel('Separation From Trapezium (arcmin)')
+ax.set_ylabel('Radial Velocity')
+ax.legend()
+plt.show()
 
-# vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp/', MCMC=MCMC)
+vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp results/', MCMC=MCMC)
 
-# # vdisp vs sep
-# vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp/vdisp vs sep/', MCMC=MCMC)
+# vdisp vs sep
+vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp results/vdisp vs sep/', MCMC=MCMC)
 
-# # vdisp vs mass
-# vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp/vdisp vs mass/', MCMC=MCMC)
+# vdisp vs mass
+vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp results/vdisp vs mass/', MCMC=MCMC)
 
-# #################################################
-# ################ Mass Segregation ###############
-# #################################################
+#################################################
+################ Mass Segregation ###############
+#################################################
 
-# lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
-# lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
 
-# mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')

@@ -19,11 +19,6 @@ def read_text(text):
     
     return value
 
-def value_error(value):
-    '''Return [value, error] from iterable of [value, lower, upper]
-    '''
-    return [value[0], (value[2] - value[1]) / 2]
-
 
 #################################################
 ################ Parameter setup ################
@@ -170,17 +165,17 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['tel_frames'].append(read_text(line))
             
             elif line.startswith('teff:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['teff'].append(value)
                 result['teff_e'].append(error)
             
             elif line.startswith('vsini:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['vsini'].append(value)
                 result['vsini_e'].append(error)
             
             elif line.startswith('rv:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['rv'].append(value)
                 result['rv_e'].append(error)
             
@@ -188,17 +183,17 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['rv_helio'].append(read_text(line))
             
             elif line.startswith('airmass:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['airmass'].append(value)
                 result['airmass_e'].append(error)
             
             elif line.startswith('pwv:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['pwv'].append(value)
                 result['pwv_e'].append(error)
             
             elif line.startswith('veiling:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['veiling'].append(value)
                 result['veiling_e'].append(error)
             
@@ -209,12 +204,12 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['veiling_param_O33'].append(read_text(line))
             
             elif line.startswith('lsf:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['lsf'].append(value)
                 result['lsf_e'].append(error)
             
             elif line.startswith('noise:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['noise'].append(value)
                 result['noise_e'].append(error)
             
@@ -231,22 +226,22 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['model_std_O33'].append(read_text(line))
             
             elif line.startswith('wave_offset_O32:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['wave_offset_O32'].append(value)
                 result['wave_offset_O32_e'].append(error)
             
             elif line.startswith('flux_offset_O32:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['flux_offset_O32'].append(value)
                 result['flux_offset_O32_e'].append(error)
             
             elif line.startswith('wave_offset_O33:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['wave_offset_O33'].append(value)
                 result['wave_offset_O33_e'].append(error)
             
             elif line.startswith('flux_offset_O33:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['flux_offset_O33'].append(value)
                 result['flux_offset_O33_e'].append(error)
             
@@ -265,7 +260,7 @@ def nirspec_sources(dates, names, exceptions, save_path):
         
         for line in lines:
             if line.startswith('logg:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['logg'].append(value)
                 result['logg_e'].append(error)
             
@@ -279,12 +274,12 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['model_std_O34'].append(read_text(line))
             
             elif line.startswith('wave_offset_O34:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['wave_offset_O34'].append(value)
                 result['wave_offset_O34_e'].append(error)
             
             elif line.startswith('flux_offset_O34:'):
-                value, error = value_error(read_text(line))
+                value, error = read_text(line)
                 result['flux_offset_O34'].append(value)
                 result['flux_offset_O34_e'].append(error)
             
@@ -302,17 +297,17 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 
                 for line in lines:
                     if line.startswith('teff:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['teff'][-1] = value
                         result['teff_e'][-1] = error
                     
                     elif line.startswith('vsini:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['vsini'][-1] = value
                         result['vsini_e'][-1] = error
                     
                     elif line.startswith('rv:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['rv'][-1] = value
                         result['rv_e'][-1] = error
                     
@@ -320,17 +315,17 @@ def nirspec_sources(dates, names, exceptions, save_path):
                         result['rv_helio'][-1] = read_text(line)
                     
                     elif line.startswith('airmass:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['airmass'][-1] = value
                         result['airmass_e'][-1] = error
                     
                     elif line.startswith('pwv:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['pwv'][-1] = value
                         result['pwv_e'][-1] = error
                     
                     elif line.startswith('veiling:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['veiling'][-1] = value
                         result['veiling_e'][-1] = error
                     
@@ -338,12 +333,12 @@ def nirspec_sources(dates, names, exceptions, save_path):
                         result['veiling_param_O35'].append(read_text(line))
                     
                     elif line.startswith('lsf:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['lsf'][-1] = value
                         result['lsf_e'][-1] = error
                     
                     elif line.startswith('noise:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['noise'][-1] = value
                         result['noise_e'][-1] = error
                     
@@ -354,12 +349,12 @@ def nirspec_sources(dates, names, exceptions, save_path):
                         result['model_std_O35'].append(read_text(line))
                     
                     elif line.startswith('wave_offset_O35:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['wave_offset_O35'].append(value)
                         result['wave_offset_O35_e'].append(error)
                     
                     elif line.startswith('flux_offset_O35:'):
-                        value, error = value_error(read_text(line))
+                        value, error = read_text(line)
                         result['flux_offset_O35'].append(value)
                         result['flux_offset_O35_e'].append(error)
                     

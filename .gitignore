@@ -17,8 +17,7 @@ __pycache__
 
 # Results #
 ###########
-/codes/data_processing/vrel_results
-/codes/data_processing/offset fit/
+/codes/data_processing/*results
 
 # Test Files #
 ##############
@@ -28,7 +27,6 @@ test*
 ################
 /observing/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits
 /codes/binary_proposal/
-/codes/binary_simulation/
 /codes/data_processing/vdisp/
 /codes/data_processing/*.txt
 /codes/data_processing/*.png

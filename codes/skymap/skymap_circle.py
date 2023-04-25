@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,13 +10,15 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.visualization.wcsaxes import SphericalCircle
 
+user_path = os.path.expanduser('~')
+
 ra_offset = 8
 de_offset = 12
 
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
-sources = pd.read_csv('/home/l3wei/ONC/Catalogs/synthetic catalog - epoch combined.csv')
-apogee = pd.read_csv('/home/l3wei/ONC/Catalogs/broader_apogee.csv')
-tobin = pd.read_csv('/home/l3wei/ONC/Catalogs/tobin 2009.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
+apogee = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/broader_apogee.csv')
+tobin = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/tobin 2009.csv')
 
 sources_coord = SkyCoord(ra=sources._RAJ2000.to_numpy()*u.degree, dec=sources._DEJ2000.to_numpy()*u.degree)
 apogee_coord = SkyCoord(ra=apogee._RAJ2000.to_numpy()*u.degree, dec=apogee._DEJ2000.to_numpy()*u.degree)
@@ -26,7 +29,7 @@ apogee['sep_to_trapezium'] = apogee_coord.separation(trapezium).arcmin
 tobin['sep_to_trapezium'] = tobin_coord.separation(trapezium).arcmin
 
 # Load fits file. See https://docs.astropy.org/en/stable/visualization/wcsaxes/index.html.
-image_path = '/home/l3wei/ONC/Figures/Skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
+image_path = f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
 hdu = fits.open(image_path)[0]
 wcs = WCS(image_path)
 
@@ -152,6 +155,6 @@ ax2.set_xlabel('Right Ascension', fontsize=12)
 ax2.set_ylabel('Declination', fontsize=12)
 ax2.legend(loc='upper right')
 plt.tight_layout()
-plt.savefig('/home/l3wei/ONC/Figures/Skymap/Skymap Side-by-Side.pdf', bbox_inches='tight')
-plt.savefig('/home/l3wei/ONC/Figures/Skymap/Skymap Side-by-Side.png', bbox_inches='tight')
+# plt.savefig(f'{user_path}/ONC/Figures/skymap/Skymap Side-by-Side.pdf', bbox_inches='tight')
+plt.savefig(f'{user_path}/ONC/figures/skymap/Skymap Side-by-Side.png', bbox_inches='tight', transparent=True)
 plt.show()

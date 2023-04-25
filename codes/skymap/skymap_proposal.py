@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,11 +10,13 @@ from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.visualization.wcsaxes import SphericalCircle
 
+user_path = os.path.expanduser('~')
+
 ra_offset = 6
 de_offset = 12
 
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
-sources = pd.read_csv('/home/l3wei/ONC/Catalogs/target list.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/target list.csv')
 Parenago_idx = sources.loc[sources.HC2000 == 546].index[0]
 
 sources_coord = SkyCoord(ra=sources._RAJ2000.to_numpy()*u.degree, dec=sources._DEJ2000.to_numpy()*u.degree)
@@ -25,7 +28,7 @@ scale_coord = SkyCoord(['5h35m{:.2f}s -5d24m45s'.format(10.5), '5h35m{:.2f}s -5d
 sources['sep_to_trapezium'] = sources_coord.separation(trapezium).arcmin
 
 # Load fits file. See https://docs.astropy.org/en/stable/visualization/wcsaxes/index.html.
-image_path = '/home/l3wei/ONC/Figures/Skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
+image_path = f'{user_path}/ONC/figures/Skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
 hdu = fits.open(image_path)[0]
 wcs = WCS(image_path)
 
@@ -76,6 +79,6 @@ ax.set_xlabel('Right Ascension', fontsize=12)
 ax.set_ylabel('Declination', fontsize=12)
 ax.legend(loc='upper left')
 plt.tight_layout()
-plt.savefig('/home/l3wei/ONC/Figures/Skymap/Skymap Proposal.pdf', bbox_inches='tight')
-# plt.savefig('/home/l3wei/ONC/Figures/Skymap/Skymap Side-by-Side.png', bbox_inches='tight')
+# plt.savefig(f'{user_path}/ONC/Figures/Skymap/Skymap Proposal.pdf', bbox_inches='tight')
+# plt.savefig(f'{user_path}/ONC/Figures/Skymap/Skymap Side-by-Side.png', bbox_inches='tight')
 plt.show()

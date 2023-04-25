@@ -15,7 +15,6 @@ import corner
 import plotly.graph_objects as go
 from itertools import repeat
 from multiprocessing import Pool
-from scipy.stats import truncnorm
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from collections.abc import Iterable
@@ -89,7 +88,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     ax1.minorticks_on()
     ax1.xaxis.tick_top()
     ax1.tick_params(axis='both', labelsize=12, labeltop=False)  # don't put tick labels at the top
-    ax1.set_ylabel('Normalized Flux', fontsize=15)
+    ax1.set_ylabel('Flux (counts/s)', fontsize=15)
 
     ax2.plot(sci_spec.wave, sci_spec.flux - model.flux, color='k', alpha=0.5, lw=lw)
     ax2.fill_between(sci_spec.wave, -sci_spec.noise, sci_spec.noise, facecolor='0.8')
@@ -115,7 +114,10 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     fig.align_ylabels((ax1, ax2))
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     if save_path is not None:
-        plt.savefig(save_path, bbox_inches='tight')
+        if save_path.endswith('.png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
     if show_figure:
         plt.show()
     
@@ -462,6 +464,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     
     move = [emcee.moves.KDEMove()]
     
+    sys.stdout.flush()
     if initial_mcmc:
         print('MCMC...')
         print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
@@ -492,10 +495,10 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
 
     flat_samples = sampler.get_chain(discard=discard, flat=True)
 
-    # mcmc[:, i] (3 by N) = [value, lower, upper]
-    mcmc = np.empty((3, nparams))
+    # mcmc[:, i] (2 by N) = [value, error]
+    mcmc = np.empty((2, nparams))
     for i in range(nparams):
-        mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
+        mcmc[:, i] = np.array(np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2)
     
     mcmc = pd.DataFrame(mcmc, columns=params)
         
@@ -630,10 +633,10 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
 
         flat_samples = sampler.get_chain(discard=discard, flat=True)
 
-        # mcmc[:, i] (3 by N) = [value, lower, upper]
-        mcmc = np.empty((3, nparams))
+        # mcmc[:, i] (2 by N) = [value, error]
+        mcmc = np.empty((2, nparams))
         for i in range(nparams):
-            mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
+            mcmc[:, i] = np.array([np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2])        
         
         mcmc = pd.DataFrame(mcmc, columns=params)
 
@@ -897,4 +900,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=multiprocess, steps=300, priors=priors)
+        result = model_nirspao(infos=infos, initial_mcmc=False, finetune=True, finetune_mcmc=False, multiprocess=multiprocess, steps=300, priors=priors)

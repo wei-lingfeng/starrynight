@@ -7,6 +7,8 @@ import corner
 import matplotlib.pyplot as plt
 from multiprocessing.pool import Pool
 
+user_path = os.path.expanduser('~')
+
 def log_prior(theta):
     '''Log prior function: ln(p(mu)) + ln(p(sigma))
     ----------
@@ -88,7 +90,7 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     """
     
     global mean_rv
-    with open('/home/l3wei/ONC/Codes/Data Processing/mean_rv.txt', 'r') as file:
+    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp results/mean_rv.txt', 'r') as file:
         mean_rv = eval(file.read())
     
     if not os.path.exists(save_path):
