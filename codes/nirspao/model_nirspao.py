@@ -18,24 +18,18 @@ from multiprocessing import Pool
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from collections.abc import Iterable
-np.set_printoptions(threshold=sys.maxsize)
+# np.set_printoptions(threshold=sys.maxsize)
 
 
-def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None, mark_CO=True, show_figure=False):
+def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=False):
     """Plot spectrum with model and CO lines in order 32 or 33.
 
     Parameters
     ----------
     sci_spec : smart.forward_model.classSpectrum.Spectrum
         science spectrum
-    model_notel : smart.forward_model.classModel.Model
-        model without telluric
-    model : smart.forward_model.classModel.Model
-        model with telluric
-    rv : float
-        radial velocity
-    wave_offset : float
-        wavelength offset
+    result : dictionary
+        dictionary with teff, rv, wave_offset, etc.
     save_path : str, optional
         save path, by default None
     mark_CO : bool, optional
@@ -48,7 +42,9 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     fig, (ax1, ax2)
         figure and axes objects
     """
+    
     order = sci_spec.header['ECHLORD']
+    model, model_notel = smart.makeModel(result['teff'][0], data=sci_spec, order=order, logg=4.0, vsini=result['vsini'][0], rv=result['rv'][0], airmass=result['airmass'][0], pwv=result['pwv'][0], veiling=result['veiling'][0], lsf=result['lsf'][0], wave_offset=result[f'wave_offset_O{order}'][0], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
     if mark_CO:
         # Read CO lines
         co_lines = pd.read_csv('/home/weilingfeng/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
@@ -57,7 +53,7 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
             co_lines = co_lines[co_lines.intensity >= -25].reset_index(drop=True)
         co_lines['wavelength'] = 1/co_lines.frequency * 1e8
         c = 299792.458  # km/s
-        beta = rv/c
+        beta = result['rv'][0]/c
         co_lines.wavelength *= np.sqrt((1 + beta)/(1 - beta))
         co_lines = co_lines[(co_lines.wavelength >= model.wave[0]) & (co_lines.wavelength <= model.wave[-1])].reset_index(drop=True)
         co_lines['alpha'] = co_lines.intensity - min(co_lines.intensity)
@@ -70,13 +66,13 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
     if mark_CO:
         if order==32:
-            ax1.vlines(co_lines.wavelength + wave_offset, ymin=max(sci_spec.flux) + 0.03*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.12*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
-            ax1.text(min(co_lines.wavelength) + wave_offset - 10, max(sci_spec.flux) + 0.07*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
+            ax1.vlines(co_lines.wavelength + result[f'wave_offset_O{order}'][0], ymin=max(sci_spec.flux) + 0.03*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.12*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
+            ax1.text(min(co_lines.wavelength) + result[f'wave_offset_O{order}'][0] - 10, max(sci_spec.flux) + 0.07*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.03)
             ax2.margins(x=0.03)
         elif order==33:
-            ax1.vlines(co_lines.wavelength + wave_offset, ymin=max(sci_spec.flux) + 0.02*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.07*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
-            ax1.text(min(co_lines.wavelength) + wave_offset - 15, max(sci_spec.flux) + 0.043*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
+            ax1.vlines(co_lines.wavelength + result[f'wave_offset_O{order}'][0], ymin=max(sci_spec.flux) + 0.02*np.median(sci_spec.flux), ymax=max(sci_spec.flux) + 0.07*np.median(sci_spec.flux), colors='k', alpha=co_lines.alpha, lw=1.2)
+            ax1.text(min(co_lines.wavelength) + result[f'wave_offset_O{order}'][0] - 15, max(sci_spec.flux) + 0.043*np.median(sci_spec.flux), 'CO', fontsize=12, horizontalalignment='center', verticalalignment='center')
             ax1.margins(x=0.05)
             ax2.margins(x=0.05)
         else:
@@ -113,6 +109,27 @@ def plot_spectrum(sci_spec, model, model_notel, rv, wave_offset, save_path=None,
     ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
     fig.align_ylabels((ax1, ax2))
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    
+    texts = '\n'.join((
+        f"$T_\mathrm{{eff}}={result['teff'][0]:.2f}\pm{result['teff'][1]:.2f}$ K",
+        f"$V_r={result['rv_helio']:.2f}\pm{result['rv'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
+        f"$v\sin i={result['vsini'][0]:.2f}\pm{result['vsini'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
+        f"$\mathrm{{AM}}={result['airmass'][0]:.2f}\pm{result['airmass'][1]:.2f}$",
+        f"$\mathrm{{PWV}}={result['pwv'][0]:.2f}\pm{result['pwv'][1]:.2f}$ mm",
+        f"$\Delta v_\mathrm{{inst}}={result['lsf'][0]:.2f}\pm{result['lsf'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
+        f"$C_\mathrm{{veil}}={result['veiling'][0]:.2f}\pm{result['veiling'][1]:.2f}$",
+        f"$C_\mathrm{{noise}}={result['noise'][0]:.2f}\pm{result['noise'][1]:.2f}$",
+        f"$C_\lambda={result[f'wave_offset_O{order}'][0]:.2f}\pm{result[f'wave_offset_O{order}'][1]:.2f}~\AA$"
+    ))
+        
+    ax1.text(
+        1.0142, 
+        0.975, 
+        texts, 
+        fontsize=12, linespacing=1.5, horizontalalignment='left', verticalalignment='top', transform=ax1.transAxes, 
+        bbox=dict(boxstyle="round,pad=0.5,rounding_size=0.2", ec='0.8', fc='1')
+    )
+
     if save_path is not None:
         if save_path.endswith('.png'):
             plt.savefig(save_path, bbox_inches='tight', transparent=True)
@@ -224,10 +241,12 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     print(f'Telluric Frames:\t{tel_frames}')
     print()
     
+    sys.stdout.flush()
+    
     # modify parameters
     params = ['teff', 'vsini', 'rv', 'airmass', 'pwv', 'veiling', 'lsf', 'noise']
     for order in orders:
-        params += ['wave_offset_O{}'.format(order)]
+        params += [f'wave_offset_O{order}']
     params_stripped = [_.strip('|'.join([f'_O{order}' for order in orders])) for _ in params]
     
     nparams = len(params)
@@ -238,8 +257,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     day = str(date[2]).zfill(2)
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    prefix = f'/home/weilingfeng/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced/'
-    save_path = f'{prefix}mcmc_median/{name}_O{orders}_params/'
+    prefix = f'/home/weilingfeng/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced'
+    save_path = f'{prefix}/mcmc_median/{name}_O{orders}_params/'
     
     if initial_mcmc:
         if os.path.exists(save_path): shutil.rmtree(save_path)
@@ -298,19 +317,19 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
                 pixel_end = -30
             
             if name.endswith('A'):
-                sci_spec = smart.Spectrum(name=f'{sci_name}_A', order=order, path=f'{prefix}extracted_binaries/{sci_name}/O{order}')
+                sci_spec = smart.Spectrum(name=f'{sci_name}_A', order=order, path=f'{prefix}/extracted_binaries/{sci_name}/O{order}')
             elif name.endswith('B'):
-                sci_spec = smart.Spectrum(name=f'{sci_name}_B', order=order, path=f'{prefix}extracted_binaries/{sci_name}/O{order}')
+                sci_spec = smart.Spectrum(name=f'{sci_name}_B', order=order, path=f'{prefix}/extracted_binaries/{sci_name}/O{order}')
             else:
-                sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}nsdrp_out/fits/all')
+                sci_spec = smart.Spectrum(name=sci_name, order=order, path=f'{prefix}/nsdrp_out/fits/all')
             
             sci_spec.pixel = np.arange(len(sci_spec.wave))
             sci_spec.snr = np.median(sci_spec.flux / sci_spec.noise)
             
-            if os.path.exists(f'{prefix}{tel_name}_defringe/O{order}/{tel_name}_defringe_{order}_all.fits'):
+            if os.path.exists(f'{prefix}/{tel_name}_defringe/O{order}/{tel_name}_defringe_calibrated_{order}_all.fits'):
                 tel_name = tel_name + '_defringe'
             
-            tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}{tel_name}/O{order}')
+            tel_spec = smart.Spectrum(name=f'{tel_name}_calibrated', order=order, path=f'{prefix}/{tel_name}/O{order}')
             
             # Update the wavelength solution
             sci_spec.updateWaveSol(tel_spec)
@@ -464,7 +483,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     
     move = [emcee.moves.KDEMove()]
     
-    sys.stdout.flush()
     if initial_mcmc:
         print('MCMC...')
         print(f'Date:\t20{"-".join(str(_).zfill(2) for _ in date)}')
@@ -501,7 +519,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         mcmc[:, i] = np.array(np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2)
     
     mcmc = pd.DataFrame(mcmc, columns=params)
-        
+    
     
     ##################################################
     ################ Construct Models ################
@@ -510,7 +528,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     models_notel = []
     other_params = {}
     for i, order in enumerate(orders):
-        model, model_notel = smart.makeModel(mcmc.teff[0], data=sci_specs[i], order=order, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+        model, model_notel = smart.makeModel(mcmc.teff[0], data=sci_specs[i], order=order, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, f'wave_offset_O{order}'], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
         models.append(copy.deepcopy(model))
         models_notel.append(copy.deepcopy(model_notel))
         
@@ -538,19 +556,19 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             'sci_frames':           infos['sci_frames'],
             'tel_frames':           infos['tel_frames'],
             'itime':                itime,
-            'teff':                 mcmc.teff,
-            'vsini':                mcmc.vsini,
-            'rv':                   mcmc.rv, 
+            'teff':                 mcmc.teff.to_list(),
+            'vsini':                mcmc.vsini.to_list(),
+            'rv':                   mcmc.rv.to_list(), 
             'rv_helio':             mcmc.rv[0] + barycorr, 
-            'airmass':              mcmc.airmass, 
-            'pwv':                  mcmc.pwv, 
-            'veiling':              mcmc.veiling,
-            'lsf':                  mcmc.lsf, 
-            'noise':                mcmc.noise
+            'airmass':              mcmc.airmass.to_list(), 
+            'pwv':                  mcmc.pwv.to_list(), 
+            'veiling':              mcmc.veiling.to_list(),
+            'lsf':                  mcmc.lsf.to_list(), 
+            'noise':                mcmc.noise.to_list()
         }
         
         for order in orders:
-            result[f'wave_offset_O{order}'] = mcmc[f'wave_offset_O{order}']
+            result[f'wave_offset_O{order}'] = mcmc[f'wave_offset_O{order}'].to_list()
             
         for param in ['veiling_param', 'model_dip', 'model_std', 'snr']:
             for order in orders:
@@ -560,9 +578,9 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         with open(save_path + 'mcmc_params.txt', 'w') as file:
             for key, value in result.items():
                 if isinstance(value, Iterable) and (not isinstance(value, str)):
-                    file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
+                    file.write(f"{key}: \t{', '.join(str(_) for _ in value)}\n")
                 else:
-                    file.write('{}: \t{}\n'.format(key, value))
+                    file.write(f'{key}: \t{value}\n')
         
         return result
     
@@ -648,7 +666,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         models_notel = []
         other_params = {}
         for i, order in enumerate(orders):
-            model, model_notel = smart.makeModel(mcmc.teff[0], data=sci_specs[i], order=order, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, 'wave_offset_O{}'.format(order)], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+            model, model_notel = smart.makeModel(mcmc.teff[0], data=sci_specs[i], order=order, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=mcmc.loc[0, f'wave_offset_O{order}'], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
             models.append(copy.deepcopy(model))
             models_notel.append(copy.deepcopy(model_notel))
             
@@ -700,11 +718,9 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         
         fig, (ax1, ax2) = plot_spectrum(
             sci_spec=sci_specs[i], 
-            model_notel=models_notel[i], 
-            model=models[i], 
-            rv=mcmc.rv[0], 
-            wave_offset=mcmc.loc[0, f'wave_offset_O{order}'], 
-            save_path=save_path + f'spectrum_modeled_O{order}.pdf'
+            result=result, 
+            save_path=save_path + f'spectrum_modeled_O{order}.pdf',
+            show_figure=False
         )
         plt.close()
     

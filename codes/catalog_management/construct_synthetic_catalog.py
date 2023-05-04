@@ -578,7 +578,7 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
     
     fig.show()
     if save:
-        fig.write_html(save_path + "/synthetic skymap.html")
+        fig.write_html(f"{user_path}/ONC/figures/synthetic skymap.html")
 
 
 

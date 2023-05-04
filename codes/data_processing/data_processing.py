@@ -1852,40 +1852,6 @@ def pm_to_v(pm, dist):
     return vt
 
 
-
-#################################################
-################# Main Function #################
-#################################################
-global user_path
-user_path = os.path.expanduser('~')
-
-MCMC = False
-Multiprocess = False
-
-np.seterr(all="ignore")
-
-C0 = '#1f77b4'
-C1 = '#ff7f0e'
-C3 = '#d62728'
-C4 = '#9467bd'
-C6 = '#e377c2'
-C7 = '#7f7f7f'
-C9 = '#17becf'
-
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str})
-save_path = f'{user_path}/ONC/starrynight/codes/data_processing'
-
-chris_table = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv')
-
-trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
-
-print('Before any constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
-    sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna())),
-    sum((sources.theta_orionis.isna()) & (~sources.ID_apogee.isna())),
-    sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna()) & (~sources.ID_apogee.isna())),
-    sum((sources.theta_orionis.isna()))
-))
-
 #################################################
 ############## Data Pre-processing ##############
 #################################################
@@ -2014,9 +1980,39 @@ def preprocessing(sources):
     sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', index=False)
     return sources, sources_2d
 
+
 #################################################
-############# End of Pre-Processing #############
+################# Main Function #################
 #################################################
+global user_path
+user_path = os.path.expanduser('~')
+
+MCMC = False
+Multiprocess = False
+
+np.seterr(all="ignore")
+
+C0 = '#1f77b4'
+C1 = '#ff7f0e'
+C3 = '#d62728'
+C4 = '#9467bd'
+C6 = '#e377c2'
+C7 = '#7f7f7f'
+C9 = '#17becf'
+
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str})
+save_path = f'{user_path}/ONC/starrynight/codes/data_processing'
+
+chris_table = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv')
+
+trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
+
+print('Before any constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
+    sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna())),
+    sum((sources.theta_orionis.isna()) & (~sources.ID_apogee.isna())),
+    sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna()) & (~sources.ID_apogee.isna())),
+    sum((sources.theta_orionis.isna()))
+))
 
 # preprocessing
 sources, sources_2d = preprocessing(sources)

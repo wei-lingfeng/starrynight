@@ -15,6 +15,7 @@ from functools import reduce
 from smart.utils.mask import generate_telluric_mask
 from multiprocessing.pool import Pool
 
+user_path = os.path.expanduser('~')
 
 def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outlier_rej=3., save=True, test=False):
     year, month, day = date
@@ -25,7 +26,6 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
     day     = str(day).zfill(2)
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    data_path = '/home/l3wei/ONC/Data/20' + year + month_list[int(month)-1] + day + '/reduced/nsdrp_out/fits/all'
     
     if int(year) > 18:
         data_name = 'nspec' + year + month + day + '_' + name.zfill(4) # Filename of the telluric standard
@@ -35,6 +35,8 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
         data_name = month_list[int(month)-1] + day + 's' + name.zfill(4)
         pixel_start = 10
         pixel_end = -30
+    
+    data_path = f'{user_path}/ONC/data/nirspao/20{year}{month_list[int(month)-1]}{day}/reduced/nsdrp_out/fits/all'
     
     print('Starting to calibrate {}, order {}.'.format(data_name, order))
     sys.stdout.flush()
@@ -47,7 +49,7 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
         '36':{'xcorr_range': xcorr_range, 'outlier_rej': outlier_rej, 'pixel_range_start': pixel_start, 'pixel_range_end': pixel_end},
         '37':{'xcorr_range': xcorr_range, 'outlier_rej': outlier_rej, 'pixel_range_start': pixel_start, 'pixel_range_end': pixel_end}
     }
-    save_path = '/home/l3wei/ONC/Data/20' + year + month_list[int(month)-1] + day + '/reduced/' + data_name
+    save_path = f'{user_path}/ONC/data/nirspao/20{year}{month_list[int(month)-1]}{day}/reduced/{data_name}'
     
     if os.path.exists(save_path + '/O%s'.format(order)):
         shutil.rmtree(save_path + '/O%s'.format(order))
@@ -93,9 +95,9 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
     ax.legend()
     ax.set_xlabel(r'$\lambda$ ($\AA)$')
     ax.set_ylabel(r'$F_{\lambda}$')
-    if not os.path.exists(save_path + '/O%s' %order):
-        os.makedirs(save_path + '/O%s' %order)
-    plt.savefig(save_path + '/O%s/Spectrum.png' %order)
+    if not os.path.exists(f'{save_path}/O{order}'):
+        os.makedirs(f'{save_path}/O{order}')
+    plt.savefig(f'{save_path}/O{order}/Spectrum.png')
     plt.show()
     
     mask_custom = reduce(np.union1d, (mask_1, mask_2, mask_3))
@@ -108,8 +110,9 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
     if guess_pwv:
         # Apply a telluric mask and adjust pwv
         mask_tel, pwv = generate_telluric_mask(
-            name=data_name + '_calibrated', order=order, 
-            path=save_path + '/O{}'.format(order), 
+            name=f'{data_name}_calibrated', 
+            order=order, 
+            path=f'{save_path}/O{order}', 
             pixel_start=pixel_start, pixel_end=pixel_end, sigma=3.0, guess_pwv=True, diagnostic=True
         )
         print('Adjusted pwv={}'.format(pwv))
@@ -130,19 +133,19 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
 if __name__ == '__main__':
     
     ## Set up the input paramters
-    year    = 18
-    month   = 2
-    day     = 11
-    frames  = [51, 52]
-    orders  = [37, 38, 39]
+    year    = 15
+    month   = 12
+    day     = 24
+    frames  = [44, 45]
+    orders  = [32, 35]
     guess_pwv = False
     pwvs = [1.5, 1.5] # [0.5, 1.0, 1.5, 2.5, 3.5, 5.0, 7.5, 10.0, 20.0]
     xcorr_range = 20
     
     date = (year, month, day)
-    pwvs = ['{:.1f}'.format(pwv) for pwv in pwvs]
-    if (not guess_pwv) and (any([pwv not in ['{:.1f}'.format(_) for _ in [0.5, 1.0, 1.5, 2.5, 3.5, 5.0, 7.5, 10.0, 20.0]] for pwv in pwvs])):
-        raise ValueError('pwv must be one of {}'.format([0.5, 1.0, 1.5, 2.5, 3.5, 5.0, 7.5, 10.0, 20.0]))
+    pwvs = [f'{pwv:.1f}' for pwv in pwvs]
+    if (not guess_pwv) and (any([pwv not in [f'{_:.1f}' for _ in [0.5, 1.0, 1.5, 2.5, 3.5, 5.0, 7.5, 10.0, 20.0]] for pwv in pwvs])):
+        raise ValueError(f'pwv must be one of {[0.5, 1.0, 1.5, 2.5, 3.5, 5.0, 7.5, 10.0, 20.0]}.')
     
     params = []
     for frame, pwv in zip(frames, pwvs):

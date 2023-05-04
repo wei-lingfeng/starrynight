@@ -1,10 +1,12 @@
 # Grab median combined nirspec params & proper motion table & fitted mass
-import sys
+import os, sys
 import pandas as pd
 from itertools import repeat
 from collections.abc import Iterable
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+
+user_path = os.path.expanduser('~')
 
 #################################################
 ################### Functions ###################
@@ -53,8 +55,6 @@ def nirspec_sources(dates, names, exceptions, save_path):
         'tel_frames':           [],
         'teff':                 [],
         'teff_e':               [],
-        'logg':                 [],
-        'logg_e':               [],
         'vsini':                [],
         'vsini_e':              [],
         'rv':                   [],
@@ -68,7 +68,6 @@ def nirspec_sources(dates, names, exceptions, save_path):
         'veiling_e':            [],
         'veiling_param_O32':    [],
         'veiling_param_O33':    [],
-        'veiling_param_O34':    [],
         'veiling_param_O35':    [],
         'lsf':                  [],
         'lsf_e':                [],
@@ -78,29 +77,22 @@ def nirspec_sources(dates, names, exceptions, save_path):
         'model_std_O32':        [],
         'model_dip_O33':        [],
         'model_std_O33':        [],
-        'model_dip_O34':        [],
-        'model_std_O34':        [],
         'model_dip_O35':        [],
         'model_std_O35':        [],
         'wave_offset_O32':      [],
         'wave_offset_O32_e':    [],
-        'flux_offset_O32':      [],
-        'flux_offset_O32_e':    [],
+        # 'flux_offset_O32':      [],
+        # 'flux_offset_O32_e':    [],
         'wave_offset_O33':      [],
         'wave_offset_O33_e':    [],
-        'flux_offset_O33':      [],
-        'flux_offset_O33_e':    [],
-        'wave_offset_O34':      [],
-        'wave_offset_O34_e':    [],
-        'flux_offset_O34':      [],
-        'flux_offset_O34_e':    [],
+        # 'flux_offset_O33':      [],
+        # 'flux_offset_O33_e':    [],
         'wave_offset_O35':      [],
         'wave_offset_O35_e':    [],
-        'flux_offset_O35':      [],
-        'flux_offset_O35_e':    [],
+        # 'flux_offset_O35':      [],
+        # 'flux_offset_O35_e':    [],
         'snr_O32':              [],
         'snr_O33':              [],
-        'snr_O34':              [],
         'snr_O35':              [],
         'Kmag':                 [],
         'Kmag_e':               [],
@@ -115,9 +107,9 @@ def nirspec_sources(dates, names, exceptions, save_path):
     
     # read catalogs
     # global hc_x_pm
-    # hc_x_pm = pd.read_csv('/home/l3wei/ONC/Catalogs/Hillenbrand x Kim.csv',
+    # hc_x_pm = pd.read_csv(f'{user_path}/ONC/Catalogs/Hillenbrand x Kim.csv',
     #                       dtype={'[HC2000]': str, 'ID': str}).to_dict(orient='list')
-    hc2000 = pd.read_csv('/home/l3wei/ONC/Catalogs/HC2000.csv', dtype={'[HC2000]': str})
+    hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
     
     #################################################
     ############### Construct Catalog ###############
@@ -126,8 +118,7 @@ def nirspec_sources(dates, names, exceptions, save_path):
     for date, name in zip(dates, names):
         year, month, day = date
         
-        data_path = '/home/l3wei/ONC/Data/20{year}{month}{day}/reduced/mcmc_median/{name}_O{orders}_params/MCMC_Params.txt'.format(
-            year=str(year).zfill(2), month=month_list[month-1], day=str(day).zfill(2), name=name, orders=[32, 33])
+        data_path = f'{user_path}/ONC/data/nirspao/20{str(year).zfill(2)}{month_list[month-1]}{str(day).zfill(2)}/reduced/mcmc_median/{name}_O{[32, 33]}_params/mcmc_params.txt'
         with open(data_path, 'r') as file:
             lines = file.readlines()
         
@@ -230,20 +221,20 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['wave_offset_O32'].append(value)
                 result['wave_offset_O32_e'].append(error)
             
-            elif line.startswith('flux_offset_O32:'):
-                value, error = read_text(line)
-                result['flux_offset_O32'].append(value)
-                result['flux_offset_O32_e'].append(error)
+            # elif line.startswith('flux_offset_O32:'):
+            #     value, error = read_text(line)
+            #     result['flux_offset_O32'].append(value)
+            #     result['flux_offset_O32_e'].append(error)
             
             elif line.startswith('wave_offset_O33:'):
                 value, error = read_text(line)
                 result['wave_offset_O33'].append(value)
                 result['wave_offset_O33_e'].append(error)
             
-            elif line.startswith('flux_offset_O33:'):
-                value, error = read_text(line)
-                result['flux_offset_O33'].append(value)
-                result['flux_offset_O33_e'].append(error)
+            # elif line.startswith('flux_offset_O33:'):
+            #     value, error = read_text(line)
+            #     result['flux_offset_O33'].append(value)
+            #     result['flux_offset_O33_e'].append(error)
             
             elif line.startswith('snr_O32:'):
                 result['snr_O32'].append(read_text(line))
@@ -252,46 +243,45 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['snr_O33'].append(read_text(line))
         
         
-        # logg results:
-        logg_path = '/home/l3wei/ONC/Data/20{year}{month}{day}/reduced/mcmc_median/{name}_O{orders}_logg/MCMC_Params.txt'.format(
-            year=str(year).zfill(2), month=month_list[month-1], day=str(day).zfill(2), name=name, orders=[34])
-        with open(logg_path, 'r') as file:
-            lines = file.readlines()
+        # # logg results:
+        # logg_path = f'{user_path}/ONC/data/20{year}{month}{day}/reduced/mcmc_median/{name}_O{orders}_logg/mcmc_params.txt'.format(
+        #     year=str(year).zfill(2), month=month_list[month-1], day=str(day).zfill(2), name=name, orders=[34])
+        # with open(logg_path, 'r') as file:
+        #     lines = file.readlines()
         
-        for line in lines:
-            if line.startswith('logg:'):
-                value, error = read_text(line)
-                result['logg'].append(value)
-                result['logg_e'].append(error)
+        # for line in lines:
+        #     if line.startswith('logg:'):
+        #         value, error = read_text(line)
+        #         result['logg'].append(value)
+        #         result['logg_e'].append(error)
             
-            elif line.startswith('veiling_param_O34:'):
-                result['veiling_param_O34'].append(read_text(line))
+        #     elif line.startswith('veiling_param_O34:'):
+        #         result['veiling_param_O34'].append(read_text(line))
             
-            elif line.startswith('model_dip_O34:'):
-                result['model_dip_O34'].append(read_text(line))
+        #     elif line.startswith('model_dip_O34:'):
+        #         result['model_dip_O34'].append(read_text(line))
             
-            elif line.startswith('model_std_O34:'):
-                result['model_std_O34'].append(read_text(line))
+        #     elif line.startswith('model_std_O34:'):
+        #         result['model_std_O34'].append(read_text(line))
             
-            elif line.startswith('wave_offset_O34:'):
-                value, error = read_text(line)
-                result['wave_offset_O34'].append(value)
-                result['wave_offset_O34_e'].append(error)
+        #     elif line.startswith('wave_offset_O34:'):
+        #         value, error = read_text(line)
+        #         result['wave_offset_O34'].append(value)
+        #         result['wave_offset_O34_e'].append(error)
             
-            elif line.startswith('flux_offset_O34:'):
-                value, error = read_text(line)
-                result['flux_offset_O34'].append(value)
-                result['flux_offset_O34_e'].append(error)
+        #     elif line.startswith('flux_offset_O34:'):
+        #         value, error = read_text(line)
+        #         result['flux_offset_O34'].append(value)
+        #         result['flux_offset_O34_e'].append(error)
             
-            elif line.startswith('snr_O34:'):
-                result['snr_O34'].append(read_text(line))
+        #     elif line.startswith('snr_O34:'):
+        #         result['snr_O34'].append(read_text(line))
         
         
         # exceptions
         if (date in exceptions['dates']) and (name in exceptions['names']):
             if exceptions['dates'].index(date) == exceptions['names'].index(name):
-                data_path = '/home/l3wei/ONC/Data/20{year}{month}{day}/reduced/mcmc_median/{name}_O{orders}_params/MCMC_Params.txt'.format(
-                    year=str(year).zfill(2), month=month_list[month-1], day=str(day).zfill(2), name=name, orders=exceptions['orders'])
+                data_path = f"{user_path}/ONC/data/nirspao/20{str(year).zfill(2)}{month_list[month-1]}{str(day).zfill(2)}/reduced/mcmc_median/{name}_O{exceptions['orders']}_params/mcmc_params.txt"
                 with open(data_path, 'r') as file:
                     lines = file.readlines()
                 
@@ -353,10 +343,10 @@ def nirspec_sources(dates, names, exceptions, save_path):
                         result['wave_offset_O35'].append(value)
                         result['wave_offset_O35_e'].append(error)
                     
-                    elif line.startswith('flux_offset_O35:'):
-                        value, error = read_text(line)
-                        result['flux_offset_O35'].append(value)
-                        result['flux_offset_O35_e'].append(error)
+                    # elif line.startswith('flux_offset_O35:'):
+                    #     value, error = read_text(line)
+                    #     result['flux_offset_O35'].append(value)
+                    #     result['flux_offset_O35_e'].append(error)
                     
                     elif line.startswith('snr_O35:'):
                         result['snr_O35'].append(read_text(line))
@@ -368,12 +358,10 @@ def nirspec_sources(dates, names, exceptions, save_path):
             result['model_std_O35'].append('')
             result['wave_offset_O35'].append('')
             result['wave_offset_O35_e'].append('')
-            result['flux_offset_O35'].append('')
-            result['flux_offset_O35_e'].append('')
+            # result['flux_offset_O35'].append('')
+            # result['flux_offset_O35_e'].append('')
             result['snr_O35'].append('')
-            
-                    
-                
+    
     # result.update(cross_kim(result))
     result = pd.DataFrame.from_dict(result)
     
@@ -466,4 +454,4 @@ if __name__ == '__main__':
         'orders':[35]
     }
     
-    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path='/home/l3wei/ONC/Catalogs/nirspec sources.csv')
+    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv')
