@@ -305,11 +305,11 @@ def compare_velocity(sources, save_path=None):
 #################### Plot 2D ####################
 #################################################
 
-def plot_2d(sources, scale=0.003):
+def plot_2d(sources, scale=0.004):
     '''Generate 2D plots of position and velocity.
     - Parameters:
         - sources_coord: astropy coordinates with ra, dec, pm_ra_cosdec, pm_dec.
-        - scale: scale of quiver.
+        - scale: scale of quiver, 0.004 by default.
     - Returns:
         - fig: figure handle.
     '''
@@ -579,7 +579,7 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, max_mass_error=0.5, max_v_error=5., update_sources=False, show_figure=False, save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, max_mass_error=0.5, max_v_error=5., update_sources=False, save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
@@ -1795,6 +1795,8 @@ def compare_chris(sources, save_path=None):
     ax.plot([3000, 5000], [3000, 5000], linestyle='--', color='C3', label='Equal Line')
     ax.errorbar(sources.teff, sources.teff_chris, xerr=sources.teff_e, yerr=sources.teff_e_chris, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
     ax.legend()
+    ax.set_xlim((2800, 5200))
+    ax.set_ylim((2800, 5200))
     ax.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
     ax.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
     if save_path:
@@ -1806,6 +1808,8 @@ def compare_chris(sources, save_path=None):
     ax.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
     ax.errorbar(sources.vr, sources.vr_chris, xerr=sources.vr_e, yerr=sources.vr_e_chris, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
     ax.legend()
+    ax.set_xlim((19, 35))
+    ax.set_ylim((19, 35))
     ax.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     ax.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     if save_path:
@@ -1987,8 +1991,8 @@ def preprocessing(sources):
 global user_path
 user_path = os.path.expanduser('~')
 
-MCMC = False
-Multiprocess = False
+MCMC = True
+Multiprocess = True
 
 np.seterr(all="ignore")
 
@@ -2017,10 +2021,12 @@ print('Before any constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t
 # preprocessing
 sources, sources_2d = preprocessing(sources)
 
+
+
 compare_velocity(sources_2d, save_path=f'{user_path}/ONC/figures/Velocity Comparison.pdf')
 # Save html figures
 fig_2d = plot_2d(sources_2d)
-# fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
+fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
 # fig_3d1, fig_3d2 = plot_3d(sources_coord_3d)
 # fig_3d2.write_html(f'{user_path}/ONC/figures/sky 3d small.html')
 plot_pm_vr(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.png')
@@ -2059,7 +2065,7 @@ radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
 #             save_path=f'{save_path}/vrel_results/linear-{radius.value:.2f}pc/'
 #         )
 
-# # write the original
+# # write sources_2d with vrel
 # sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.csv', index=False)
 
 # Remove the high relative velocity sources.
@@ -2068,10 +2074,10 @@ print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity
 sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
 
 median_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
-# print(f'Median difference in teff: {median_diff:.2f} K')
-# print(f'Maximum difference in teff: {maximum_diff:.2f} K')
+print(f'Median difference in teff: {median_diff:.2f} K')
+print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
-# update_sources = False
+# teff offset simulation
 # sources_median_offset = copy.deepcopy(sources_remove_high_vrs)
 # sources_maximum_offset = copy.deepcopy(sources_remove_high_vrs)
 # sources_median_offset.teff_nirspec += median_diff
@@ -2164,7 +2170,7 @@ hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles='-
 ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Median Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
 ax.set_xlabel('Separation Limits of Neighbors (pc)')
 ax.set_ylabel('Slope of Linear Fit (k)')
-# plt.savefig(f'{user_path}/ONC/figures/slope vs sep.png', bbox_inches='tight', transparent=True)
+plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
 plt.show()
 
 
@@ -2179,7 +2185,7 @@ rv_constraint = ((
 ))
 print('3σ RV constraint for velocity dispersion: {} out of {} remains.'.format(sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna()), len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())))
 print('Accepted radial velocity range: {:.3f} ± {:.3f} km/s.'.format(np.nanmean(sources.vr), 3*np.nanstd(sources.vr)))
-with open('vdisp results/mean_rv.txt', 'w') as file:
+with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean_rv.txt', 'w') as file:
     file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'vr'])))
 
 fig, ax = plt.subplots(figsize=(6, 4))
@@ -2190,13 +2196,13 @@ ax.set_ylabel('Radial Velocity')
 ax.legend()
 plt.show()
 
-vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp results/', MCMC=MCMC)
+vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp_results/', MCMC=MCMC)
 
 # vdisp vs sep
-vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp results/vdisp vs sep/', MCMC=MCMC)
+vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep/', MCMC=MCMC)
 
 # vdisp vs mass
-vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp results/vdisp vs mass/', MCMC=MCMC)
+vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp_results/vdisp_vs_mass/', MCMC=MCMC)
 
 #################################################
 ################ Mass Segregation ###############

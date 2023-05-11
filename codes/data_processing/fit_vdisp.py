@@ -90,7 +90,7 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     """
     
     global mean_rv
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp results/mean_rv.txt', 'r') as file:
+    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean_rv.txt', 'r') as file:
         mean_rv = eval(file.read())
     
     if not os.path.exists(save_path):

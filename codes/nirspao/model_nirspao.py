@@ -3,8 +3,6 @@
 import os, sys, shutil
 import pickle
 import copy
-os.environ["OPENBLAS_NUM_THREADS"] = "1" # Limit number of threads
-os.environ["OMP_NUM_THREADS"] = "4" # Limit number of threads
 import numpy as np
 import numpy.ma as ma
 import pandas as pd
@@ -18,8 +16,11 @@ from multiprocessing import Pool
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from collections.abc import Iterable
+# os.environ["OPENBLAS_NUM_THREADS"] = "1" # Limit number of threads
+os.environ["OMP_NUM_THREADS"] = "1" # Limit number of threads
 # np.set_printoptions(threshold=sys.maxsize)
 
+user_path = os.path.expanduser('~')
 
 def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=False):
     """Plot spectrum with model and CO lines in order 32 or 33.
@@ -47,7 +48,7 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
     model, model_notel = smart.makeModel(result['teff'][0], data=sci_spec, order=order, logg=4.0, vsini=result['vsini'][0], rv=result['rv'][0], airmass=result['airmass'][0], pwv=result['pwv'][0], veiling=result['veiling'][0], lsf=result['lsf'][0], wave_offset=result[f'wave_offset_O{order}'][0], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
     if mark_CO:
         # Read CO lines
-        co_lines = pd.read_csv('/home/weilingfeng/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
+        co_lines = pd.read_csv(f'{user_path}/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
         co_lines.intensity = np.log10(co_lines.intensity)
         if order==32:
             co_lines = co_lines[co_lines.intensity >= -25].reset_index(drop=True)
@@ -119,9 +120,10 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
         f"$\Delta v_\mathrm{{inst}}={result['lsf'][0]:.2f}\pm{result['lsf'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
         f"$C_\mathrm{{veil}}={result['veiling'][0]:.2f}\pm{result['veiling'][1]:.2f}$",
         f"$C_\mathrm{{noise}}={result['noise'][0]:.2f}\pm{result['noise'][1]:.2f}$",
-        f"$C_\lambda={result[f'wave_offset_O{order}'][0]:.2f}\pm{result[f'wave_offset_O{order}'][1]:.2f}~\AA$"
+        f"$C_\lambda={result[f'wave_offset_O{order}'][0]:.2f}\pm{result[f'wave_offset_O{order}'][1]:.2f}~\AA$",
+        f"$\mathrm{{SNR}}={np.median(sci_spec.flux/sci_spec.noise):.2f}$"
     ))
-        
+
     ax1.text(
         1.0142, 
         0.975, 
@@ -217,7 +219,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     nwalkers : int, optional
         number of walkers in emcee, by default 100
     steps : int, optional
-        number of steps in emcee, by default 500
+        number of steps in emcee, by default 300
     kwargs : 
         limits : dict, optional
             dictonary with keys teff, vsini, rv, airmass, pwv, veiling, lsf, noise, wave_offset
@@ -257,7 +259,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     day = str(date[2]).zfill(2)
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    prefix = f'/home/weilingfeng/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced'
+    prefix = f'{user_path}/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced'
     save_path = f'{prefix}/mcmc_median/{name}_O{orders}_params/'
     
     if initial_mcmc:
@@ -384,14 +386,47 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             normalize_factor = median_flux / ma.median(spec.flux)
             spec.flux   *= normalize_factor
             spec.noise  *= normalize_factor
-
-        # tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
         
-        # weighted average of abba frames
+        # # Original: interpolate spectrum
+        # wave_min = ma.max([ma.min(_.wave) for _ in sci_abba])
+        # wave_max = ma.min([ma.max(_.wave) for _ in sci_abba])
+        # resolution = 0.06
+        
+        # wave_new = np.arange(wave_min, wave_max, resolution)
+        # flux_new = np.zeros((np.size(sci_frames), np.size(wave_new)))
+        # noise_new = np.zeros(np.shape(flux_new))
+        
+        # for i in range(np.size(sci_frames)):
+        #     # interpolate flux and noise function
+        #     f_flux  = interp1d(sci_abba[i].wave, sci_abba[i].flux)
+        #     f_noise = interp1d(sci_abba[i].wave, sci_abba[i].noise)
+        #     flux_new[i, :] = f_flux(wave_new)
+        #     noise_new[i, :] = f_noise(wave_new)
+        
+        # # Median among all the frames     
+        # flux_med  = np.nanmedian(flux_new, axis=0)
+        # noise_med = np.nanmedian(noise_new, axis=0)
+        
+        # sci_spec.pixel = np.arange(len(wave_new))
+        # sci_spec.wave = wave_new
+        # sci_spec.flux = flux_med
+        # sci_spec.noise = noise_med
+        
+        # New: weighted average of abba frames
         sci_spec = copy.deepcopy(sci_abba[np.argmin([_.header['RMS'] for _ in tel_abba])])
-        sci_spec.flux = ma.average(ma.array([_.flux for _ in sci_abba]), weights=1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
+        
+        # weighted average flux
+        # sci_spec.flux = ma.average(ma.array([_.flux for _ in sci_abba]), weights=1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
+        # median combined flux
+        sci_spec.flux = ma.median(ma.array([_.flux for _ in sci_abba]), axis=0)
+        # synthesized noise
         # sci_spec.noise = ma.sqrt(ma.std(ma.array([_.flux for _ in sci_abba]), axis=0)**2 + ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
-        sci_spec.noise = ma.sqrt(ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
+        # RMS noise
+        # sci_spec.noise = ma.sqrt(ma.sum(ma.array([_.noise for _ in sci_abba])**2, axis=0) / ma.sum(~ma.array([_.noise.mask for _ in sci_abba]), axis=0))
+        # median noise
+        # sci_spec.noise = ma.array(np.median(ma.getdata([_.noise for _ in sci_abba]), axis=0), mask=sci_spec.flux.mask)
+        # noise weighted averaged noise: sqrt(1 / (Σ (1/σi^2)))
+        sci_spec.noise = ma.sqrt(1 / ma.sum(1/ma.array([_.noise for _ in sci_abba])**2, axis=0))
         sci_spec.pixel.mask = sci_spec.flux.mask
         sci_spec.wave.mask = sci_spec.flux.mask
 
@@ -516,7 +551,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     # mcmc[:, i] (2 by N) = [value, error]
     mcmc = np.empty((2, nparams))
     for i in range(nparams):
-        mcmc[:, i] = np.array(np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2)
+        mcmc[:, i] = np.array((np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2))
     
     mcmc = pd.DataFrame(mcmc, columns=params)
     
@@ -533,9 +568,9 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         models_notel.append(copy.deepcopy(model_notel))
         
         # calculate veiling params and snrs        
-        model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=str(order), modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
+        model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=order, modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
         other_params[f'veiling_param_O{order}'] = mcmc.veiling[0] / np.median(model_veiling.flux)
-        other_params[f'snr_O{order}'] = np.median(sci_specs[0].flux/sci_specs[0].noise)
+        other_params[f'snr_O{order}'] = np.median(sci_specs[i].flux/sci_specs[i].noise)
 
         # calculate model dips and stds
         other_params[f'model_dip_O{order}'] = np.median(model_notel.flux) - min(model_notel.flux)
@@ -671,9 +706,9 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             models_notel.append(copy.deepcopy(model_notel))
             
             # calculate veiling params and snrs        
-            model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=str(order), modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
+            model_veiling = smart.Model(teff=mcmc.teff[0], logg=4., order=order, modelset='phoenix-aces-agss-cond-2011', instrument='nirspec')
             other_params[f'veiling_param_O{order}'] = mcmc.veiling[0] / np.median(model_veiling.flux)
-            other_params[f'snr_O{order}'] = np.median(sci_specs[0].flux/sci_specs[0].noise)
+            other_params[f'snr_O{order}'] = np.median(sci_specs[i].flux/sci_specs[i].noise)
 
             # calculate model dips and stds
             other_params[f'model_dip_O{order}'] = np.median(model_notel.flux) - min(model_notel.flux)
@@ -732,7 +767,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
 
 if __name__=='__main__':
     
-    test = False
+    test = True
     if not test:
         skip = 0
         multiprocess=True
@@ -894,6 +929,10 @@ if __name__=='__main__':
         names = [172]
         sci_frames = [[40, 41, 42, 43]]
         tel_frames = [[49, 50, 50, 49]]
+        # dates = [(20, 1, 19)]
+        # names = [228]
+        # sci_frames = [[31, 32, 33, 34]]
+        # tel_frames = [[35, 36, 36, 35]]
 
     
     dim_check = [len(_) for _ in [dates, names, sci_frames, tel_frames]]
