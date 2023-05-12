@@ -92,7 +92,7 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
     ax2.axhline(y=0, color='k', linestyle='--', dashes=(8, 2), alpha=alpha, lw=lw)
     ax2.minorticks_on()
     ax2.tick_params(axis='both', labelsize=12)
-    ax2.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
+    ax2.set_xlabel(r'Observed Wavelength ($\AA$)', fontsize=15)
     ax2.set_ylabel('Residual', fontsize=15)
     
     legend_elements = [
@@ -767,7 +767,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
 
 if __name__=='__main__':
     
-    test = True
+    test = False
     if not test:
         skip = 0
         multiprocess=True
@@ -832,7 +832,7 @@ if __name__=='__main__':
             # 2022-1-19
             453, 438, 530, 287, 171, 
             # 2022-1-20
-            238, 266, 247, 165, 172, 177, 163
+            238, 266, 247, 172, 165, 177, 163
         ]
         
         sci_frames = [

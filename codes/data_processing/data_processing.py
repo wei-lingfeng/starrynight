@@ -1729,8 +1729,8 @@ def pm_angle_distribution(sources, save_path=None):
     theta = (bin_edges[:-1] + bin_edges[1:])/2
     colors = plt.cm.viridis(hist / max(hist))
 
-    fig, ax = plt.subplots(figsize=(4, 4), dpi=300)
-    ax = plt.subplot(projection='polar')
+    fig = plt.figure(figsize=(4, 4), dpi=300)
+    ax = fig.add_subplot(projection='polar')
     ax.bar(theta, hist, width=2*np.pi/nbins, bottom=0.0, color=colors, alpha=0.5)
     ax.set_xticks(np.linspace(np.pi, -np.pi, 8, endpoint=False))
     ax.set_yticks([5, 10, 15, 20])
@@ -1821,13 +1821,19 @@ def compare_chris(sources, save_path=None):
 
 
 def compare_teff_with_apogee(sources, save_path=None):
-    median_diff = np.nanmedian(abs(sources.teff_apogee - sources.teff_nirspec))
-    max_diff = np.nanmax(abs(sources.teff_apogee - sources.teff_nirspec))
+    diffs = sources.teff_apogee - sources.teff_nirspec
+    valid_idx = ~diffs.isna()
+    diffs = diffs[valid_idx]
+    weights = 1/(sources.teff_e_nirspec**2 + sources.teff_e_apogee**2)[valid_idx]
+    
+    mean_diff = np.average(diffs, weights=weights)
+    max_diff = max(diffs)
     
     fig, ax = plt.subplots(figsize=(5, 4))
     ax.errorbar(sources.teff_nirspec.values, sources.teff_apogee.values, xerr=sources.teff_e_nirspec.values, yerr=sources.teff_e_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
-    ax.plot([3600, 4800], [3600, 4800], linestyle='--', color='C3', label='Equal Line')
-    ax.plot([3400, 4600], [3400 + median_diff, 4600 + median_diff], linestyle=':', color='C0', label=f'Median Difference: {median_diff:.2f} K')
+    ranges = np.array([3600, 4800]) 
+    ax.plot(ranges, ranges, linestyle='--', color='C3', label='Equal Line')
+    ax.plot(ranges - mean_diff/2, ranges + mean_diff/2, linestyle=':', color='C0', label=f'Median Difference: {mean_diff:.2f} K')
     ax.legend()
     ax.set_xlabel('NIRSPAO Teff (K)')
     ax.set_ylabel('APOGEE Teff (K)')
@@ -1838,7 +1844,7 @@ def compare_teff_with_apogee(sources, save_path=None):
             plt.savefig(save_path, bbox_inches='tight')
     plt.show()
     
-    return median_diff, max_diff
+    return mean_diff, max_diff
 
 
 def pm_to_v(pm, dist):
@@ -2041,6 +2047,7 @@ compare_mass(sources_2d, save_path=f'{user_path}/ONC/figures/mass comparison.pdf
 # compare with Chris
 compare_chris(sources_2d)
 
+
 #################################################
 ########### Relative Velocity vs Mass ###########
 #################################################
@@ -2048,56 +2055,38 @@ compare_chris(sources_2d)
 # Local velocity
 model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
 radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
+base_path = 'linear'
+base_path_mean_offset = 'linear-mean-offset'
+
+# # Remove the high relative velocity sources.
+# vr_threshold = 40
+# print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
+# sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
+
+# mean_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
+# print(f'Mean difference in teff: {mean_diff:.2f} K')
+# print(f'Maximum difference in teff: {maximum_diff:.2f} K')
+
+# # teff offset simulation
+# sources_mean_offset = copy.deepcopy(sources_remove_high_vrs)
+# sources_mean_offset.teff_nirspec += mean_diff
+# sources_mean_offset.teff = sources_mean_offset.teff_nirspec.fillna(sources_mean_offset.teff_apogee)
+
+# from starrynight import fit_mass
+# mean_offset_masses = fit_mass(sources_mean_offset.teff, sources_mean_offset.teff_e)
+# columns = mean_offset_masses.keys()
+# sources_mean_offset[columns] = mean_offset_masses
+# indices = ~sources_mean_offset.theta_orionis.isna()
+# sources_mean_offset.loc[indices, columns] = np.nan
 
 # for radius in radii:
 #     for model_name in model_names:
-#         if radius == 0.1*u.pc:
+        
+#         if radius == 0.1*u.pc and model_name=='MIST':
 #             update_sources = True
 #         else:
 #             update_sources = False
         
-#         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-#             sources_2d, 
-#             model_name, 
-#             model_type='linear',
-#             radius=radius, 
-#             update_sources=update_sources,
-#             save_path=f'{save_path}/vrel_results/linear-{radius.value:.2f}pc/'
-#         )
-
-# # write sources_2d with vrel
-# sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.csv', index=False)
-
-# Remove the high relative velocity sources.
-vr_threshold = 40
-print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
-sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
-
-median_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
-print(f'Median difference in teff: {median_diff:.2f} K')
-print(f'Maximum difference in teff: {maximum_diff:.2f} K')
-
-# teff offset simulation
-# sources_median_offset = copy.deepcopy(sources_remove_high_vrs)
-# sources_maximum_offset = copy.deepcopy(sources_remove_high_vrs)
-# sources_median_offset.teff_nirspec += median_diff
-# sources_maximum_offset.teff_nirspec += maximum_diff
-# sources_median_offset.teff = sources_median_offset.teff_nirspec.fillna(sources_median_offset.teff_apogee)
-# sources_maximum_offset.teff = sources_maximum_offset.teff_nirspec.fillna(sources_maximum_offset.teff_apogee)
-
-# from starrynight import fit_mass
-# median_offset_masses    = fit_mass(sources_median_offset.teff, sources_median_offset.teff_e)
-# maximum_offset_masses   = fit_mass(sources_maximum_offset.teff, sources_maximum_offset.teff_e)
-# columns = median_offset_masses.keys()
-# sources_median_offset[columns] = median_offset_masses
-# sources_maximum_offset[columns] = maximum_offset_masses
-# indices = ~sources_median_offset.theta_orionis.isna()
-# sources_median_offset.loc[indices, columns] = np.nan
-# sources_maximum_offset.loc[indices, columns] = np.nan
-
-# update_sources = False
-# for radius in radii:
-#     for model_name in model_names:
 #         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
 #             sources_remove_high_vrs, 
 #             model_name, 
@@ -2105,69 +2094,48 @@ print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 #             radius=radius, 
 #             update_sources=update_sources,
 #             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/remove-high-vrs-{radius.value:.2f}pc/'
+#             save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc/'
 #         )
 
 #         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-#             sources_median_offset,
+#             sources_mean_offset,
 #             model_name,
 #             model_type='linear',
 #             radius=radius,
-#             update_sources=update_sources,
+#             update_sources=False,
 #             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/remove-high-vrs-median-offset-{radius.value:.2f}pc/'
+#             save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/'
 #         )
-        
-#         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-#             sources_maximum_offset,
-#             model_name,
-#             model_type='linear',
-#             radius=radius,
-#             update_sources=update_sources,
-#             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/remove-high-vrs-maximum-offset-{radius.value:.2f}pc/'
-#         )
+
+# # write sources_2d with vrel
+# sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.csv', index=False)
 
 
 model_name = 'MIST'
-base_path = 'linear'
-base_path_remove_high_vrs = 'remove-high-vrs'
-base_path_median_offset = 'remove-high-vrs-median-offset'
-base_path_maximum_offset = 'remove-high-vrs-maximum-offset'
-ks                  = np.empty((2, len(radii)))
-ks_remove_high_vrs  = np.empty((2, len(radii)))
-ks_median_offset    = np.empty((2, len(radii)))
-ks_maximum_offset   = np.empty((2, len(radii)))
+ks = np.empty((2, len(radii)))
+ks_mean_offset = np.empty((2, len(radii)))
 
 for i, radius in enumerate(radii):
     with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
         raw = file.readlines()
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path_remove_high_vrs}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw_remove_high_vrs = file.readlines()
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path_median_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw_median_offset = file.readlines()
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path_maximum_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw_maximum_offset = file.readlines()
+    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw_mean_offset = file.readlines()
     
-    for line, line_remove_high_vrs, line_median_offset, line_maximum_offset in zip(raw, raw_remove_high_vrs, raw_median_offset, raw_maximum_offset):
+    for line, line_mean_offset in zip(raw, raw_mean_offset):
         if line.startswith('k_resample:\t'):
             ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
-        if line_remove_high_vrs.startswith('k_resample:\t'):
-            ks_remove_high_vrs[:, i] = np.array([float(_) for _ in line_remove_high_vrs.strip('k_resample:\t\n').split('± ')])
-        if line_median_offset.startswith('k_resample:\t'):
-            ks_median_offset[:, i] = np.array([float(_) for _ in line_median_offset.strip('k_resample:\t\n').split('± ')])
-        if line_maximum_offset.startswith('k_resample:\t'):
-            ks_maximum_offset[:, i] = np.array([float(_) for _ in line_maximum_offset.strip('k_resample:\t\n').split('± ')])
+        if line_mean_offset.startswith('k_resample:\t'):
+            ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
 
 colors = ['C0', 'C3']
 fig, ax = plt.subplots()
-blue_errorbar  = ax.errorbar(radii.value, ks_remove_high_vrs[0], yerr=ks_remove_high_vrs[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=1)
-red_errorbar   = ax.errorbar(radii.value, ks_median_offset[0], yerr=ks_median_offset[1], color=colors[1], fmt='o-', markersize=5, capsize=5, zorder=2)
-blue_fill      = ax.fill_between(radii.value, y1=ks_remove_high_vrs[0]-ks_remove_high_vrs[1], y2=ks_remove_high_vrs[0]+ks_remove_high_vrs[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=0)
-red_fill       = ax.fill_between(radii.value, y1=ks_median_offset[0]-ks_median_offset[1], y2=ks_median_offset[0]+ks_median_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=3)
+blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=1)
+red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o-', markersize=5, capsize=5, zorder=2)
+blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=0)
+red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=3)
 
 hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles='--', colors='k', lw=2, zorder=4)
-ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Median Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
+ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
 ax.set_xlabel('Separation Limits of Neighbors (pc)')
 ax.set_ylabel('Slope of Linear Fit (k)')
 plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
@@ -2196,19 +2164,19 @@ ax.set_ylabel('Radial Velocity')
 ax.legend()
 plt.show()
 
-vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp_results/', MCMC=MCMC)
+# vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp_results/', MCMC=MCMC)
 
-# vdisp vs sep
-vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep/', MCMC=MCMC)
+# # vdisp vs sep
+# vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep/', MCMC=MCMC)
 
-# vdisp vs mass
-vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp_results/vdisp_vs_mass/', MCMC=MCMC)
+# # vdisp vs mass
+# vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp_results/vdisp_vs_mass/', MCMC=MCMC)
 
 #################################################
 ################ Mass Segregation ###############
 #################################################
 
-lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
-lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+# lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+# lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
 
-mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+# mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
