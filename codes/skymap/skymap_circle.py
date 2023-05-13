@@ -103,29 +103,21 @@ apogee_zoom = apogee.loc[apogee.sep_to_trapezium <= 4]
 tobin_zoom = tobin.loc[tobin.sep_to_trapezium <= 4]
 
 # Convert sources to pixels: https://python4astronomers.github.io/astropy/wcs.html.
-hc2000_zoom_ra, hc2000_zoom_de = image_wcs_zoom.wcs_world2pix(sources._RAJ2000[idx_hc2000], sources._DEJ2000[idx_hc2000], 0)
-apogee_zoom_ra, apogee_zoom_de = image_wcs_zoom.wcs_world2pix(apogee_zoom._RAJ2000, apogee_zoom._DEJ2000, 0)
-tobin_zoom_ra, tobin_zoom_de = image_wcs_zoom.wcs_world2pix(tobin_zoom._RAJ2000, tobin_zoom._DEJ2000, 0)
+hc2000_ra_zoom, hc2000_de_zoom = image_wcs_zoom.wcs_world2pix(sources._RAJ2000[idx_hc2000], sources._DEJ2000[idx_hc2000], 0)
+apogee_ra_zoom, apogee_de_zoom = image_wcs_zoom.wcs_world2pix(apogee_zoom._RAJ2000, apogee_zoom._DEJ2000, 0)
+tobin_ra_zoom, tobin_de_zoom = image_wcs_zoom.wcs_world2pix(tobin_zoom._RAJ2000, tobin_zoom._DEJ2000, 0)
 # binary_ra, binary_de = image_wcs.wcs_world2pix(binary_coord.ra, binary_coord.dec, 0)
-hc2000_zoom_ra -= ra_offset
-hc2000_zoom_de -= de_offset
-apogee_zoom_ra -= ra_offset
-apogee_zoom_de -= de_offset
-tobin_zoom_ra  -= ra_offset
-tobin_zoom_de  -= de_offset
-
-
-##################################################
-###################### Plot ######################
-##################################################
+hc2000_ra_zoom -= ra_offset
+hc2000_de_zoom -= de_offset
+apogee_ra_zoom -= ra_offset
+apogee_de_zoom -= de_offset
+tobin_ra_zoom  -= ra_offset
+tobin_de_zoom  -= de_offset
 
 
 ##################################################
 ################ Side-by-Side Plot ###############
 ##################################################
-
-# plt.rcParams["font.weight"] = "bold"
-# plt.rcParams["axes.labelweight"] = "bold"
 
 fig = plt.figure(figsize=(12, 5), dpi=300)
 ax1 = fig.add_subplot(1, 2, 1, projection=image_wcs_large)
@@ -146,8 +138,8 @@ ax1.legend(loc='upper right')
 
 ax2 = fig.add_subplot(1, 2, 2, projection=image_wcs_zoom)
 ax2.imshow(image_data_zoom, cmap='gray')
-ax2.scatter(hc2000_zoom_ra, hc2000_zoom_de, s=15, edgecolor='C6', linewidths=1.25, facecolor='none', label='NIRSPEC (This Study)', zorder=3)
-ax2.scatter(apogee_zoom_ra, apogee_zoom_de, s=15, marker='s', edgecolor='C9', linewidths=1.25, facecolor='none', label='APOGEE', zorder=2)
+ax2.scatter(hc2000_ra_zoom, hc2000_de_zoom, s=15, edgecolor='C6', linewidths=1.25, facecolor='none', label='NIRSPEC (This Study)', zorder=3)
+ax2.scatter(apogee_ra_zoom, apogee_de_zoom, s=15, marker='s', edgecolor='C9', linewidths=1.25, facecolor='none', label='APOGEE', zorder=2)
 # ax2.scatter(tobin_zoom_ra, tobin_zoom_de, s=40, marker='^', edgecolor='C1', linewidths=1.5, facecolor='none', label='Tobin et al. 2009', zorder=1)
 ax2.set_xlim([0, box_size - 1])
 ax2.set_ylim([0, box_size - 1])

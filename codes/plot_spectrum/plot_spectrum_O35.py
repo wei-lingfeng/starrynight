@@ -1,3 +1,4 @@
+import os
 import pickle
 import smart
 import emcee
@@ -5,6 +6,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+
+user_path = os.path.expanduser('~')
 
 def plot_spectrum(date, name, order, spec_lines=None, save_path=None, mark_CO=True, show_figure=False):
     """Plot spectrum with model and CO lines in order 32 or 33.
@@ -53,33 +56,31 @@ def plot_spectrum(date, name, order, spec_lines=None, save_path=None, mark_CO=Tr
     day = str(day).zfill(2)
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
     name = str(name)
-    common_prefix = '/home/l3wei/ONC/Data/20{}{}{}/reduced/mcmc_median/{}_O{}_params'.format(year, month_list[int(month) - 1], day, name, orders)
+    prefix = f'{user_path}/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced/mcmc_median/{name}_O{orders}_params'
 
-    discard = 400
+    discard = 200
     params = ['teff', 'vsini', 'rv', 'airmass', 'pwv', 'veiling', 'lsf', 'noise']
     for _ in orders:
-        params += ['wave_offset_O{}'.format(_), 'flux_offset_O{}'.format(_)]
+        params += ['wave_offset_O{}'.format(_)]
     
     nparams = len(params)
-    sampler = emcee.backends.HDFBackend('{}/sampler.h5'.format(common_prefix))
+    sampler = emcee.backends.HDFBackend(f'{prefix}/sampler2.h5')
     flat_samples = sampler.get_chain(discard=discard,  flat=True)
 
-    mcmc = np.empty((3, nparams))
+    mcmc = np.empty((2, nparams))
     for i in range(nparams):
-        mcmc[:, i] = np.percentile(flat_samples[:, i], [50, 16, 84])
+        mcmc[:, i] = np.array((np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2))
     
-    mcmc = np.array([mcmc[0, :], (mcmc[2, :] - mcmc[1, :])/2])
     mcmc = pd.DataFrame(mcmc, columns=params)
     
     c = 299792.458  # km/s
     beta = mcmc.rv[0]/c
     wave_offset = mcmc.loc[0, 'wave_offset_O{}'.format(order)]
-    flux_offset = mcmc.loc[0, 'flux_offset_O{}'.format(order)]
     
-    with open('{}/sci_specs.pkl'.format(common_prefix), 'rb') as file:
+    with open('{}/sci_specs.pkl'.format(prefix), 'rb') as file:
         sci_specs = pickle.load(file)
     sci_spec = sci_specs[[_.order for _ in sci_specs].index(order)]
-    model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_spec, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=wave_offset, flux_offset=flux_offset, z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+    model, model_notel = smart.makeModel(mcmc.teff[0], order=str(order), data=sci_spec, logg=4.0, vsini=mcmc.vsini[0], rv=mcmc.rv[0], airmass=mcmc.airmass[0], pwv=mcmc.pwv[0], veiling=mcmc.veiling[0], lsf=mcmc.lsf[0], wave_offset=wave_offset, z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
 
     if mark_CO:
         # Read CO lines
@@ -120,9 +121,10 @@ def plot_spectrum(date, name, order, spec_lines=None, save_path=None, mark_CO=Tr
         if 'label_offset' not in spec_lines.keys():
             spec_lines['label_offset'] = 0
         
-        ax1.vlines(spec_lines.wavelength + wave_offset, 0.75, 1.1, colors='k', linestyle='dashed', lw=1.2, label='Spectral Lines', alpha=spec_lines.alpha)
+        median_flux = np.median(sci_spec.flux)
+        ax1.vlines(spec_lines.wavelength + wave_offset, 0.78*median_flux, 1.1*median_flux, colors='k', linestyle='dashed', lw=1.2, label='Spectral Lines', alpha=spec_lines.alpha)
         for wavelength, label_offset, spec_name in zip(spec_lines.wavelength, spec_lines.label_offset, spec_lines.name):
-            ax1.text(wavelength + label_offset + wave_offset - 4, 1.08, spec_name, fontsize=12, horizontalalignment='center', verticalalignment='bottom')
+            ax1.text(wavelength + label_offset + wave_offset - 4, 1.08*median_flux, spec_name, fontsize=12, horizontalalignment='center', verticalalignment='bottom')
     
     # ax1.text(1.01, 0.98, '$\mathrm{{T}}_\mathrm{{eff}}$: ${:.2f}\pm{:.2f}$ K\nRV: ${:.2f}\pm{:.2f}$ km$\cdot$s$^{{-1}}$\nvsini: ${:.2f}\pm{:.2f}$ km$\cdot$s$^{{-1}}'.format(mcmc.teff[0], mcmc.teff[1], mcmc.rv[0], mcmc.rv[1], mcmc.vsini[0], mcmc.vsini[1]),
     #     verticalalignment='top', horizontalalignment='left',
@@ -153,20 +155,22 @@ def plot_spectrum(date, name, order, spec_lines=None, save_path=None, mark_CO=Tr
     ax2.set_xlabel(r'$\lambda$ ($\AA$)', fontsize=15)
     ax2.set_ylabel('Residual', fontsize=15)
     h2, l2 = ax2.get_legend_handles_labels()
-    custom_lines = [Line2D([], [], color='k', marker='|', linestyle='None',
-                            markersize=14, markeredgewidth=1.2),
-                    Line2D([], [], color='k', linestyle='dashed', lw=1.2),
+    legend_elements = [Line2D([], [], color='k', marker='|', linestyle='None',
+                            markersize=14, markeredgewidth=1.2) if mark_CO else None,
+                    Line2D([], [], color='k', linestyle='dashed', lw=1.2) if spec_lines is not None else None,
                     Line2D([], [], color='C7', alpha=alpha, lw=1.2),
                     Line2D([], [], color='C3', lw=1.2),
                     Line2D([], [], color='C0', lw=1.2),
                     Line2D([], [], color='k', alpha=alpha, lw=1.2),
                     h2[-1]]
-    if not mark_CO:
-        del custom_lines[0]
-    if spec_lines is None:
-        del custom_lines[1]
+    # if not mark_CO:
+    #     del custom_lines[0]
+    # if spec_lines is None:
+    #     del custom_lines[1]
     
-    ax2.legend(custom_lines, [*l1, *l2], frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
+    legend_elements = [_ for _ in legend_elements if _ is not None]
+    
+    ax2.legend(legend_elements, [*l1, *l2], frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
     fig.align_ylabels((ax1, ax2))
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     if save_path is not None:
@@ -246,6 +250,6 @@ fig, (ax1, ax2) = plot_spectrum(
     order=order,
     spec_lines=spec_lines,
     mark_CO=False,
-    save_path='/home/l3wei/ONC/Figures/Spectrum O35.pdf',
+    save_path=f'{user_path}/ONC/figures/Spectrum O35.pdf',
     show_figure=True
 )

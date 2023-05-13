@@ -21,7 +21,7 @@ os.environ["OMP_NUM_THREADS"] = "1" # Limit number of threads
 
 user_path = os.path.expanduser('~')
 
-def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=False):
+def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=True, show_figure=False):
     """Plot spectrum with model and CO lines in order 32 or 33.
 
     Parameters
@@ -30,6 +30,14 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
         science spectrum
     result : dictionary
         dictionary with teff, rv, wave_offset, etc.
+    spec_lines : dictionary-like or pd.DataFrame
+        Lab spectral lines, by default None.
+        {
+            'name': str | List(str), e.g., 'CO', ['Si', 'Ti'].
+            'wavelength': np.array. Wavelength in Angstrom.
+            'alpha': float | np.array, optional. 1 by default.
+            'label_offset': float | np.array, optional. 0 by default.
+        }
     save_path : str, optional
         save path, by default None
     mark_CO : bool, optional
@@ -45,6 +53,10 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
     
     order = sci_spec.header['ECHLORD']
     model, model_notel = smart.makeModel(result['teff'][0], data=sci_spec, order=order, logg=4.0, vsini=result['vsini'][0], rv=result['rv'][0], airmass=result['airmass'][0], pwv=result['pwv'][0], veiling=result['veiling'][0], lsf=result['lsf'][0], wave_offset=result[f'wave_offset_O{order}'][0], z=0, modelset='phoenix-aces-agss-cond-2011', output_stellar_model=True)
+    
+    c = 299792.458  # km/s
+    beta = result['rv'][0]/c
+    
     if mark_CO:
         # Read CO lines
         co_lines = pd.read_csv(f'{user_path}/ONC/starrynight/codes/plot_spectrum/CO lines.csv')
@@ -52,8 +64,6 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
         if order==32:
             co_lines = co_lines[co_lines.intensity >= -25].reset_index(drop=True)
         co_lines['wavelength'] = 1/co_lines.frequency * 1e8
-        c = 299792.458  # km/s
-        beta = result['rv'][0]/c
         co_lines.wavelength *= np.sqrt((1 + beta)/(1 - beta))
         co_lines = co_lines[(co_lines.wavelength >= model.wave[0]) & (co_lines.wavelength <= model.wave[-1])].reset_index(drop=True)
         co_lines['alpha'] = co_lines.intensity - min(co_lines.intensity)
@@ -77,7 +87,20 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
             ax2.margins(x=0.05)
         else:
             pass    # do not label.
-            
+    
+    if spec_lines is not None:
+        spec_lines = pd.DataFrame(spec_lines)
+        spec_lines.wavelength *= np.sqrt((1 + beta)/(1 - beta))
+        if 'alpha' not in spec_lines.keys():
+            spec_lines['alpha'] = 1
+        if 'label_offset' not in spec_lines.keys():
+            spec_lines['label_offset'] = 0
+        
+        median_flux = np.median(sci_spec.flux)
+        ax1.vlines(spec_lines.wavelength + result[f'wave_offset_O{order}'][0], 0.78*median_flux, 1.1*median_flux, colors='k', linestyle='dashed', lw=1.2, label='Spectral Lines', alpha=spec_lines.alpha)
+        for wavelength, label_offset, spec_name in zip(spec_lines.wavelength, spec_lines.label_offset, spec_lines.name):
+            ax1.text(wavelength + label_offset + result[f'wave_offset_O{order}'][0] - 4, 1.08*median_flux, spec_name, fontsize=12, horizontalalignment='center', verticalalignment='bottom')
+
     ax1.plot(sci_spec.wave, sci_spec.flux, color='C7', alpha=alpha, lw=lw)
     ax1.plot(model_notel.wave, model_notel.flux, color='C3', alpha=1, lw=1)
     ax1.plot(model.wave, model.flux, color='C0', alpha=alpha, lw=lw)
@@ -95,7 +118,8 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
     ax2.set_ylabel('Residual', fontsize=15)
     
     legend_elements = [
-        Line2D([], [], color='k', marker='|', linestyle='None', markersize=14, markeredgewidth=1.2, label='CO Lines'),
+        Line2D([], [], color='k', marker='|', linestyle='None', markersize=14, markeredgewidth=1.2, label='CO Lines') if mark_CO else None,
+        Line2D([], [], color='k', linestyle='dashed', lw=1.2) if spec_lines is not None else None,
         Line2D([], [], color='C7', alpha=alpha, lw=1.2, label='Combined Spectrum'),
         Line2D([], [], color='C3', lw=1.2, label='Model'),
         Line2D([], [], color='C0', lw=1.2, label='Model + Telluric'),
@@ -103,12 +127,8 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
         Patch(facecolor='0.8', label='Noise')
     ]
     
-    if not mark_CO:
-        legend_elements.pop(0)
-    
+    legend_elements = [_ for _ in legend_elements if _ is not None]
     ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
-    fig.align_ylabels((ax1, ax2))
-    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     
     texts = '\n'.join((
         f"$T_\mathrm{{eff}}={result['teff'][0]:.2f}\pm{result['teff'][1]:.2f}$ K",
@@ -130,7 +150,10 @@ def plot_spectrum(sci_spec, result, save_path=None, mark_CO=True, show_figure=Fa
         fontsize=12, linespacing=1.5, horizontalalignment='left', verticalalignment='top', transform=ax1.transAxes, 
         bbox=dict(boxstyle="round,pad=0.5,rounding_size=0.2", ec='0.8', fc='1')
     )
-
+    
+    fig.align_ylabels((ax1, ax2))
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    
     if save_path is not None:
         if save_path.endswith('.png'):
             plt.savefig(save_path, bbox_inches='tight', transparent=True)
@@ -259,7 +282,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
     prefix = f'{user_path}/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced'
-    save_path = f'{prefix}/mcmc_median/{name}_O{orders}_params/'
+    save_path = f'{prefix}/mcmc_median/{name}_O{orders}_params'
     
     if initial_mcmc:
         if os.path.exists(save_path): shutil.rmtree(save_path)
@@ -386,11 +409,10 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             spec.flux   *= normalize_factor
             spec.noise  *= normalize_factor
 
-        # tel_spec = tel_abba[np.argmin([_.header['RMS'] for _ in tel_abba])]
-        
-        # weighted average of abba frames
+        # weighted average flux
         sci_spec = copy.deepcopy(sci_abba[np.argmin([_.header['RMS'] for _ in tel_abba])])
         sci_spec.flux = ma.average(ma.array([_.flux for _ in sci_abba]), weights=1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
+        # noise weighted averaged noise: sqrt(1 / (Σ (1/σi^2)))
         sci_spec.noise = ma.sqrt(1 / ma.sum(1/ma.array([_.noise for _ in sci_abba])**2, axis=0))
         sci_spec.pixel.mask = sci_spec.flux.mask
         sci_spec.wave.mask = sci_spec.flux.mask
@@ -400,23 +422,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         sci_spec.flux   = sci_spec.flux.compressed()
         sci_spec.noise  = sci_spec.noise.compressed()
         
-        # numpy version instead of masked array:
-        # fluxes = np.array([_.flux for _ in sci_abba])
-        # noises = np.array([_.noise for _ in sci_abba])
-        # weights = 1/noises**2
-        # weighted_flux = fluxes*weights
-        
-        # sci_spec.flux = np.nansum(weighted_flux, axis=0) / np.nansum(weights, axis=0)
-        # sci_spec.noise = np.sqrt(np.nansum(noises**2, axis=0) / np.sum(~np.isnan(noises), axis=0))
-        
-        # # drop nans
-        # valid_idx = ~np.isnan(sci_spec.flux)
-        # sci_spec.pixel = sci_spec.pixel[valid_idx]
-        # sci_spec.wave  = sci_spec.wave [valid_idx]
-        # sci_spec.flux  = sci_spec.flux [valid_idx]
-        # sci_spec.noise = sci_spec.noise[valid_idx]
-        
-        # append sci_specs        
+        # append sci_specs
         sci_specs.append(copy.deepcopy(sci_spec))
         
         # plot coadded spectrum
@@ -436,7 +442,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         fig.add_traces(fig_data)
         fig.update_layout(width=1000, height=500, xaxis = dict(tickformat='000'))
         fig.update_layout(xaxis_title='Pixel', yaxis_title='Flux')
-        fig.write_html(save_path + f'spectrum_coadd_plotly_O{order}.html')
+        fig.write_html(f'{save_path}/spectrum_coadd_plotly_O{order}.html')
         
         
         # plot coadd spectrum
@@ -465,13 +471,13 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
         fig.align_ylabels((ax1, ax2))
         plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-        plt.savefig(save_path + f'spectrum_coadd_O{order}.pdf', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{save_path}/spectrum_coadd_O{order}.pdf', dpi=300, bbox_inches='tight')
         plt.close()
 
     barycorr = np.median(barycorrs)
     
     # Save sci_specs
-    with open(save_path + 'sci_specs.pkl', 'wb') as file:
+    with open(f'{save_path}/sci_specs.pkl', 'wb') as file:
         pickle.dump(sci_specs, file)
     
     ##################################################
@@ -490,7 +496,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         print(f'Science  Frames:\t{sci_frames}')
         print(f'Telluric Frames:\t{tel_frames}')
         print()
-        backend = emcee.backends.HDFBackend(save_path + 'sampler1.h5')
+        backend = emcee.backends.HDFBackend(f'{save_path}/sampler1.h5')
         backend.reset(nwalkers, nparams)
         if multiprocess:
             with Pool(64) as pool:
@@ -504,7 +510,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         print(sampler.acceptance_fraction)
         print()
     else:
-        sampler = emcee.backends.HDFBackend(save_path + 'sampler1.h5')
+        sampler = emcee.backends.HDFBackend(f'{save_path}/sampler1.h5')
     
     
     ##################################################
@@ -575,7 +581,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
                 result[f'{param}_O{order}'] = other_params[f'{param}_O{order}']
         
         ########## Write Parameters ##########
-        with open(save_path + 'mcmc_params.txt', 'w') as file:
+        with open(f'{save_path}/mcmc_params.txt', 'w') as file:
             for key, value in result.items():
                 if isinstance(value, Iterable) and (not isinstance(value, str)):
                     file.write('{}: \t{}\n'.format(key, ", ".join(str(_) for _ in value)))
@@ -616,7 +622,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         sci_specs = copy.deepcopy(sci_specs_new)
         
         # Save sci_specs
-        with open(save_path + 'sci_specs.pkl', 'wb') as file:
+        with open(f'{save_path}/sci_specs.pkl', 'wb') as file:
             pickle.dump(sci_specs, file)
         
         
@@ -628,7 +634,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ]).transpose()
         
         if finetune_mcmc:
-            backend = emcee.backends.HDFBackend(save_path + 'sampler2.h5')
+            backend = emcee.backends.HDFBackend(f'{save_path}/sampler2.h5')
             backend.reset(nwalkers, nparams)
             if multiprocess:
                 with Pool(64) as pool:
@@ -642,7 +648,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             print(sampler.acceptance_fraction)
             print()
         else:
-            sampler = emcee.backends.HDFBackend(save_path + 'sampler2.h5')
+            sampler = emcee.backends.HDFBackend(f'{save_path}/sampler2.h5')
 
 
         ##################################################
@@ -679,10 +685,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             other_params[f'model_dip_O{order}'] = np.median(model_notel.flux) - min(model_notel.flux)
             other_params[f'model_std_O{order}'] = np.std(model_notel.flux)
 
-
-        ##################################################
-        ################# Writing Result #################
-        ##################################################
+        # getting result
         result = get_result(mcmc)
 
 
@@ -703,23 +706,77 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     ax.set_xlabel("step number");
     plt.minorticks_on()
     fig.align_ylabels()
-    plt.savefig(save_path + 'mcmc_walker.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{save_path}/mcmc_walker.png', dpi=300, bbox_inches='tight')
     plt.close()
 
     ########## Corner Plot ##########
     fig = corner.corner(
         flat_samples, labels=params, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
     )
-    plt.savefig(save_path + 'mcmc_corner.pdf', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{save_path}/mcmc_corner.pdf', dpi=300, bbox_inches='tight')
     plt.close()
 
     ########## Spectrum Plot ##########
+    # construct spectral lines
+    with open(f'{user_path}/ONC/starrynight/codes/plot_spectrum/appendix.a', 'r') as file:
+        raw = file.readlines()
+    
+    # Brackett γ
+    H_wavelength = np.array([21661.178])
+    H_lines = pd.DataFrame({
+        'name': 'H',
+        'wavelength': H_wavelength,
+        'label_offset': np.array([0])
+    })
+    
+    # Si lines - appendix.a:
+    Si_start = raw.index('Si\n') + 2
+    Si_end = Si_start + raw[Si_start:].index('\n')
+    Si_wavelength = 1e8 / np.array([eval(_.strip()) for _ in raw[Si_start:Si_end]])
+    Si_wavelength = Si_wavelength[(Si_wavelength >= 21620) & (Si_wavelength <= 21930)]
+    Si_wavelength.sort()
+    Si_wavelength = np.delete(Si_wavelength, 2)
+    Si_lines = pd.DataFrame({
+        'name': 'Si',
+        'wavelength': Si_wavelength,
+        'label_offset': np.array([0, 0, 0, 8])
+    })
+
+    # Fe lines - appendix.a:
+    Fe_start = raw.index('Fe\n') + 2
+    Fe_end = Fe_start + raw[Fe_start:].index('\n')
+    Fe_wavelength = 1e8/np.array([eval(_.strip()) for _ in raw[Fe_start:Fe_end]])
+    Fe_wavelength = Fe_wavelength[(Fe_wavelength >= 21620 ) & (Fe_wavelength <= 21930)]
+    Fe_wavelength.sort()
+    Fe_wavelength = np.array([Fe_wavelength[-2]])
+    Fe_lines = pd.DataFrame({
+        'name': 'Fe',
+        'wavelength': Fe_wavelength,
+        'label_offset': np.array([0])
+    })
+    
+    # Ti lines - appendix.a:
+    Ti_start = raw.index('Ti\n') + 2
+    Ti_end = Ti_start + raw[Ti_start:].index('\n')
+    Ti_wavelength = 1e8/np.array([eval(_.strip()) for _ in raw[Ti_start:Ti_end]])
+    Ti_wavelength = Ti_wavelength[(Ti_wavelength >= 21620 ) & (Ti_wavelength <= 21930)]
+    Ti_wavelength.sort()
+    Ti_wavelength = np.delete(Ti_wavelength, 1)
+    Ti_lines = pd.DataFrame({
+        'name': 'Ti',
+        'wavelength': Ti_wavelength,
+        'label_offset': np.array([8, 8])
+    })
+
+    spec_lines = pd.concat([H_lines, Si_lines, Fe_lines, Ti_lines]).reset_index(drop=True)
+
     for i, order in enumerate(orders):
         
         fig, (ax1, ax2) = plot_spectrum(
             sci_spec=sci_specs[i], 
             result=result,
-            save_path=save_path + f'spectrum_modeled_O{order}.pdf',
+            spec_lines=spec_lines,
+            save_path=f'{save_path}/spectrum_modeled_O{order}.pdf',
             mark_CO=False
         )
         plt.close()
@@ -752,7 +809,7 @@ if __name__=='__main__':
         [51, 52, 52, 51]
     ]
 
-    
+
     dim_check = [len(_) for _ in [dates, names, sci_frames, tel_frames]]
     if not all(_==dim_check[0] for _ in dim_check):
         sys.exit('Dimensions not agree! dates: {}, names: {}, sci_frames:{}, tel_frames:{}.'.format(*dim_check))
@@ -773,4 +830,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, orders=[35], initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=True, steps=300, priors=priors)
+        result = model_nirspao(infos=infos, orders=[35], initial_mcmc=False, finetune=True, finetune_mcmc=False, multiprocess=True, steps=300, priors=priors)
