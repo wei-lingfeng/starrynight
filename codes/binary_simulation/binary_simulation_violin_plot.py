@@ -8,16 +8,16 @@ from scipy.interpolate import interp1d
 
 user_path = os.path.expanduser('~')
 fbins = np.linspace(0, 1, 5, endpoint=True)
-v_dispersions = []
+v_disps = []
 for fbin in fbins:
-    with open(f'{user_path}/ONC/starrynight/codes/binary_simulation/v_dispersion fbin={fbin:.2f}.npy', 'rb') as file:
-        v_dispersions.append(np.load(file))
-            
+    with open(f'{user_path}/ONC/starrynight/codes/binary_simulation/v_disp fbin={fbin:.2f}.npy', 'rb') as file:
+        v_disps.append(np.load(file))
 
-quartile1, medians, quartile3 = np.percentile(v_dispersions, [25, 50, 75], axis=1)
+
+quartile1, medians, quartile3 = np.percentile(v_disps, [25, 50, 75], axis=1)
 hline_width = 0.2 / 3
 
-with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp results/All/MCMC Params.txt', 'r') as file:
+with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
     raw = file.readlines()
 vdisp_vr, vdisp_vr_e = eval([line for line in raw if line.startswith('σ_vr:')][0].strip('σ_vr:\t\n'))
 vdisp_ra, vdisp_ra_e = eval([line for line in raw if line.startswith('σ_RA:')][0].strip('σ_RA:\t\n'))
@@ -25,7 +25,7 @@ vdisp_de, vdisp_de_e = eval([line for line in raw if line.startswith('σ_DE:')][
 
 # violin plot
 fig, ax = plt.subplots(figsize=(8, 6))
-violin_plot = ax.violinplot(v_dispersions, positions=fbins*100, widths=12, quantiles=[[0.25, 0.5, 0.75]]*len(fbins))
+violin_plot = ax.violinplot(v_disps, positions=fbins*100, widths=12, quantiles=[[0.25, 0.5, 0.75]]*len(fbins))
 # f_inverse(median vdisps) = fbins
 f_inverse = interp1d(medians, fbins)
 print('Binary fraction needs to be {:.2%} to account for radial velocity dispersion.'.format(f_inverse(vdisp_vr)))
@@ -62,6 +62,6 @@ ax.set_xticks(fbins*100)
 ax.set_xlabel('Binary Fraction (%)', fontsize=15, labelpad=10)
 ax.set_ylabel(r'$\sigma_{RV}~\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15, labelpad=10)
 # ax.set_title('Binary Simulation Result of Intrinsic Velocity Dispersion', fontsize=16, pad=15)
-# plt.savefig(f'{user_path}/ONC/figures/Binary Simulation Violin.pdf', bbox_inches='tight')
-plt.savefig(f'{user_path}/ONC/figures/Binary Simulation Violin.png', bbox_inches='tight', transparent=True)
+plt.savefig(f'{user_path}/ONC/figures/Binary Simulation Violin.pdf', bbox_inches='tight')
+# plt.savefig(f'{user_path}/ONC/figures/Binary Simulation Violin.png', bbox_inches='tight', transparent=True)
 plt.show()

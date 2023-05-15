@@ -132,6 +132,7 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
     ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
     
     texts = '\n'.join((
+        sci_spec.header['OBJECT'].strip().replace('_', ' ', 1),
         f"$T_\mathrm{{eff}}={result['teff'][0]:.2f}\pm{result['teff'][1]:.2f}$ K",
         f"$V_r={result['rv_helio']:.2f}\pm{result['rv'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
         f"$v\sin i={result['vsini'][0]:.2f}\pm{result['vsini'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
@@ -735,7 +736,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
 
 if __name__=='__main__':
     
-    test = False
+    test = True
     if not test:
         skip = 0
         multiprocess=True
@@ -919,4 +920,4 @@ if __name__=='__main__':
             'tel_frames': tel_frames[i],
         }
         
-        result = model_nirspao(infos=infos, initial_mcmc=True, finetune=True, finetune_mcmc=True, multiprocess=multiprocess, steps=300, priors=priors)
+        result = model_nirspao(infos=infos, initial_mcmc=False, finetune=True, finetune_mcmc=False, multiprocess=multiprocess, steps=300, priors=priors)
