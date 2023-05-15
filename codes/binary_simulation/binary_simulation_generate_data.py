@@ -11,7 +11,7 @@ from scipy.stats import norm
 
 user_path = os.path.expanduser('~')
 
-def simulate_binaries(sources, fbin, n_sims, plot=False):
+def simulate_binaries(sources, fbin, n_sims, show_figure=False):
     n_sims = int(n_sims)
 
     sources = sources.loc[sources.theta_orionis.isna()].reset_index(drop=True)
@@ -35,38 +35,12 @@ def simulate_binaries(sources, fbin, n_sims, plot=False):
     # cdf_vr_err(mass_MIST_sorted) = p_mass_MIST
     inv_cdf_vr_err = interp1d(p_vr_err, vr_err_sorted)
     inv_cdf_mass_MIST = interp1d(p_mass_MIST, mass_MIST_sorted)
-    
-    # if fbin==0.5:
-    #     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(8, 8))
-    #     # plot cdf
-    #     ax1.plot(vr_err_sorted, p_vr_err)
-    #     ax1.set_title('CDF $v_\mathrm{err}$')
-    #     ax1.set_xlabel('$v_\mathrm{err}$')
-    #     ax1.set_ylabel('$p$')
-
-    #     ax2.plot(mass_MIST_sorted, p_mass_MIST)
-    #     ax2.set_title('CDF Mass')
-    #     ax2.set_xlabel('Mass ($M_\odot$)')
-    #     ax2.set_ylabel('$p$')
-
-    #     # plot inverse cdf
-    #     ax3.plot(p_vr_err, inv_cdf_vr_err(p_vr_err))
-    #     ax3.set_title('Inverse CDF $v_\mathrm{err}$')
-    #     ax3.set_xlabel('$p$')
-    #     ax3.set_ylabel('$v_\mathrm{err}$')
-
-    #     ax4.plot(p_mass_MIST, inv_cdf_mass_MIST(p_mass_MIST))
-    #     ax4.set_title('Inverse CDF Mass')
-    #     ax4.set_xlabel('$p$')
-    #     ax4.set_ylabel('$v_\mathrm{err}$')
-    #     plt.subplots_adjust(hspace=0.3)
-    #     plt.show()
 
     # Parameters
     dates = (0., )
     sigma = 2
 
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
+    with open(user_path + '/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
     raw = [line for line in raw if line.startswith('σ_vr:')][0]
     vdisp_vr, vdisp_vr_e = eval(raw.strip('σ_vr:\t\n'))
@@ -102,10 +76,6 @@ def simulate_binaries(sources, fbin, n_sims, plot=False):
         v_binary = np.squeeze(v_bin_offset)
         v_errors = np.squeeze(v_meas_offset)
         v_syst_errors = np.squeeze(v_systematic[np.newaxis, :] + v_meas_offset)
-        # plt.hist(v_binary[~np.isnan(v_binary)], bins=np.linspace(-10, 10, 20), density=True, histtype='step', label='Binary')
-        # plt.hist(v_intrinsic[~np.isnan(v_intrinsic)], bins=np.linspace(-10, 10, 20), density=True, histtype='step', label='Intrinsic')
-        # plt.legend()
-        # plt.show()
 
         mean_mock, std_mock = norm.fit(mock_dataset[abs(mock_dataset) <= 7])
         # mean_mock, std_mock = norm.fit(mock_dataset)
@@ -117,7 +87,7 @@ def simulate_binaries(sources, fbin, n_sims, plot=False):
         valid_sims += 1
     
     # Plot
-    if plot & (fbin==0.5):
+    if show_figure & (fbin==0.5):
         vr_offset = vr - np.mean(vr)
         mean_obs, std_obs = norm.fit(vr_offset[abs(vr_offset) <= 7])
         x = np.linspace(-10, 10, 1000)
@@ -142,23 +112,23 @@ def simulate_binaries(sources, fbin, n_sims, plot=False):
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.set_xlabel(r'$\Delta v_r$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         ax.set_ylabel('Normalized Distribution', fontsize=15)
-        plt.savefig(f'{user_path}/ONC/figures/Binary Simulation Histogram.pdf')
+        plt.savefig(user_path + '/ONC/figures/Binary Simulation Histogram.pdf')
         plt.show()
     
     else:
-        with open(f'{user_path}/ONC/starrynight/codes/binary_simulation/v_dispersion fbin={fbin:.2f}.npy', 'wb') as file:
+        with open('{}/ONC/starrynight/codes/binary_simulation/v_disp fbin={:.2f}.npy'.format(user_path, fbin), 'wb') as file:
             np.save(file, v_dispersions)
-        print(f'Simulation of fbin {fbin:.0%} is now finished!')
+        print('Simulation of fbin {:.0%} is now finished!'.format(fbin))
     return v_dispersions
 
 
-# n_sims = 1e5
-# fbins = np.linspace(0, 1, 5, endpoint=True)
-# plot = False
+n_sims = 1e5
+fbins = np.linspace(0, 1, 5, endpoint=True)
+show_figure = False
 
-n_sims = 1
-fbins=[0.5]
-plot = True
+# n_sims = 1
+# fbins=[0.5]
+# show_figure = True
 
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv')
-v_dispersions = [simulate_binaries(sources=sources, fbin=fbin, n_sims=n_sims, plot=plot) for fbin in fbins]
+sources = pd.read_csv(user_path + '/ONC/starrynight/catalogs/sources 2d.csv')
+v_dispersions = [simulate_binaries(sources=sources, fbin=fbin, n_sims=n_sims, show_figure=show_figure) for fbin in fbins]
