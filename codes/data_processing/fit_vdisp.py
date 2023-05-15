@@ -121,7 +121,7 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     text_labels = ['mu_RA', 'mu_DE', 'mu_vr', 'sigma_RA', 'sigma_DE', 'sigma_vr', 'rho_RA', 'rho_DE', 'rho_vr']
     
     if MCMC:
-        backend = emcee.backends.HDFBackend(save_path + 'sampler.h5')
+        backend = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
         backend.reset(nwalkers, ndim)
         
         with Pool(32) as pool:
@@ -153,24 +153,24 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         ax.set_xlabel("step number");
         plt.minorticks_on()
         fig.align_ylabels()
-        plt.savefig(save_path + 'mcmc_walker.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{save_path}/mcmc_walker.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         ########## Corner Plot ##########
         fig = corner.corner(
             flat_samples, labels=labels, truths=results[:, 0], quantiles=[0.16, 0.84]
         )
-        plt.savefig(save_path + 'mcmc_corner.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{save_path}/mcmc_corner.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         
         ########## Write Parameters ##########
-        with open(save_path + 'mcmc_params.txt', 'w') as file:
+        with open(f'{save_path}/mcmc_params.txt', 'w') as file:
             for ylabel, values in zip(labels, results):
-                file.write('{}:\t{}\n'.format(ylabel, ", ".join(str(value) for value in values)))
+                file.write(f'{ylabel}:\t{", ".join(str(value) for value in values)}\n')
     
     else:
-        sampler = emcee.backends.HDFBackend(save_path + 'sampler.h5')
+        sampler = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
     
         flat_samples = sampler.get_chain(discard=discard, flat=True)
         mcmc = np.empty((ndim, 3))

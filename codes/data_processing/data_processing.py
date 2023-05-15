@@ -633,7 +633,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     
     constraint = \
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
-        (~sources['mass_{}'.format(model_name)].isna()) & \
+        (~sources[f'mass_{model_name}'].isna()) & \
         (sources['mass_e_{}'.format(model_name)] < max_mass_error) & \
         (sources.v_e < max_v_error)
     
@@ -647,7 +647,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         radial_velocity=sources.loc[constraint, 'vr'].to_numpy()*u.km/u.s
     )
     
-    mass = sources.loc[constraint, 'mass_{}'.format(model_name)]
+    mass = sources.loc[constraint, f'mass_{model_name}']
     mass_e = sources.loc[constraint, 'mass_e_{}'.format(model_name)]
     v_e = sources.loc[constraint, 'v_e']
     
@@ -696,7 +696,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         radial_velocity=sources.loc[valid_idx, 'vr'].to_numpy()*u.km/u.s
     )
     
-    mass = sources.loc[valid_idx, 'mass_{}'.format(model_name)].to_numpy()
+    mass = sources.loc[valid_idx, f'mass_{model_name}'].to_numpy()
     mass_e = sources.loc[valid_idx, 'mass_e_{}'.format(model_name)].to_numpy()
 
     v_e = sources.loc[valid_idx, 'v_e'].to_numpy()
@@ -943,7 +943,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     print('Fitting for all velocity dispersion...')
     vdisps_all = fit_vdisp(
         sources,
-        save_path=save_path + 'all/', 
+        save_path=f'{save_path}/all/', 
         MCMC=MCMC
     )
     
@@ -952,18 +952,18 @@ def vdisp_all(sources, save_path, MCMC=True):
     vdisp_1d[0] = ((vdisps_all['sigma_RA'][0]**2 + vdisps_all['sigma_DE'][0]**2 + vdisps_all['sigma_vr'][0]**2)/3)**(1/2)
     vdisp_1d[1] = np.sqrt(1 / (3*vdisp_1d[0])**2 * ((vdisps_all['sigma_RA'][0] * vdisps_all['sigma_RA'][1])**2 + (vdisps_all['sigma_DE'][0] * vdisps_all['sigma_DE'][1])**2 + (vdisps_all['sigma_vr'][0] * vdisps_all['sigma_vr'][1])**2))
     
-    with open(save_path + 'all/mcmc_params.txt', 'r') as file:
+    with open(f'{save_path}/all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
     if not any([line.startswith('σ_1D:') for line in raw]):
         raw.insert(6, 'σ_1D:\t{}, {}\n'.format(vdisp_1d[0], vdisp_1d[1]))
-        with open(save_path + 'all/mcmc_params.txt', 'w') as file:
+        with open(f'{save_path}/all/mcmc_params.txt', 'w') as file:
             file.writelines(raw)
     
     # kim velocity dispersions
     print('Fitting for Kim velocity dispersion...')
     fit_vdisp(
         sources.loc[~sources.ID_kim.isna()].reset_index(drop=True),
-        save_path=save_path + 'kim/', 
+        save_path=f'{save_path}/kim', 
         MCMC=MCMC
     )
 
@@ -971,7 +971,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     print('Fitting for Gaia velocity dispersion...')
     fit_vdisp(
         sources.loc[~sources.ID_gaia.isna()].reset_index(drop=True),
-        save_path=save_path + 'gaia/',
+        save_path=f'{save_path}/gaia',
         MCMC=MCMC
     )
     
@@ -1009,12 +1009,12 @@ def vdisp_vs_sep_binned(sources, separations, save_path, MCMC=True):
     sources_in_bins = []
     for i, min_sep, max_sep in zip(range(len(separations_arcmin_binned)), separations_arcmin[:-1], separations_arcmin[1:]):
         if MCMC:
-            print('Start fitting for bin {}...'.format(i))
+            print(f'Start fitting for bin {i}...')
         
         sources_in_bins.append(sum((sources.sep_to_trapezium > min_sep) & (sources.sep_to_trapezium <= max_sep)))
         vdisps.append(fit_vdisp(
             sources.loc[(sources.sep_to_trapezium > min_sep) & (sources.sep_to_trapezium <= max_sep)].reset_index(drop=True),
-            save_path=save_path + '/bin {}/'.format(i),
+            save_path=f'{save_path}/bin {i}',
             MCMC=MCMC
         ))
     
@@ -1048,7 +1048,7 @@ def vdisp_vs_sep_equally_spaced(sources:pd.DataFrame, nbins:int, save_path:str, 
     sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
 
     separation_borders = np.linspace(0, 4, nbins+1)*u.arcmin
-    return separation_borders, vdisp_vs_sep_binned(sources, separation_borders, save_path + '/equally spaced/{}-binned/'.format(nbins), MCMC=MCMC)
+    return separation_borders, vdisp_vs_sep_binned(sources, separation_borders, f'{save_path}/equally spaced/{nbins}-binned/', MCMC=MCMC)
 
 
 
@@ -1082,7 +1082,7 @@ def vdisp_vs_sep_equally_grouped(sources:pd.DataFrame, ngroups:int, save_path:st
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
     separation_sorted = np.sort(sources.sep_to_trapezium)
     separation_borders = np.array([0, *(separation_sorted[division_idx] + separation_sorted[division_idx+1])/2, 4]) * u.arcmin
-    return separation_borders, vdisp_vs_sep_binned(sources, separation_borders, save_path + '/equally grouped/{}-binned/'.format(ngroups), MCMC=MCMC)
+    return separation_borders, vdisp_vs_sep_binned(sources, separation_borders, f'{save_path}/equally grouped/{ngroups}-binned', MCMC=MCMC)
 
 
 
@@ -1295,12 +1295,12 @@ def vdisp_vs_mass_binned(sources, model_name, masses, save_path, MCMC=True):
     sources_in_bins = []
     for i, min_mass, max_mass in zip(range(len(masses_binned)), masses[:-1], masses[1:]):
         if MCMC:
-            print('Start fitting for bin {}...'.format(i))
+            print(f'Start fitting for bin {i}...')
         
-        sources_in_bins.append(sum((sources['mass_{}'.format(model_name)] > min_mass) & (sources['mass_{}'.format(model_name)] <= max_mass)))
+        sources_in_bins.append(sum((sources[f'mass_{model_name}'] > min_mass) & (sources[f'mass_{model_name}'] <= max_mass)))
         vdisps.append(fit_vdisp(
-            sources.loc[(sources['mass_{}'.format(model_name)] > min_mass) & (sources['mass_{}'.format(model_name)] <= max_mass)].reset_index(drop=True),
-            save_path=save_path + '/bin {}/'.format(i),
+            sources.loc[(sources[f'mass_{model_name}'] > min_mass) & (sources[f'mass_{model_name}'] <= max_mass)].reset_index(drop=True),
+            save_path=f'{save_path}/bin {i}',
             MCMC=MCMC
         ))
     
@@ -1338,7 +1338,7 @@ def vdisp_vs_mass_equally_grouped(sources:pd.DataFrame, model_name:str, ngroups:
 
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
-    mass_sorted = np.sort(sources['mass_{}'.format(model_name)])
+    mass_sorted = np.sort(sources[f'mass_{model_name}'])
     mass_borders = np.array([0, *(mass_sorted[division_idx] + mass_sorted[division_idx+1])/2, 4])
     return mass_borders, vdisp_vs_mass_binned(sources, model_name, mass_borders, save_path + '/equally grouped/{}-binned/'.format(ngroups), MCMC=MCMC)
 
@@ -1383,8 +1383,8 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     # average mass within each bin
     mass_sources = []
     for min_mass, max_mass in zip(mass_borders[:-1], mass_borders[1:]):
-        bin_idx = (sources['mass_{}'.format(model_name)] > min_mass) & (sources['mass_{}'.format(model_name)] <= max_mass)
-        mass_sources.append(np.average(sources.loc[bin_idx, 'mass_{}'.format(model_name)], weights=1/sources.loc[bin_idx, 'mass_e_{}'.format(model_name)]**2))
+        bin_idx = (sources[f'mass_{model_name}'] > min_mass) & (sources[f'mass_{model_name}'] <= max_mass)
+        mass_sources.append(np.average(sources.loc[bin_idx, f'mass_{model_name}'], weights=1/sources.loc[bin_idx, 'mass_e_{}'.format(model_name)]**2))
     mass_sources = np.array(mass_sources)
     
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
@@ -1464,14 +1464,14 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
     binary_idx_pairs = [[binary_hc2000.loc[binary_hc2000=='{}_A'.format(_)].index[0], binary_hc2000.loc[binary_hc2000=='{}_B'.format(_)].index[0]] for _ in binary_hc2000_unique]
     
     for binary_idx_pair in binary_idx_pairs:
-        nan_flag = sources.loc[binary_idx_pair, ['mass_{}'.format(model_name), 'mass_e_{}'.format(model_name)]].isna()
+        nan_flag = sources.loc[binary_idx_pair, [f'mass_{model_name}', 'mass_e_{}'.format(model_name)]].isna()
     
         # if any value is valid, update the first place with m=m1+m2, m_e = sqrt(m1_e**2 + m2_e**2) (valid values only). Else (all values are nan), do nothing.
-        if any(~nan_flag['mass_{}'.format(model_name)]):
-            sources.loc[binary_idx_pair[0], 'mass_{}'.format(model_name)] = sum(sources.loc[binary_idx_pair, 'mass_{}'.format(model_name)][~nan_flag['mass_{}'.format(model_name)]])
+        if any(~nan_flag[f'mass_{model_name}']):
+            sources.loc[binary_idx_pair[0], f'mass_{model_name}'] = sum(sources.loc[binary_idx_pair, f'mass_{model_name}'][~nan_flag[f'mass_{model_name}']])
         
         if any(~nan_flag['mass_e_{}'.format(model_name)]):
-            sources.loc[binary_idx_pair[0], 'mass_e_{}'.format(model_name)] = sum(sources.loc[binary_idx_pair, 'mass_e_{}'.format(model_name)][~nan_flag['mass_{}'.format(model_name)]].pow(2))**0.5
+            sources.loc[binary_idx_pair[0], 'mass_e_{}'.format(model_name)] = sum(sources.loc[binary_idx_pair, 'mass_e_{}'.format(model_name)][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
             
         # update names to remove '_A', '_B' suffix.
         sources.loc[binary_idx_pair[0], 'HC2000'] = sources.loc[binary_idx_pair[0], 'HC2000'].split('_')[0]
@@ -1493,7 +1493,7 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
     # lambda: [[value, error], [value, error], ...]
     lambda_msr = np.empty((len(np.arange(Nmst_min, Nmst_max, step)), 2))
     for i, Nmst in enumerate(np.arange(Nmst_min, Nmst_max, step)):
-        massive_idx = np.sort(sources.sort_values('mass_{}'.format(model_name), ascending=False).index[:Nmst])
+        massive_idx = np.sort(sources.sort_values(f'mass_{model_name}', ascending=False).index[:Nmst])
         massive_sep_matrix = sep_matrix[massive_idx][:, massive_idx]
         massive_mst = minimum_spanning_tree(csr_matrix(massive_sep_matrix)).toarray()
         l_massive = massive_mst.sum()
@@ -1534,7 +1534,7 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
     return lambda_msr
 
 
-def mean_mass_binned(sources, separations, model):
+def mean_mass_binned(sources, separations, model_name):
     """Mean mass of sources within a bin vs separation from the Trapezium.
 
     Parameters
@@ -1542,7 +1542,7 @@ def mean_mass_binned(sources, separations, model):
     sources : pandas.DataFrame
     separations : astropy.Quantity
         separations.
-    model : str
+    model_name : str
         model name.
     save_path : str
         save path.
@@ -1558,13 +1558,13 @@ def mean_mass_binned(sources, separations, model):
     
     separations_arcmin = separations.to(u.arcmin).value
     
-    mass_mean = np.array([sources.loc[(sources.sep_to_trapezium > sep_min) & (sources.sep_to_trapezium <= sep_max), 'mass_{}'.format(model)].mean() for sep_min, sep_max in zip(separations_arcmin[:-1], separations_arcmin[1:])])
-    mass_std = np.array([sources.loc[(sources.sep_to_trapezium > sep_min) & (sources.sep_to_trapezium <= sep_max), 'mass_{}'.format(model)].std() for sep_min, sep_max in zip(separations_arcmin[:-1], separations_arcmin[1:])])
+    mass_mean = np.array([sources.loc[(sources.sep_to_trapezium > sep_min) & (sources.sep_to_trapezium <= sep_max), f'mass_{model_name}'].mean() for sep_min, sep_max in zip(separations_arcmin[:-1], separations_arcmin[1:])])
+    mass_std = np.array([sources.loc[(sources.sep_to_trapezium > sep_min) & (sources.sep_to_trapezium <= sep_max), f'mass_{model_name}'].std() for sep_min, sep_max in zip(separations_arcmin[:-1], separations_arcmin[1:])])
     
     return mass_mean, mass_std
 
 
-def mean_mass_equally_spaced(sources, nbins, model):
+def mean_mass_equally_spaced(sources, nbins, model_name):
     """Mean mass vs separation from the Trapezium, equally spaced.
 
     Parameters
@@ -1572,7 +1572,7 @@ def mean_mass_equally_spaced(sources, nbins, model):
     sources : pd.DataFrame
     nbins : int
         number of bins.
-    model : str
+    model_name : str
         mass model name
     save_path : str
         save path.
@@ -1585,13 +1585,13 @@ def mean_mass_equally_spaced(sources, nbins, model):
         mean mass and the associated standard deviation within each bin.
     """
     # filter nans.
-    sources = sources.loc[~sources['mass_{}'.format(model)].isna()].reset_index(drop=True)
+    sources = sources.loc[~sources[f'mass_{model_name}'].isna()].reset_index(drop=True)
     separations = np.linspace(0, 4, nbins+1) * u.arcmin
     # sources_in_bins = [len(_) for _ in [sources.loc[(sources.sep_to_trapezium > r_min) & (sources.sep_to_trapezium <= r_max)] for r_min, r_max in zip(separation_arcmin[:-1], separation_arcmin[1:])]]
-    return separations, mean_mass_binned(sources, separations, model)
+    return separations, mean_mass_binned(sources, separations, model_name)
 
 
-def mean_mass_equally_grouped(sources, ngroups, model):
+def mean_mass_equally_grouped(sources, ngroups, model_name):
     """Mean mass vs separation from the Trapezium, equally grouped.
 
     Parameters
@@ -1599,7 +1599,7 @@ def mean_mass_equally_grouped(sources, ngroups, model):
     sources : pd.DataFrame
     nbins : int
         number of bins.
-    model : str
+    model_name : str
         mass model name
     save_path : str
         save path.
@@ -1612,17 +1612,17 @@ def mean_mass_equally_grouped(sources, ngroups, model):
         mean mass and the associated standard deviation within each bin.
     """
     # filter nans.
-    sources = sources.loc[~sources['mass_{}'.format(model)].isna()].reset_index(drop=True)
+    sources = sources.loc[~sources[f'mass_{model_name}'].isna()].reset_index(drop=True)
     
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
     separation_sorted = np.sort(sources.sep_to_trapezium)
     separations = np.array([0, *(separation_sorted[division_idx] + separation_sorted[division_idx+1])/2, 4]) * u.arcmin
     
-    return separations, mean_mass_binned(sources, separations, model)
+    return separations, mean_mass_binned(sources, separations, model_name)
 
 
-def mean_mass_vs_separation(sources, nbins, ngroups, model, save_path):    
+def mean_mass_vs_separation(sources, nbins, ngroups, model_name, save_path):    
     """Mean mass vs separation, equally spaced and equally grouped.
 
     Parameters
@@ -1632,16 +1632,16 @@ def mean_mass_vs_separation(sources, nbins, ngroups, model, save_path):
         number of bins.
     ngroups : int
         number of groups.
-    model : str
+    model_name : str
         model name of stellar mass
     save_path : str
         save path.
     """
     # filter nans.
-    sources = sources.loc[~sources['mass_{}'.format(model)].isna()].reset_index(drop=True)
+    sources = sources.loc[~sources[f'mass_{model_name}'].isna()].reset_index(drop=True)
     
     # Left: equally spaced.
-    separation_borders, (mass_mean, mass_std) = mean_mass_equally_spaced(sources, nbins, model)
+    separation_borders, (mass_mean, mass_std) = mean_mass_equally_spaced(sources, nbins, model_name)
     
     separations_arcmin = separation_borders.to(u.arcmin).value
     # average separation within each bin.
@@ -1673,7 +1673,7 @@ def mean_mass_vs_separation(sources, nbins, ngroups, model, save_path):
     
     
     # Right: equally grouped.
-    separation_borders, (mass_mean, mass_std) = mean_mass_equally_grouped(sources, ngroups, model)
+    separation_borders, (mass_mean, mass_std) = mean_mass_equally_grouped(sources, ngroups, model_name)
     
     separations_arcmin = separation_borders.to(u.arcmin).value
     # average separation within each bin.
@@ -1872,8 +1872,8 @@ def preprocessing(sources):
     # Replace Trapezium stars fitting results with literature values.
     for i in range(len(trapezium_names)):
         trapezium_index = sources.loc[sources.theta_orionis == trapezium_names[i]].index[-1]
-        for model in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
-            sources.loc[trapezium_index, ['mass_{}'.format(model), 'mass_e_{}'.format(model)]] = [sources.loc[trapezium_index, 'mass_literature'], sources.loc[trapezium_index, 'mass_e_literature']]
+        for model_name in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
+            sources.loc[trapezium_index, [f'mass_{model_name}', 'mass_e_{}'.format(model_name)]] = [sources.loc[trapezium_index, 'mass_literature'], sources.loc[trapezium_index, 'mass_e_literature']]
 
 
     # Apply rv error constraint.
@@ -2058,57 +2058,57 @@ radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
 base_path = 'linear'
 base_path_mean_offset = 'linear-mean-offset'
 
-# # Remove the high relative velocity sources.
-# vr_threshold = 40
-# print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
-# sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
+# Remove the high relative velocity sources.
+vr_threshold = 40
+print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
+sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
 
-# mean_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
-# print(f'Mean difference in teff: {mean_diff:.2f} K')
-# print(f'Maximum difference in teff: {maximum_diff:.2f} K')
+mean_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
+print(f'Mean difference in teff: {mean_diff:.2f} K')
+print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
-# # teff offset simulation
-# sources_mean_offset = copy.deepcopy(sources_remove_high_vrs)
-# sources_mean_offset.teff_nirspec += mean_diff
-# sources_mean_offset.teff = sources_mean_offset.teff_nirspec.fillna(sources_mean_offset.teff_apogee)
+# teff offset simulation
+sources_mean_offset = copy.deepcopy(sources_remove_high_vrs)
+sources_mean_offset.teff_nirspec += mean_diff
+sources_mean_offset.teff = sources_mean_offset.teff_nirspec.fillna(sources_mean_offset.teff_apogee)
 
-# from starrynight import fit_mass
-# mean_offset_masses = fit_mass(sources_mean_offset.teff, sources_mean_offset.teff_e)
-# columns = mean_offset_masses.keys()
-# sources_mean_offset[columns] = mean_offset_masses
-# indices = ~sources_mean_offset.theta_orionis.isna()
-# sources_mean_offset.loc[indices, columns] = np.nan
+from starrynight import fit_mass
+mean_offset_masses = fit_mass(sources_mean_offset.teff, sources_mean_offset.teff_e)
+columns = mean_offset_masses.keys()
+sources_mean_offset[columns] = mean_offset_masses
+indices = ~sources_mean_offset.theta_orionis.isna()
+sources_mean_offset.loc[indices, columns] = np.nan
 
-# for radius in radii:
-#     for model_name in model_names:
+for radius in radii:
+    for model_name in model_names:
         
-#         if radius == 0.1*u.pc and model_name=='MIST':
-#             update_sources = True
-#         else:
-#             update_sources = False
+        if radius == 0.1*u.pc and model_name=='MIST':
+            update_sources = True
+        else:
+            update_sources = False
         
-#         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-#             sources_remove_high_vrs, 
-#             model_name, 
-#             model_type='linear',
-#             radius=radius, 
-#             update_sources=update_sources,
-#             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc/'
-#         )
+        mass, vrel, mass_e, vrel_e = vrel_vs_mass(
+            sources_remove_high_vrs, 
+            model_name, 
+            model_type='linear',
+            radius=radius, 
+            update_sources=update_sources,
+            show_figure=False,
+            save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc/'
+        )
 
-#         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-#             sources_mean_offset,
-#             model_name,
-#             model_type='linear',
-#             radius=radius,
-#             update_sources=False,
-#             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/'
-#         )
+        mass, vrel, mass_e, vrel_e = vrel_vs_mass(
+            sources_mean_offset,
+            model_name,
+            model_type='linear',
+            radius=radius,
+            update_sources=False,
+            show_figure=False,
+            save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/'
+        )
 
-# # write sources_2d with vrel
-# sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.csv', index=False)
+# write sources_2d with vrel
+sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.csv', index=False)
 
 
 model_name = 'MIST'
@@ -2130,7 +2130,7 @@ for i, radius in enumerate(radii):
 colors = ['C0', 'C3']
 fig, ax = plt.subplots()
 blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=1)
-red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o-', markersize=5, capsize=5, zorder=2)
+red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=2)
 blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=0)
 red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=3)
 
@@ -2153,6 +2153,10 @@ rv_constraint = ((
 ))
 print('3σ RV constraint for velocity dispersion: {} out of {} remains.'.format(sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna()), len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())))
 print('Accepted radial velocity range: {:.3f} ± {:.3f} km/s.'.format(np.nanmean(sources.vr), 3*np.nanstd(sources.vr)))
+
+if not os.path.exists(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results'):
+    os.mkdir(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results')
+
 with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean_rv.txt', 'w') as file:
     file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'vr'])))
 
@@ -2164,19 +2168,19 @@ ax.set_ylabel('Radial Velocity')
 ax.legend()
 plt.show()
 
-# vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp_results/', MCMC=MCMC)
+vdisps_all = vdisp_all(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), save_path=f'{save_path}/vdisp_results', MCMC=MCMC)
 
-# # vdisp vs sep
-# vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep/', MCMC=MCMC)
+# vdisp vs sep
+vdisp_vs_sep(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), 8, 8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
-# # vdisp vs mass
-# vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=save_path + '/vdisp_results/vdisp_vs_mass/', MCMC=MCMC)
+# vdisp vs mass
+vdisp_vs_mass(sources_2d.loc[(sources_2d.theta_orionis.isna()) & rv_constraint].reset_index(drop=True), model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 #################################################
 ################ Mass Segregation ###############
 #################################################
 
-# lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
-# lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
 
-# mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
