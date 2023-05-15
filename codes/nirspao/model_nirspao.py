@@ -131,8 +131,9 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
     legend_elements = [_ for _ in legend_elements if _ is not None]
     ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
     
+    object_name = f"[HC2000]{sci_spec.header['OBJECT'].strip().replace('_', ' ', 1).split()[1]}"
     texts = '\n'.join((
-        sci_spec.header['OBJECT'].strip().replace('_', ' ', 1),
+        f"{object_name}  Order {order}",
         f"$T_\mathrm{{eff}}={result['teff'][0]:.2f}\pm{result['teff'][1]:.2f}$ K",
         f"$V_r={result['rv_helio']:.2f}\pm{result['rv'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
         f"$v\sin i={result['vsini'][0]:.2f}\pm{result['vsini'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
