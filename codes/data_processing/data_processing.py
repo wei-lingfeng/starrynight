@@ -212,15 +212,15 @@ def apply_dist_constraint(dist, dist_e, dist_range=15, dist_error_range=15, min_
     ax.set_ylabel('Counts')
     plt.show()
     
-    print('Distance constraint applied: {} \u00B1 {} pc, maximum uncertainty: {} pc.'.format(center_dist, dist_range, dist_error_range))
-    print('Number of matches: {}'.format(sum(dist_constraint)))
+    print(f'Distance constraint applied: {center_dist} \u00B1 {dist_range} pc, maximum uncertainty: {dist_error_range} pc.')
+    print(f'Number of matches: {sum(dist_constraint)}')
     return center_dist, dist_constraint
 
 def distance_cut(dist, dist_e, min_dist=300, max_dist=500, min_plx_over_e=5):
     plx = 1000/dist
     plx_e = dist_e / dist * plx
     dist_constraint = (dist >= min_dist) & (dist <= max_dist) & (plx/plx_e >= min_plx_over_e) | np.isnan(dist)
-    print('{}~{} pc distance range constraint: {} sources out of {} remains.'.format(min_dist, max_dist, sum(dist_constraint) - 5, len(dist_constraint) - 5))
+    print(f'{min_dist}~{max_dist} pc distance range constraint: {sum(dist_constraint) - 5} sources out of {len(dist_constraint) - 5} remains.')
     return dist_constraint
 
 #################################################
@@ -273,24 +273,24 @@ def calculate_velocity(sources, dist=389, dist_e=3):
 #################################################
 
 def compare_velocity(sources, save_path=None):
-    fig, axs = plt.subplots(1, 3, figsize=(14.5, 4))
-    axs[0].errorbar(sources.pmRA_kim, sources.pmRA_gaia, xerr=sources.pmRA_e_kim, yerr=sources.pmRA_e_gaia, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    axs[0].plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
-    axs[0].set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    axs[0].set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    axs[0].legend()
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14.5, 4))
+    ax1.errorbar(sources.pmRA_kim.values, sources.pmRA_gaia.values, xerr=sources.pmRA_e_kim.values, yerr=sources.pmRA_e_gaia.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax1.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    ax1.set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax1.set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax1.legend()
     
-    axs[1].errorbar(sources.pmDE_kim, sources.pmDE_gaia, xerr=sources.pmDE_e_kim, yerr=sources.pmDE_e_gaia, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    axs[1].plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
-    axs[1].set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    axs[1].set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    axs[1].legend()
+    ax2.errorbar(sources.pmDE_kim.values, sources.pmDE_gaia.values, xerr=sources.pmDE_e_kim.values, yerr=sources.pmDE_e_gaia.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax2.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    ax2.set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax2.set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax2.legend()
     
-    axs[2].errorbar(sources.rv_helio, sources.rv_apogee, xerr=sources.rv_e_nirspec, yerr=sources.rv_e_apogee, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    axs[2].plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
-    axs[2].set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-    axs[2].set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-    axs[2].legend()
+    ax3.errorbar(sources.rv_helio.values, sources.rv_apogee.values, xerr=sources.rv_e_nirspec.values, yerr=sources.rv_e_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax3.plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
+    ax3.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax3.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax3.legend()
     
     fig.subplots_adjust(wspace=0.28)
     if save_path:
@@ -634,7 +634,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     constraint = \
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
         (~sources[f'mass_{model_name}'].isna()) & \
-        (sources['mass_e_{}'.format(model_name)] < max_mass_error) & \
+        (sources[f'mass_e_{model_name}'] < max_mass_error) & \
         (sources.v_e < max_v_error)
     
     # sources = sources.loc[constraint].reset_index(drop=True)
@@ -648,7 +648,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     )
     
     mass = sources.loc[constraint, f'mass_{model_name}']
-    mass_e = sources.loc[constraint, 'mass_e_{}'.format(model_name)]
+    mass_e = sources.loc[constraint, f'mass_e_{model_name}']
     v_e = sources.loc[constraint, 'v_e']
     
     ############# calculate vcom within radius #############
@@ -697,11 +697,11 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     )
     
     mass = sources.loc[valid_idx, f'mass_{model_name}'].to_numpy()
-    mass_e = sources.loc[valid_idx, 'mass_e_{}'.format(model_name)].to_numpy()
+    mass_e = sources.loc[valid_idx, f'mass_e_{model_name}'].to_numpy()
 
     v_e = sources.loc[valid_idx, 'v_e'].to_numpy()
     
-    print('Median neighbors in a group: {:.0f}'.format(np.median(n_neighbors)))
+    print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
     
     vrel_vector = v - vcom
     vrel = np.linalg.norm(vrel_vector, axis=1)
@@ -726,7 +726,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         def model_func(x, k, b):
             return b*x**k
     else:
-        raise ValueError("model_func must be one of 'linear' or 'power', not {}.".format(model_func))
+        raise ValueError(f"model_func must be one of 'linear' or 'power', not {model_func}.")
     
     R = np.corrcoef(mass, vrel)[1, 0]   # Pearson's R
     # Resampling
@@ -752,8 +752,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     b_e = np.diff(np.percentile(ebs, [16, 84]))[0]/2
     R_resample = np.median(Rs)
     R_e = np.diff(np.percentile(Rs, [16, 84]))[0]/2
-    print('k_resample = {:.2f} ± {:.2f}'.format(k_resample, k_e))
-    print('R = {:.2f}, R_resample = {:.2f}'.format(R, R_resample))
+    print(f'k_resample = {k_resample:.2f} ± {k_e:.2f}')
+    print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
     
     
     ############# Running average #############
@@ -874,21 +874,21 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     handles, labels = ax.get_legend_handles_labels()
     handles = [h1, (h2, f2), h3, h4]
     labels = [
-        'Sources - {} Model'.format(model_name),
+        f'Sources - {model_name} Model',
         'Running Average',
         "KDE's 84-th Percentile"
     ]
     
     if model_type=='linear':
-        labels.append('Best Linear Fit:\n$k={:.2f}\pm{:.2f}$\n$b={:.2f}\pm{:.2f}$'.format(k_resample, k_e, b_resample, b_e))
+        labels.append(f'Best Linear Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$b={b_resample:.2f}\pm{b_e:.2f}$')
     elif model_type=='power':
-        labels.append('Best Fit:\n$k={:.2f}\pm{:.2f}$\n$A={:.2f}\pm{:.2f}$'.format(k_resample, k_e, b_resample, b_e))
+        labels.append(f'Best Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$A={b_resample:.2f}\pm{b_e:.2f}$')
     
     ax.legend(handles, labels)
     
     
     at = AnchoredText(
-        '$R={:.2f}\pm{:.2f}$'.format(R_resample, R_e), 
+        f'$R={R_resample:.2f}\pm{R_e:.2f}$', 
         prop=dict(size=10), frameon=True, loc='lower right'
     )
     at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
@@ -908,8 +908,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     
     ########## Updating the original DataFrame ##########
     if update_sources:
-        sources.loc[valid_idx, 'vrel_{}'.format(model_name)] = vrel
-        sources.loc[valid_idx, 'vrel_e_{}'.format(model_name)] = vrel_e
+        sources.loc[valid_idx, f'vrel_{model_name}'] = vrel
+        sources.loc[valid_idx, f'vrel_e_{model_name}'] = vrel_e
     else:
         pass
     
@@ -955,7 +955,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     with open(f'{save_path}/all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
     if not any([line.startswith('σ_1D:') for line in raw]):
-        raw.insert(6, 'σ_1D:\t{}, {}\n'.format(vdisp_1d[0], vdisp_1d[1]))
+        raw.insert(6, f'σ_1D:\t{vdisp_1d[0]}, {vdisp_1d[1]}\n')
         with open(f'{save_path}/all/mcmc_params.txt', 'w') as file:
             file.writelines(raw)
     
@@ -1120,12 +1120,12 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     
     # Left: equally spaced    
     if MCMC:
-        print('{}-binned equally spaced velocity dispersion vs separation fitting...'.format(nbins))
+        print(f'{nbins}-binned equally spaced velocity dispersion vs separation fitting...')
     
     separation_borders, vdisps = vdisp_vs_sep_equally_spaced(sources, nbins, save_path, MCMC)
     
     if MCMC:
-        print('{}-binned equally spaced velocity dispersion vs separation fitting finished!\n'.format(nbins))
+        print(f'{nbins}-binned equally spaced velocity dispersion vs separation fitting finished!\n')
     
         
     separations_arcmin = separation_borders.to(u.arcmin).value
@@ -1169,7 +1169,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
         
         for i in range(len(sources_in_bins)):
-            ax.annotate('{}'.format(sources_in_bins[i]), (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+            ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
         ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
         
         # pc axis
@@ -1190,12 +1190,12 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     # Right: Equally Grouped
     
     if MCMC:
-        print('{}-binned equally grouped velocity dispersion vs separation fitting...'.format(ngroups))
+        print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting...')
 
     separation_borders, vdisps = vdisp_vs_sep_equally_grouped(sources, ngroups, save_path, MCMC)    
 
     if MCMC:
-        print('{}-binned equally grouped velocity dispersion vs separation fitting finished!'.format(ngroups))
+        print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting finished!')
 
     separations_arcmin = separation_borders.to(u.arcmin).value
     # average separation within each bin.
@@ -1231,7 +1231,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
         
         for i in range(len(sources_in_bins)):
-            ax.annotate('{}'.format(sources_in_bins[i]), (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+            ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
         red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
         
         # arcmin axis
@@ -1340,7 +1340,7 @@ def vdisp_vs_mass_equally_grouped(sources:pd.DataFrame, model_name:str, ngroups:
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
     mass_sorted = np.sort(sources[f'mass_{model_name}'])
     mass_borders = np.array([0, *(mass_sorted[division_idx] + mass_sorted[division_idx+1])/2, 4])
-    return mass_borders, vdisp_vs_mass_binned(sources, model_name, mass_borders, save_path + '/equally grouped/{}-binned/'.format(ngroups), MCMC=MCMC)
+    return mass_borders, vdisp_vs_mass_binned(sources, model_name, mass_borders, f'{save_path}/equally grouped/{ngroups}-binned/', MCMC=MCMC)
 
 
 
@@ -1373,18 +1373,18 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     # Equally Grouped
     
     if MCMC:
-        print('{}-binned equally grouped velocity dispersion vs mass fitting...'.format(ngroups))
+        print(f'{ngroups}-binned equally grouped velocity dispersion vs mass fitting...')
 
     mass_borders, vdisps = vdisp_vs_mass_equally_grouped(sources, model_name, ngroups, save_path, MCMC)    
 
     if MCMC:
-        print('{}-binned equally grouped velocity dispersion vs mass fitting finished!'.format(ngroups))
+        print(f'{ngroups}-binned equally grouped velocity dispersion vs mass fitting finished!')
 
     # average mass within each bin
     mass_sources = []
     for min_mass, max_mass in zip(mass_borders[:-1], mass_borders[1:]):
         bin_idx = (sources[f'mass_{model_name}'] > min_mass) & (sources[f'mass_{model_name}'] <= max_mass)
-        mass_sources.append(np.average(sources.loc[bin_idx, f'mass_{model_name}'], weights=1/sources.loc[bin_idx, 'mass_e_{}'.format(model_name)]**2))
+        mass_sources.append(np.average(sources.loc[bin_idx, f'mass_{model_name}'], weights=1/sources.loc[bin_idx, f'mass_e_{model_name}']**2))
     mass_sources = np.array(mass_sources)
     
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
@@ -1417,14 +1417,14 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
             ax.set_ylabel(r'$\sigma$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         elif direction=='pm':
             ax.set_title('$\sigma_{\mathrm{pm, rms}}$', fontsize=15)
-            ax.set_xlabel('{} Mass ($M_\odot$)'.format(model_name), fontsize=15, labelpad=10)
+            ax.set_xlabel(f'{model_name} Mass ($M_\odot$)', fontsize=15, labelpad=10)
         elif direction=='vr':
             ax.set_title('$\sigma_{\mathrm{RV}}$', fontsize=15)
 
         errorbar = ax.errorbar(mass_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
         
         for i in range(len(sources_in_bins)):
-            ax.annotate('{}'.format(sources_in_bins[i]), (mass_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+            ax.annotate(f'{sources_in_bins[i]}', (mass_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
         fill = ax.fill_between(mass_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
         ax.tick_params(axis='both', labelsize=12)
     
@@ -1461,17 +1461,17 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
     binary_hc2000 = sources.loc[[False if str(_).lower()=='nan' else '_' in _ for _ in list(sources.HC2000)], 'HC2000']
     binary_hc2000_unique = [_.split('_')[0] for _ in binary_hc2000 if _.endswith('_A')]
     # binary_idx_pairs = [[a_idx, b_idx], [a_idx, b_idx], ...]
-    binary_idx_pairs = [[binary_hc2000.loc[binary_hc2000=='{}_A'.format(_)].index[0], binary_hc2000.loc[binary_hc2000=='{}_B'.format(_)].index[0]] for _ in binary_hc2000_unique]
+    binary_idx_pairs = [[binary_hc2000.loc[binary_hc2000==f'{_}_A'].index[0], binary_hc2000.loc[binary_hc2000==f'{_}_B'].index[0]] for _ in binary_hc2000_unique]
     
     for binary_idx_pair in binary_idx_pairs:
-        nan_flag = sources.loc[binary_idx_pair, [f'mass_{model_name}', 'mass_e_{}'.format(model_name)]].isna()
+        nan_flag = sources.loc[binary_idx_pair, [f'mass_{model_name}', f'mass_e_{model_name}']].isna()
     
         # if any value is valid, update the first place with m=m1+m2, m_e = sqrt(m1_e**2 + m2_e**2) (valid values only). Else (all values are nan), do nothing.
         if any(~nan_flag[f'mass_{model_name}']):
             sources.loc[binary_idx_pair[0], f'mass_{model_name}'] = sum(sources.loc[binary_idx_pair, f'mass_{model_name}'][~nan_flag[f'mass_{model_name}']])
         
-        if any(~nan_flag['mass_e_{}'.format(model_name)]):
-            sources.loc[binary_idx_pair[0], 'mass_e_{}'.format(model_name)] = sum(sources.loc[binary_idx_pair, 'mass_e_{}'.format(model_name)][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
+        if any(~nan_flag[f'mass_e_{model_name}']):
+            sources.loc[binary_idx_pair[0], f'mass_e_{model_name}'] = sum(sources.loc[binary_idx_pair, f'mass_e_{model_name}'][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
             
         # update names to remove '_A', '_B' suffix.
         sources.loc[binary_idx_pair[0], 'HC2000'] = sources.loc[binary_idx_pair[0], 'HC2000'].split('_')[0]
@@ -1659,7 +1659,7 @@ def mean_mass_vs_separation(sources, nbins, ngroups, model_name, save_path):
     ax1.fill_between(separation_sources, y1=mass_mean-mass_std, y2=mass_mean+mass_std, edgecolor='none', facecolor='C0', alpha=0.3, label='$\sigma_M$')
     ylim = ax1.get_ylim()
     for i in range(len(sources_in_bins)):
-        ax1.annotate('{}'.format(sources_in_bins[i]), (separation_sources[i], mass_mean[i] + (ylim[1] - ylim[0])/20), fontsize=10, horizontalalignment='center')
+        ax1.annotate(f'{sources_in_bins[i]}', (separation_sources[i], mass_mean[i] + (ylim[1] - ylim[0])/20), fontsize=10, horizontalalignment='center')
     ax1.legend(fontsize=12, loc='upper left')
     ax1.tick_params(axis='both', labelsize=12)
     ax1.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15)
@@ -1687,7 +1687,7 @@ def mean_mass_vs_separation(sources, nbins, ngroups, model_name, save_path):
     ax2.plot(separation_sources, mass_mean, marker='o', markersize=5)
     ax2.fill_between(separation_sources, y1=mass_mean-mass_std, y2=mass_mean+mass_std, edgecolor='none', facecolor='C0', alpha=0.3)
     for i in range(len(sources_in_bins)):
-        ax2.annotate('{}'.format(sources_in_bins[i]), (separation_sources[i], mass_mean[i] + (ylim[1] - ylim[0])/20), fontsize=10, horizontalalignment='center')
+        ax2.annotate(f'{sources_in_bins[i]}', (separation_sources[i], mass_mean[i] + (ylim[1] - ylim[0])/20), fontsize=10, horizontalalignment='center')
     ax2.tick_params(axis='both', labelsize=12)
     ax2.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15)
     
@@ -1785,9 +1785,9 @@ def compare_chris(sources, save_path=None):
     ax.set_ylabel('Counts', fontsize=12)
     if save_path:
         if save_path.endswith('png'):
-            plt.savefig(save_path + '/compare Chris veiling_param_O33.pdf', bbox_inches='tight', transparent=True)
+            plt.savefig(f'{save_path}/compare Chris veiling_param_O33.pdf', bbox_inches='tight', transparent=True)
         else:
-            plt.savefig(save_path + '/compare Chris veiling_param_O33.pdf', bbox_inches='tight')
+            plt.savefig(f'{save_path}/compare Chris veiling_param_O33.pdf', bbox_inches='tight')
     plt.show()
     
     # compare teff
@@ -1800,7 +1800,7 @@ def compare_chris(sources, save_path=None):
     ax.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
     ax.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
     if save_path:
-        plt.savefig(save_path + '/compare Chris teff.pdf', bbox_inches='tight')
+        plt.savefig(f'{save_path}/compare Chris teff.pdf', bbox_inches='tight')
     plt.show()
     
     # compare vr
@@ -1814,9 +1814,9 @@ def compare_chris(sources, save_path=None):
     ax.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     if save_path:
         if save_path.endswith('png'):
-            plt.savefig(save_path + '/compare Chris vr.pdf', bbox_inches='tight', transparent=True)
+            plt.savefig(f'{save_path}/compare Chris vr.pdf', bbox_inches='tight', transparent=True)
         else:
-            plt.savefig(save_path + '/compare Chris vr.pdf', bbox_inches='tight')
+            plt.savefig(f'{save_path}/compare Chris vr.pdf', bbox_inches='tight')
     plt.show()
 
 
@@ -1873,7 +1873,7 @@ def preprocessing(sources):
     for i in range(len(trapezium_names)):
         trapezium_index = sources.loc[sources.theta_orionis == trapezium_names[i]].index[-1]
         for model_name in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
-            sources.loc[trapezium_index, [f'mass_{model_name}', 'mass_e_{}'.format(model_name)]] = [sources.loc[trapezium_index, 'mass_literature'], sources.loc[trapezium_index, 'mass_e_literature']]
+            sources.loc[trapezium_index, [f'mass_{model_name}', f'mass_e_{model_name}']] = [sources.loc[trapezium_index, 'mass_literature'], sources.loc[trapezium_index, 'mass_e_literature']]
 
 
     # Apply rv error constraint.
@@ -1886,7 +1886,7 @@ def preprocessing(sources):
         ~sources.theta_orionis.isna()
     ))
 
-    print('Maximum RV error of {} km/s constraint: {} out of {} remaining.'.format(max_rv_e, sum(rv_constraint) - sum(~sources.theta_orionis.isna()), len(rv_constraint) - sum(~sources.theta_orionis.isna())))
+    print(f'Maximum RV error of {max_rv_e} km/s constraint: {sum(rv_constraint) - sum(~sources.theta_orionis.isna())} out of {len(rv_constraint) - sum(~sources.theta_orionis.isna())} remaining.')
 
     sources = sources.loc[rv_constraint].reset_index(drop=True)
 
@@ -1901,9 +1901,9 @@ def preprocessing(sources):
 
     offset_RA = np.nanmedian(sources.pmRA_gaia - sources.pmRA_kim)
     offset_DE = np.nanmedian(sources.pmDE_gaia - sources.pmDE_kim)
-    print('offset in RA and DEC is {} mas/yr.'.format((offset_RA, offset_DE)))
+    print(f'offset in RA and DEC is {(offset_RA, offset_DE)} mas/yr.')
     with open(f'{user_path}/ONC/starrynight/codes/data_processing/pm_offset.txt', 'w') as file:
-        file.write('pmRA_gaia - pmRA_kim = {}\npmDE_gaia - pmDE_kim = {}'.format(offset_RA, offset_DE))
+        file.write(f'pmRA_gaia - pmRA_kim = {offset_RA}\npmDE_gaia - pmDE_kim = {offset_DE}')
 
     # Plot pm comparison
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -2151,8 +2151,8 @@ rv_constraint = ((
     ) | (
         ~sources_2d.theta_orionis.isna()
 ))
-print('3σ RV constraint for velocity dispersion: {} out of {} remains.'.format(sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna()), len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())))
-print('Accepted radial velocity range: {:.3f} ± {:.3f} km/s.'.format(np.nanmean(sources.vr), 3*np.nanstd(sources.vr)))
+print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna())} out of {len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())} remains.')
+print(f'Accepted radial velocity range: {np.nanmean(sources.vr):.3f} ± {3*np.nanstd(sources.vr):.3f} km/s.')
 
 if not os.path.exists(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results'):
     os.mkdir(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results')
