@@ -579,7 +579,7 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, max_mass_error=0.5, max_v_error=5., update_sources=False, save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_mass_error=0.5, max_v_error=5., kde_percentile=84, update_sources=False, save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
@@ -592,6 +592,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         radius within which count as neighbors, by default 0.1*u.pc
     model_func : str, optional
         format of model function: 'linear' or 'power'. V=k*M + b or V=A*M**k, by default 'linear'.
+    resampling : any, optional
+        whether resample or not, and number of resamples, 100000 by default. If False or None, will try to read from previous results
     self_included : bool, optional
         include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
     mass_max_error : float, optional
@@ -600,6 +602,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         maximum velocity error, by default 5
     update_sources : bool, optional
         update the original sources dataframe or not, by default False
+    kde_percentile : int, optional
+        Percentile of KDE contour, 84 by default
     show_figure : bool, optional
         whether to show the figure
     save_path : str, optional
@@ -729,29 +733,42 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
         raise ValueError(f"model_func must be one of 'linear' or 'power', not {model_func}.")
     
     R = np.corrcoef(mass, vrel)[1, 0]   # Pearson's R
+    
     # Resampling
-    resampling = 100000
-    ks = np.empty(resampling)
-    ebs = np.empty(resampling)
-    Rs = np.empty(resampling)
+    if resampling:
+        ks = np.empty(resampling)
+        ebs = np.empty(resampling)
+        Rs = np.empty(resampling)
+        
+        for i in range(resampling):
+            mass_resample = np.random.normal(loc=mass, scale=mass_e)
+            vrel_resample = np.random.normal(loc=vrel, scale=vrel_e)
+            valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
+            mass_resample = mass_resample[valid_resample_idx]
+            vrel_resample = vrel_resample[valid_resample_idx]
+            popt, _ = curve_fit(model_func, mass_resample, vrel_resample)
+            ks[i] = popt[0]
+            ebs[i] = popt[1]        
+            Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
+        
+        k_resample = np.median(ks)
+        k_e = np.diff(np.percentile(ks, [16, 84]))[0]/2
+        b_resample = np.median(ebs)
+        b_e = np.diff(np.percentile(ebs, [16, 84]))[0]/2
+        R_resample = np.median(Rs)
+        R_e = np.diff(np.percentile(Rs, [16, 84]))[0]/2
     
-    for i in range(resampling):
-        mass_resample = np.random.normal(loc=mass, scale=mass_e)
-        vrel_resample = np.random.normal(loc=vrel, scale=vrel_e)
-        valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
-        mass_resample = mass_resample[valid_resample_idx]
-        vrel_resample = vrel_resample[valid_resample_idx]
-        popt, _ = curve_fit(model_func, mass_resample, vrel_resample)
-        ks[i] = popt[0]
-        ebs[i] = popt[1]        
-        Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
+    else:
+        with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+            raw = file.readlines()
+        for line in raw:
+            if line.startswith('k_resample:'):
+                k_resample, k_e = eval(', '.join(line.strip('k_resample:\t\n').split('± ')))
+            elif line.startswith('b_resample:'):
+                b_resample, b_e = eval(', '.join(line.strip('b_resample:\t\n').split('± ')))
+            elif line.startswith('R_resample:'):
+                R_resample, R_e = eval(', '.join(line.strip('R_resample:\t\n').split('± ')))
     
-    k_resample = np.median(ks)
-    k_e = np.diff(np.percentile(ks, [16, 84]))[0]/2
-    b_resample = np.median(ebs)
-    b_e = np.diff(np.percentile(ebs, [16, 84]))[0]/2
-    R_resample = np.median(Rs)
-    R_e = np.diff(np.percentile(Rs, [16, 84]))[0]/2
     print(f'k_resample = {k_resample:.2f} ± {k_e:.2f}')
     print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
     
@@ -858,10 +875,10 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     
     ax.set_facecolor(cmap(0))
     im = ax.imshow(Z, cmap=my_cmap, alpha=0.8, extent=[0, mass.max(), 0, vrel.max()], zorder=0, aspect='auto')
-    cs = ax.contour(X, Y, np.flipud(Z), levels=np.percentile(Z, [84]), alpha=0.5, zorder=1)
+    cs = ax.contour(X, Y, np.flipud(Z), levels=np.percentile(Z, [kde_percentile]), alpha=0.5, zorder=1)
     
     # contour label
-    fmt = {cs.levels[0]: '84%'}
+    fmt = {cs.levels[0]: f'{kde_percentile}%'}
     ax.clabel(cs, cs.levels, inline=True, fmt=fmt, fontsize=10)
     h3 = Line2D([0], [0], color=cs.collections[0].get_edgecolor()[0])
     
@@ -876,7 +893,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', self
     labels = [
         f'Sources - {model_name} Model',
         'Running Average',
-        "KDE's 84-th Percentile"
+        f"KDE's {kde_percentile}-th Percentile"
     ]
     
     if model_type=='linear':
@@ -1793,23 +1810,22 @@ def compare_chris(sources, save_path=None):
     # compare teff
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.plot([3000, 5000], [3000, 5000], linestyle='--', color='C3', label='Equal Line')
-    ax.errorbar(sources.teff, sources.teff_chris, xerr=sources.teff_e, yerr=sources.teff_e_chris, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
+    ax.errorbar(sources.teff.values, sources.teff_chris.values, xerr=sources.teff_e.values, yerr=sources.teff_e_chris.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
     ax.legend()
-    ax.set_xlim((2800, 5200))
-    ax.set_ylim((2800, 5200))
     ax.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
     ax.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
     if save_path:
-        plt.savefig(f'{save_path}/compare Chris teff.pdf', bbox_inches='tight')
+        if save_path.endswith('png'):
+            plt.savefig(f'{save_path}/compare Chris teff.pdf', bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(f'{save_path}/compare Chris teff.pdf', bbox_inches='tight')
     plt.show()
     
     # compare vr
     fig, ax = plt.subplots(figsize=(4, 3))
     ax.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
-    ax.errorbar(sources.vr, sources.vr_chris, xerr=sources.vr_e, yerr=sources.vr_e_chris, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
+    ax.errorbar(sources.vr.values, sources.vr_chris.values, xerr=sources.vr_e.values, yerr=sources.vr_e_chris.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
     ax.legend()
-    ax.set_xlim((19, 35))
-    ax.set_ylim((19, 35))
     ax.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     ax.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     if save_path:
@@ -2035,7 +2051,7 @@ fig_2d = plot_2d(sources_2d)
 fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
 # fig_3d1, fig_3d2 = plot_3d(sources_coord_3d)
 # fig_3d2.write_html(f'{user_path}/ONC/figures/sky 3d small.html')
-plot_pm_vr(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.png')
+plot_pm_vr(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
 
 # pm angle distribution
 # pm_angle_distribution(sources_2d)
@@ -2045,7 +2061,7 @@ pm_angle_distribution(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_inde
 compare_mass(sources_2d, save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
 
 # compare with Chris
-compare_chris(sources_2d)
+compare_chris(sources_2d, save_path=f'{user_path}/ONC/figures')
 
 
 #################################################
@@ -2092,9 +2108,11 @@ for radius in radii:
             model_name, 
             model_type='linear',
             radius=radius, 
+            resampling=True,
             update_sources=update_sources,
+            kde_percentile=84,
             show_figure=False,
-            save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc/'
+            save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc'
         )
 
         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
@@ -2102,9 +2120,11 @@ for radius in radii:
             model_name,
             model_type='linear',
             radius=radius,
+            resampling=True,
             update_sources=False,
+            kde_percentile=84,
             show_figure=False,
-            save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/'
+            save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc'
         )
 
 # write sources_2d with vrel
