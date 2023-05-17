@@ -120,7 +120,7 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
     legend_elements = [
         Line2D([], [], color='k', marker='|', linestyle='None', markersize=14, markeredgewidth=1.2, label='CO Lines') if mark_CO else None,
         Line2D([], [], color='k', linestyle='dashed', lw=1.2, label='Spectral Lines') if spec_lines is not None else None,
-        Line2D([], [], color='C7', alpha=alpha, lw=1.2, label='Combined Spectrum'),
+        Line2D([], [], color='C7', alpha=alpha, lw=1.2, label='Coadded Spectrum'),
         Line2D([], [], color='C3', lw=1.2, label='Model'),
         Line2D([], [], color='C0', lw=1.2, label='Model + Telluric'),
         Line2D([], [], color='k', alpha=alpha, lw=1.2, label='Residual'),
@@ -144,7 +144,7 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
         f"$C_\lambda={result[f'wave_offset_O{order}'][0]:.2f}\pm{result[f'wave_offset_O{order}'][1]:.2f}~\AA$",
         f"$\mathrm{{SNR}}={np.median(sci_spec.flux/sci_spec.noise):.2f}$"
     ))
-        
+    
     ax1.text(
         1.0142, 
         0.975, 
@@ -315,7 +315,7 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     ##################################################
     ############### Construct Spectrums ##############
     ##################################################
-    # sci_specs = [order 32 median combined sci_spec, order 33 median combined sci_spec]
+    # sci_specs = [order 32 weighted averaged sci_spec, order 33 weighted averaged sci_spec]
     sci_specs = []
     barycorrs = []
     

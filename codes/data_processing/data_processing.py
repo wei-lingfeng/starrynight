@@ -735,6 +735,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     R = np.corrcoef(mass, vrel)[1, 0]   # Pearson's R
     
     # Resampling
+    if resampling is True:
+        resampling = 10000
     if resampling:
         ks = np.empty(resampling)
         ebs = np.empty(resampling)
