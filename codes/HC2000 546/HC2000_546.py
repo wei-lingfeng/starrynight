@@ -98,7 +98,7 @@ ax.set_ylabel('Semi-Major Axis (au)')
 handles, labels = ax.get_legend_handles_labels()
 handles[0] = Line2D([], [], marker='.', color='C7', label='Sampled Systems', markersize=5, linestyle='None')
 ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023))
-plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Allowed Param.pdf')
+plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Allowed Param.pdf', bbox_inches='tight')
 plt.show()
 
 # only plot orbits with period > 300 days
