@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import astropy.units as u
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 from datetime import date
 from scipy.optimize import fsolve
 from matplotlib.lines import Line2D
@@ -68,31 +69,49 @@ m = np.array(m)
 a = np.array(a)
 
 # plot sma-mass
-lower_bound = lambda m: ((M + m) * P_min.to(u.yr).value**2)**(1/3) # a > a_P_min
-upper_bound = lambda m: ((M + m) * P_max.to(u.yr).value**2)**(1/3) # a < a_P_max
-left_bound = lambda m: 4*np.pi**2*m**2/(M + m) / (rv.ptp().to(u.au/u.yr).value/2)**2 # a < a_dv_min
+lower_bound = lambda m : ((M + m) * P_min.to(u.yr).value**2)**(1/3) # a > a_P_min
+upper_bound = lambda m : ((M + m) * P_max.to(u.yr).value**2)**(1/3) # a < a_P_max
+left_bound_circular = lambda m : 4*np.pi**2*m**2/(M + m) / (rv.ptp().to(u.au/u.yr).value/2)**2 # a < a_dv_min
+left_bound = lambda m, e : left_bound_circular(m) / (1 - e**2)
 
-m_intersection_lower = fsolve(lambda m: left_bound(m) - lower_bound(m), x0=min(m))
-m_intersection_upper = fsolve(lambda m: left_bound(m) - upper_bound(m), x0=0.12)
+# e_max = max(e[a > left_bound_circular(m)])
+e_max = 0.9
+
+m_intersection_lower = fsolve(lambda m: left_bound(m, e_max) - lower_bound(m), x0=0.01)[0]
+m_intersection_upper = fsolve(lambda m: left_bound(m, e_max) - upper_bound(m), x0=0.05)[0]
+m_intersection_lower_circular = fsolve(lambda m: left_bound_circular(m) - lower_bound(m), x0=min(m))[0]
+m_intersection_upper_circular = fsolve(lambda m: left_bound_circular(m) - upper_bound(m), x0=0.12)[0]
+
 m_grid_left = np.linspace(m_intersection_lower, m_intersection_upper, 100)
 m_grid_right = np.linspace(m_intersection_upper, M, 100)
-m_grid = np.linspace(min(m), M, 100)
+m_grid = np.concatenate((m_grid_left, m_grid_right)).flatten()
+m_grid_left_circular = np.linspace(m_intersection_lower_circular, m_intersection_upper_circular, 100)
 
 fig, ax = plt.subplots(1, 1, figsize=(6, 4))
 ax.scatter(m, a, 1, color='C7', marker='.', label='Sampled Systems')
 ax.plot(m_grid, lower_bound(m_grid), lw=2, label=f'Min. Period: {P_min.value:.0f} days')
-ax.plot(m_grid, upper_bound(m_grid), lw=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days')
-ax.plot(m_grid_left, left_bound(m_grid_left), lw=2, linestyle='--', label=r'Min. $\Delta v$ in circular orbit')
-ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='C3', linestyle=':', label='Max. Companion Mass')
+ax.plot(m_grid_right, upper_bound(m_grid_right), lw=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days')
+ax.plot(m_grid_left_circular, left_bound_circular(m_grid_left_circular), lw=2, linestyle='--', label=r'Min. $\Delta v$ with $e = 0$')
+ax.plot(m_grid_left, left_bound(m_grid_left, e_max), lw=2, linestyle='--', label=fr'Min. $\Delta v$ with $e = {e_max:.1f}$')
+ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='k', linestyle=':', label='Max. Companion Mass')
 ax.fill_between(
     m_grid, 
     lower_bound(m_grid),
-    upper_bound(m_grid),
-    # np.concatenate((left_bound(m_grid_left), upper_bound(m_grid_right))).flatten(),
+    np.concatenate((left_bound(m_grid_left, e_max), upper_bound(m_grid_right))).flatten(),
     color='C7',
-    alpha=0.1,
+    alpha=0.2,
     label='Allowed Companion'
 )
+ax.set_xscale('log')
+ax.set_xlim(right=0.78)
+ax.set_ylim(bottom=-0.1)
+ax.annotate(fr'$P={P_min.value:.0f}$ days', xy=(0.1, -0.02), horizontalalignment='center', verticalalignment='center', size=11)
+ax.annotate(fr'$P={P_max.value:.0f}$ days', xy=(0.15, 1.3), horizontalalignment='center', verticalalignment='center', size=11, rotation=9)
+ax.annotate(fr'$\Delta v_\mathrm{{min}}$, $e={e_max:.1f}$', xy=(0.027, 0.6), horizontalalignment='center', verticalalignment='center', size=11, rotation=60)
+ax.annotate(fr'$\Delta v_\mathrm{{min}}$, $e=0$', xy=(0.065, 0.6), horizontalalignment='center', verticalalignment='center', size=11, rotation=60)
+ax.annotate(fr'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, 0.7), horizontalalignment='center', verticalalignment='center', size=11, rotation=-90)
+ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
+ax.set_xticks([0.02, 0.03, 0.05, 0.1, 0.2, 0.3, 0.5])
 ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$')
 ax.set_ylabel('Semi-Major Axis (au)')
 handles, labels = ax.get_legend_handles_labels()
@@ -105,7 +124,7 @@ plt.show()
 plot_orbit = P > (300/365.25)
 samples = samples[plot_orbit]
 
-fig, ax = plt.subplots(1, 1, figsize=(6,4)) # doctest: +SKIP
+fig, ax = plt.subplots(1, 1, figsize=(6, 4)) # doctest: +SKIP
 t_grid = np.linspace(-60, t[-1]+60, 1024)
 plot_rv_curves(samples, t_grid, rv_unit=u.km/u.s, data=data, ax=ax,
                plot_kwargs=dict(color='C7'), data_plot_kwargs=dict(color='k', marker='.', markersize=5, elinewidth=1.2, capsize=3, capthick=1.2))
