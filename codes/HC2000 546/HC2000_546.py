@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import thejoker as tj
 import astropy.units as u
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -11,6 +12,8 @@ from thejoker.plot import plot_rv_curves
 from thejoker import JokerPrior, TheJoker, RVData
 
 user_path = os.path.expanduser('~')
+
+new_sampling = False
 
 sources = pd.read_csv('/home/l3wei/ONC/starrynight/catalogs/synthetic catalog.csv')
 sources_epoch_combined = pd.read_csv('/home/l3wei/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
@@ -33,16 +36,23 @@ t.insert(0, 0)
 data = RVData(t=t, rv=rv, rv_err=rv_err)
 P_min = 10*u.day
 P_max = 600*u.day
-prior = JokerPrior.default(
-    P_min=P_min, 
-    P_max=P_max,
-    sigma_K0=5*u.km/u.s, 
-    sigma_v=100*u.km/u.s
-)
-joker = TheJoker(prior)
 
-prior_samples = prior.sample(size=100000)
-samples = joker.rejection_sample(data, prior_samples)
+if new_sampling:
+    prior = JokerPrior.default(
+        P_min=P_min, 
+        P_max=P_max,
+        sigma_K0=5*u.km/u.s, 
+        sigma_v=100*u.km/u.s
+    )
+    joker = TheJoker(prior)
+
+    prior_samples = prior.sample(size=100000)
+    samples = joker.rejection_sample(data, prior_samples)
+
+    samples.write(f'{user_path}/ONC/starrynight/codes/HC2000 546/samples.hdf5', overwrite=True)
+    
+else:
+    samples = tj.JokerSamples.read(f'{user_path}/ONC/starrynight/codes/HC2000 546/samples.hdf5')
 
 valid_idx = []
 m = []
