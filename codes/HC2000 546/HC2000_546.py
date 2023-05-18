@@ -15,8 +15,8 @@ user_path = os.path.expanduser('~')
 
 new_sampling = False
 
-sources = pd.read_csv('/home/l3wei/ONC/starrynight/catalogs/synthetic catalog.csv')
-sources_epoch_combined = pd.read_csv('/home/l3wei/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
+sources_epoch_combined = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
 idx = sources[sources.HC2000=='546'].index.to_list()
 M = sources_epoch_combined.loc[sources_epoch_combined.HC2000=='546', 'mass_MIST'].values[0]
 M_err = sources_epoch_combined.loc[sources_epoch_combined.HC2000=='546', 'mass_e_MIST'].values[0]
