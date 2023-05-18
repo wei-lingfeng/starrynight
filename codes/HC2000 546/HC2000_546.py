@@ -77,16 +77,17 @@ m_grid_left = np.linspace(min(m), m_intersection, 100)
 m_grid_right = np.linspace(m_intersection, M, 100)
 m_grid = np.concatenate((m_grid_left, m_grid_right)).flatten()
 
-fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+fig, ax = plt.subplots(1, 1, figsize=(8, 5))
 ax.scatter(m, a, 1, color='C7', marker='.', label='Sampled Systems')
-ax.plot(m_grid, lower_bound(m_grid), label=f'Minimum Period: {P_min.value:.0f} days')
-ax.plot(m_grid, upper_bound(m_grid), linestyle='-.', label=f'Maximum Period: {P_max.value:.0f} days')
-ax.plot(m_grid_left, left_bound(m_grid_left), linestyle='--', label=r'Minimum $\Delta v$ in circular orbit')
-ax.vlines(M, lower_bound(M), upper_bound(M), color='C3', linestyle=':', label='Maximum Companion Mass')
+ax.plot(m_grid, lower_bound(m_grid), lw=2, label=f'Minimum Period: {P_min.value:.0f} days')
+ax.plot(m_grid, upper_bound(m_grid), lw=2, linestyle='-.', label=f'Maximum Period: {P_max.value:.0f} days')
+ax.plot(m_grid_left, left_bound(m_grid_left), lw=2, linestyle='--', label=r'Minimum $\Delta v$ in circular orbit')
+ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='C3', linestyle=':', label='Maximum Companion Mass')
 ax.fill_between(
     m_grid, 
     lower_bound(m_grid),
-    np.concatenate((left_bound(m_grid_left), upper_bound(m_grid_right))).flatten(),
+    upper_bound(m_grid),
+    # np.concatenate((left_bound(m_grid_left), upper_bound(m_grid_right))).flatten(),
     color='C7',
     alpha=0.1,
     label='Allowed Companion'
@@ -95,7 +96,7 @@ ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$')
 ax.set_ylabel('Semi-Major Axis (au)')
 handles, labels = ax.get_legend_handles_labels()
 handles[0] = Line2D([], [], marker='.', color='C7', label='Sampled Systems', markersize=5, linestyle='None')
-ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023))
+ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023), fontsize=12)
 plt.show()
 
 # only plot orbits with period > 300 days
