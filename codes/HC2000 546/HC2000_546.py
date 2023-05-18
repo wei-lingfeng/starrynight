@@ -72,17 +72,18 @@ lower_bound = lambda m: ((M + m) * P_min.to(u.yr).value**2)**(1/3) # a > a_P_min
 upper_bound = lambda m: ((M + m) * P_max.to(u.yr).value**2)**(1/3) # a < a_P_max
 left_bound = lambda m: 4*np.pi**2*m**2/(M + m) / (rv.ptp().to(u.au/u.yr).value/2)**2 # a < a_dv_min
 
-m_intersection = fsolve(lambda m: left_bound(m) - upper_bound(m), x0=0.12)
-m_grid_left = np.linspace(min(m), m_intersection, 100)
-m_grid_right = np.linspace(m_intersection, M, 100)
-m_grid = np.concatenate((m_grid_left, m_grid_right)).flatten()
+m_intersection_lower = fsolve(lambda m: left_bound(m) - lower_bound(m), x0=min(m))
+m_intersection_upper = fsolve(lambda m: left_bound(m) - upper_bound(m), x0=0.12)
+m_grid_left = np.linspace(m_intersection_lower, m_intersection_upper, 100)
+m_grid_right = np.linspace(m_intersection_upper, M, 100)
+m_grid = np.linspace(min(m), M, 100)
 
-fig, ax = plt.subplots(1, 1, figsize=(8, 5))
+fig, ax = plt.subplots(1, 1, figsize=(6, 4))
 ax.scatter(m, a, 1, color='C7', marker='.', label='Sampled Systems')
-ax.plot(m_grid, lower_bound(m_grid), lw=2, label=f'Minimum Period: {P_min.value:.0f} days')
-ax.plot(m_grid, upper_bound(m_grid), lw=2, linestyle='-.', label=f'Maximum Period: {P_max.value:.0f} days')
-ax.plot(m_grid_left, left_bound(m_grid_left), lw=2, linestyle='--', label=r'Minimum $\Delta v$ in circular orbit')
-ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='C3', linestyle=':', label='Maximum Companion Mass')
+ax.plot(m_grid, lower_bound(m_grid), lw=2, label=f'Min. Period: {P_min.value:.0f} days')
+ax.plot(m_grid, upper_bound(m_grid), lw=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days')
+ax.plot(m_grid_left, left_bound(m_grid_left), lw=2, linestyle='--', label=r'Min. $\Delta v$ in circular orbit')
+ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='C3', linestyle=':', label='Max. Companion Mass')
 ax.fill_between(
     m_grid, 
     lower_bound(m_grid),
@@ -96,7 +97,8 @@ ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$')
 ax.set_ylabel('Semi-Major Axis (au)')
 handles, labels = ax.get_legend_handles_labels()
 handles[0] = Line2D([], [], marker='.', color='C7', label='Sampled Systems', markersize=5, linestyle='None')
-ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023), fontsize=12)
+ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023))
+plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Allowed Param.pdf')
 plt.show()
 
 # only plot orbits with period > 300 days
@@ -113,5 +115,5 @@ ax.set_ylim((min(rv.value) - 5, max(rv.value) + 7))
 ax.set_ylabel(r'RV ($\mathrm{km}\cdot\mathrm{s}^{-1}$)')
 ax.set_xlabel(r'Days after 2019.2.25')
 ax.legend(loc='lower right')
-# plt.savefig(f'{user_path}/ONC/figures/HC2000 546.pdf', bbox_inches='tight')
+plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Orbital Fits.pdf', bbox_inches='tight')
 plt.show()
