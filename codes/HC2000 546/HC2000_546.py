@@ -71,6 +71,7 @@ for i, sample in enumerate(samples):
             a.append(ai)
             valid_idx.append(i)
 
+print(f'{len(valid_idx)} valid samples out of {len(samples)}.')
 samples = samples[valid_idx]
 P = P[valid_idx]    # yr
 K = K[valid_idx]    # au/yr
@@ -84,7 +85,7 @@ upper_bound = lambda m : ((M + m) * P_max.to(u.yr).value**2)**(1/3) # a < a_P_ma
 left_bound_circular = lambda m : 4*np.pi**2*m**2/(M + m) / (rv.ptp().to(u.au/u.yr).value/2)**2 # a < a_dv_min
 left_bound = lambda m, e : left_bound_circular(m) / (1 - e**2)
 
-# e_max = max(e[a > left_bound_circular(m)])
+print(f'Maximum e for a < left_bound_circular: {max(e[a > left_bound_circular(m)]):.2f}')
 e_max = 0.9
 
 m_intersection_lower = fsolve(lambda m: left_bound(m, e_max) - lower_bound(m), x0=0.01)[0]
@@ -99,18 +100,19 @@ m_grid_left_circular = np.linspace(m_intersection_lower_circular, m_intersection
 
 fig, ax = plt.subplots(1, 1, figsize=(6, 4))
 ax.scatter(m, a, 1, color='C7', marker='.', label='Sampled Systems')
-ax.plot(m_grid, lower_bound(m_grid), lw=2, label=f'Min. Period: {P_min.value:.0f} days')
-ax.plot(m_grid_right, upper_bound(m_grid_right), lw=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days')
-ax.plot(m_grid_left_circular, left_bound_circular(m_grid_left_circular), lw=2, linestyle='--', label=r'Min. $\Delta v$ with $e = 0$')
-ax.plot(m_grid_left, left_bound(m_grid_left, e_max), lw=2, linestyle='--', label=fr'Min. $\Delta v$ with $e = {e_max:.1f}$')
-ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='k', linestyle=':', label='Max. Companion Mass')
+ax.plot(m_grid, lower_bound(m_grid), lw=2, label=f'Min. Period: {P_min.value:.0f} days', zorder=5)
+ax.plot(m_grid_right, upper_bound(m_grid_right), lw=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days', zorder=4)
+ax.plot(m_grid_left_circular, left_bound_circular(m_grid_left_circular), lw=2, linestyle='--', label=r'Min. $\Delta v$ with $e = 0$', zorder=3)
+ax.plot(m_grid_left, left_bound(m_grid_left, e_max), lw=2, linestyle='--', label=fr'Min. $\Delta v$ with $e = {e_max:.1f}$', zorder=2)
+ax.vlines(M, lower_bound(M), upper_bound(M), lw=2, color='k', linestyle=':', label='Max. Companion Mass', zorder=1)
 ax.fill_between(
     m_grid, 
     lower_bound(m_grid),
     np.concatenate((left_bound(m_grid_left, e_max), upper_bound(m_grid_right))).flatten(),
     color='C7',
     alpha=0.2,
-    label='Allowed Companion'
+    label='Allowed Companion',
+    zorder=0
 )
 ax.set_xscale('log')
 ax.set_xlim(right=0.78)
@@ -132,6 +134,7 @@ plt.show()
 
 # only plot orbits with period > 300 days
 plot_orbit = P > (300/365.25)
+print(f'{sum(plot_orbit)} orbits plotted.')
 samples = samples[plot_orbit]
 
 fig, ax = plt.subplots(1, 1, figsize=(6, 4)) # doctest: +SKIP
