@@ -1,8 +1,11 @@
+import os
 import pandas as pd
+
+user_path = os.path.expanduser('~')
 
 month_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-sources = pd.read_csv('/home/l3wei/ONC/Catalogs/synthetic catalog.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
 
 hc2000 = sources.loc[~sources.HC2000.isna() & sources.theta_orionis.isna()]
 observation_table = pd.DataFrame({

@@ -279,12 +279,10 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
     nparams = len(params)
     discard = steps - 100
     
-    year = str(date[0]).zfill(2)
-    month = str(date[1]).zfill(2)
-    day = str(date[2]).zfill(2)
+    year, month, day = date
     
     month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-    prefix = f'{user_path}/ONC/data/nirspao/20{year}{month_list[int(month) - 1]}{day}/reduced'
+    prefix = f'{user_path}/ONC/data/nirspao/20{str(year).zfill(2)}{month_list[month - 1]}{str(day).zfill(2)}/reduced'
     save_path = f'{prefix}/mcmc_median/{name}_O{orders}_params'
     
     if initial_mcmc:
@@ -329,17 +327,17 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         ##################################################
         for sci_frame, tel_frame in zip(sci_frames, tel_frames):
             
-            if int(year) > 18:
+            if year >= 19:
                 # For data after 2018, sci_names = [nspec200118_0027, ...]
-                sci_name = 'nspec' + year + month + day + '_' + str(sci_frame).zfill(4)
-                tel_name = 'nspec' + year + month + day + '_' + str(tel_frame).zfill(4)
+                sci_name = f'nspec{str(year).zfill(2)}{str(month)}{str(day).zfill(2)}_{str(sci_frame).zfill(4)}'
+                tel_name = f'nspec{str(year).zfill(2)}{str(month)}{str(day).zfill(2)}_{str(tel_frame).zfill(4)}'
                 pixel_start = 20
                 pixel_end = -48
             
             else:
                 # For data prior to 2018 (2018 included)
-                sci_name = month_list[int(month) - 1] + day + 's' + str(sci_frame).zfill(4)
-                tel_name = month_list[int(month) - 1] + day + 's' + str(tel_frame).zfill(4)
+                sci_name = f'{month_list[month - 1]}{str(day).zfill(2)}s{str(sci_frame).zfill(4)}'
+                tel_name = f'{month_list[month - 1]}{str(day).zfill(2)}s{str(tel_frame).zfill(4)}'
                 pixel_start = 10
                 pixel_end = -30
             
@@ -401,6 +399,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             tel_abba.append(copy.deepcopy(tel_spec))
         
         itime = sci_spec.header['ITIME']
+        if year >= 19:
+            itime = int(itime/1e3)
         
         ##################################################
         ################ Weighted Average ################
