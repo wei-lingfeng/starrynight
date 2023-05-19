@@ -137,8 +137,8 @@ ax.annotate(rf'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, (lower_bound(M) + u
 
 ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=13)
 ax.annotate('$P=\Delta t/2$', xy=(0.3, period(0.3, Ps[-3])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=8)
-ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.01), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=7)
-ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.01), horizontalalignment='center', verticalalignment='top', size=11, rotation=6)
+ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=7)
+ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=11, rotation=5)
 
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
 ax.set_xticks([0.02, 0.03, 0.05, 0.07, 0.1, 0.2, 0.3, 0.5])
