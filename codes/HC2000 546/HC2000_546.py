@@ -111,7 +111,7 @@ ax.plot(m_grid_left, left_bound(m_grid_left, e_max), linewidth=2, linestyle='--'
 ax.vlines(M, lower_bound(M), upper_bound(M), linewidth=2, color='k', label='Max. Companion Mass', zorder=1)
 for i in range(1, len(m_grids)-1):
     if i==1:
-        ax.plot(m_grids[i], period(m_grids[i], Ps[i]), color='C4', linewidth=1.5, linestyle=':', zorder=0, label='Period Gaps')
+        ax.plot(m_grids[i], period(m_grids[i], Ps[i]), color='C4', linewidth=1.5, linestyle=':', zorder=0, label='Forbidden Periods')
     else:
         ax.plot(m_grids[i], period(m_grids[i], Ps[i]), color='C4', linewidth=1.5, linestyle=':', zorder=0)
 ax.fill_between(
