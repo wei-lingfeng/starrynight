@@ -132,7 +132,7 @@ log_middle = lambda x : log_percentile(x, 50)
 ax.annotate(rf'$P={P_min.value:.0f}$ days', xy=(log_percentile(m_grids[0], 60), lower_bound(log_percentile(m_grids[0], 60)) - 0.05), horizontalalignment='center', verticalalignment='top', size=11)
 ax.annotate(rf'$P={P_max.value:.0f}$ days', xy=(log_middle(m_grids[-1]) - 0.02, upper_bound(log_middle(m_grids[-1])) - 0.05), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=12)
 ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e={e_max:.1f}$', xy=(log_percentile(m_grid_left, 70), left_bound(log_percentile(m_grid_left, 70), e_max)), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=68)
-ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e=0$', xy=(log_percentile(m_grid_left_circular, 70), left_bound_circular(log_percentile(m_grid_left_circular, 70))), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=67)
+ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e=0$', xy=(log_percentile(m_grid_left_circular, 70) + 0.003, left_bound_circular(log_percentile(m_grid_left_circular, 70))), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=67)
 ax.annotate(rf'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, (lower_bound(M) + upper_bound(M))/2), horizontalalignment='center', verticalalignment='center', size=11, rotation=-90)
 
 ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=12)
