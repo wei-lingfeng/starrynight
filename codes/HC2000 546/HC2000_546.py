@@ -135,7 +135,7 @@ ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e={e_max:.1f}$', xy=(log_percentile(m
 ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e=0$', xy=(log_percentile(m_grid_left_circular, 70) + 0.003, left_bound_circular(log_percentile(m_grid_left_circular, 70))), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=67)
 ax.annotate(rf'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, (lower_bound(M) + upper_bound(M))/2), horizontalalignment='center', verticalalignment='center', size=11, rotation=-90)
 
-ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=12)
+ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=13)
 ax.annotate('$P=\Delta t/2$', xy=(0.3, period(0.3, Ps[-3])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=8)
 ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.01), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=7)
 ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.01), horizontalalignment='center', verticalalignment='top', size=11, rotation=6)
