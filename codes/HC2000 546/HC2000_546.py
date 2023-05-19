@@ -141,7 +141,7 @@ ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontala
 ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=11, rotation=5)
 
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
-ax.set_xticks([0.02, 0.03, 0.05, 0.07, 0.1, 0.2, 0.3, 0.5])
+ax.set_xticks([0.02, 0.04, 0.06, 0.1, 0.2, 0.3, 0.5])
 ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$', fontsize=12)
 ax.set_ylabel('Semi-Major Axis (au)', fontsize=12)
 handles, labels = ax.get_legend_handles_labels()
