@@ -150,7 +150,7 @@ ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023), fontsiz
 plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Allowed Param.pdf', bbox_inches='tight')
 plt.show()
 
-# only plot orbits with period > 300 days
+# only plot orbits with period > Δt/3
 plot_orbit = P > (max(t)/3/365.25)
 print(f'{sum(plot_orbit)} orbits plotted.')
 
