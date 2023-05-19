@@ -1795,46 +1795,75 @@ def compare_mass(sources, save_path):
 
 
 def compare_chris(sources, save_path=None):
-    # compare veiling parameter of order 33
-    fig, ax = plt.subplots(figsize=(4, 3))
-    ax.hist(sources.veiling_param_O33_chris, bins=20, range=(0, 1), histtype='step', color='C0', label='T22', lw=2)
-    ax.hist(sources.veiling_param_O33, bins=20, range=(0, 1), histtype='step', color='C3', label='This work', lw=1.2)
-    ax.legend()
-    ax.set_xlabel('Veiling Param O33', fontsize=12)
-    ax.set_ylabel('Counts', fontsize=12)
-    if save_path:
-        if save_path.endswith('png'):
-            plt.savefig(f'{save_path}/compare Chris veiling_param_O33.pdf', bbox_inches='tight', transparent=True)
-        else:
-            plt.savefig(f'{save_path}/compare Chris veiling_param_O33.pdf', bbox_inches='tight')
-    plt.show()
+    idx_binary = sources.index[sources.HC2000=='546'].to_list()
+    idx_other = np.delete(sources.index.to_numpy(), np.array(idx_binary))
+
+    teff_diff = sources.teff - sources.teff_chris
+    vr_diff = sources.loc[idx_other, 'vr'] - sources.loc[idx_other, 'vr_chris']
+    print(f'Median absolute Teff difference: {abs(teff_diff).median():.2f} K')
+    print(f'Max. absolute Teff difference: {abs(teff_diff).max():.2f} K')
+    print(f'Standard deviation of Teff difference: {teff_diff.std():.2f} K')
+    print(f'Median absolute RV difference: {abs(vr_diff).median():.2f} km/s')
+    print(f'Standard deviation RV difference: {vr_diff.std():.2f} km/s')
+    
+    # compare veiling parameter of order 33    
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 3))
     
     # compare teff
-    fig, ax = plt.subplots(figsize=(4, 3))
-    ax.plot([3000, 5000], [3000, 5000], linestyle='--', color='C3', label='Equal Line')
-    ax.errorbar(sources.teff.values, sources.teff_chris.values, xerr=sources.teff_e.values, yerr=sources.teff_e_chris.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
-    ax.legend()
-    ax.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
-    ax.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
-    if save_path:
-        if save_path.endswith('png'):
-            plt.savefig(f'{save_path}/compare Chris teff.pdf', bbox_inches='tight', transparent=True)
-        else:
-            plt.savefig(f'{save_path}/compare Chris teff.pdf', bbox_inches='tight')
-    plt.show()
+    ax1.plot([3000, 5000], [3000, 5000], linestyle='--', color='C3', label='Equal Line')
+    ax1.errorbar(
+        sources.loc[idx_other, 'teff'].values, 
+        sources.loc[idx_other, 'teff_chris'].values, 
+        xerr=sources.loc[idx_other, 'teff_e'].values, 
+        yerr=sources.loc[idx_other, 'teff_e_chris'].values, 
+        color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
+    )
+    ax1.errorbar(
+        sources.loc[idx_binary, 'teff'].values, 
+        sources.loc[idx_binary, 'teff_chris'].values, 
+        xerr=sources.loc[idx_binary, 'teff_e'].values, 
+        yerr=sources.loc[idx_binary, 'teff_e_chris'].values, 
+        color='C0', label='Parenago 1837', 
+        fmt='o', alpha=0.5, markersize=3
+    )
+    ax1.legend()
+    ax1.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
+    ax1.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
     
     # compare vr
-    fig, ax = plt.subplots(figsize=(4, 3))
-    ax.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
-    ax.errorbar(sources.vr.values, sources.vr_chris.values, xerr=sources.vr_e.values, yerr=sources.vr_e_chris.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
-    ax.legend()
-    ax.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
-    ax.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+    ax2.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
+    ax2.errorbar(
+        sources.loc[idx_other, 'vr'].values, 
+        sources.loc[idx_other, 'vr_chris'].values, 
+        xerr=sources.loc[idx_other, 'vr_e'].values, 
+        yerr=sources.loc[idx_other, 'vr_e_chris'].values, 
+        color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
+    )
+    ax2.errorbar(
+        sources.loc[idx_binary, 'vr'].values, 
+        sources.loc[idx_binary, 'vr_chris'].values, 
+        xerr=sources.loc[idx_binary, 'vr_e'].values, 
+        yerr=sources.loc[idx_binary, 'vr_e_chris'].values, 
+        color='C0', label='Parenago 1837', 
+        fmt='o', alpha=0.5, markersize=3
+    )
+    ax2.legend()
+    ax2.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+    ax2.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+    
+    # compare veiling param    
+    ax3.hist(sources.veiling_param_O33_chris, bins=20, range=(0, 1), histtype='step', color='C0', label='T22', lw=2)
+    ax3.hist(sources.veiling_param_O33, bins=20, range=(0, 1), histtype='step', color='C3', label='This work', lw=1.2)
+    ax3.legend()
+    ax3.set_xlabel('Veiling Param O33', fontsize=12)
+    ax3.set_ylabel('Counts', fontsize=12)
+    
+    plt.subplots_adjust(wspace=0.3)
     if save_path:
         if save_path.endswith('png'):
-            plt.savefig(f'{save_path}/compare Chris vr.pdf', bbox_inches='tight', transparent=True)
+            plt.savefig(f'{save_path}/compare Chris.pdf', bbox_inches='tight', transparent=True)
         else:
-            plt.savefig(f'{save_path}/compare Chris vr.pdf', bbox_inches='tight')
+            plt.savefig(f'{save_path}/compare Chris.pdf', bbox_inches='tight')
     plt.show()
 
 

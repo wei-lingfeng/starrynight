@@ -167,6 +167,7 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
     
     return fig, (ax1, ax2)
 
+
 ##################################################
 ############## Probability Function ##############
 ##################################################
