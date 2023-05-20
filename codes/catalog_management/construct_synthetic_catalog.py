@@ -671,8 +671,8 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     chris_table = chris_table.rename(columns={
         'teff': 'teff_chris',
         'teff_e': 'teff_e_chris',
-        'vr': 'vr_chris',
-        'vr_e': 'vr_e_chris',
+        'rv': 'rv_chris',
+        'rv_e': 'rv_e_chris',
         'vsini': 'vsini_chris',
         'vsini_e': 'vsini_e_chris',
         'veiling_param_O33': 'veiling_param_O33_chris'
@@ -694,7 +694,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     nirspec = nirspec.merge(chris_table[[
         'HC2000', 
         'teff_chris', 'teff_e_chris', 
-        'vr_chris', 'vr_e_chris', 
+        'rv_chris', 'rv_e_chris', 
         'vsini_chris', 'vsini_e_chris', 
         'veiling_param_O33_chris'
     ]], how='left', on='HC2000')

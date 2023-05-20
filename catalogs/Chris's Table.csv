@@ -1,4 +1,4 @@
-﻿HC2000,ID_Kim,_RAJ2000,_DEJ2000,vr,vr_e,pmRA,pmRA_e,pmDE,pmDE_e,teff,teff_e,vsini,vsini_e,veiling_param_O33,note
+﻿HC2000,ID_Kim,_RAJ2000,_DEJ2000,rv,rv_e,pmRA,pmRA_e,pmDE,pmDE_e,teff,teff_e,vsini,vsini_e,veiling_param_O33,note
 135,,83.8095,-5.40686111,28.56,0.91,,,,,3610,300,49.33,2.26,0.24,
 188,559,83.83175,-5.39925,29.74,0.27,0.41,0.52,-0.83,0.18,3475,73,6.9,1.72,0.01,
 202,615,83.81666667,-5.39805556,25.69,0.75,2.8,0.06,-1.56,0.08,3393,204,42.27,2.95,0.75,E1

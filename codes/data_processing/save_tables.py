@@ -8,11 +8,10 @@ user_path = os.path.expanduser('~')
 
 month_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
-hc2000 = hc2000.loc[~hc2000.HC2000.isna() & hc2000.theta_orionis.isna()]
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
+hc2000 = sources.loc[~sources.HC2000.isna() & sources.theta_orionis.isna()]
 
-sources_vrel = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
-sources_vrel = sources_vrel.loc[~sources_vrel.theta_orionis.isna()]
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
 
 observation_table = pd.DataFrame({
     'HC2000 ID': ['HC2000 {}'.format(_.replace('_', ' ')) for _ in list(hc2000.HC2000)],
@@ -22,9 +21,9 @@ observation_table = pd.DataFrame({
 })
 observation_table = Table.from_pandas(observation_table)
 
-results_table = pd.DataFrame(
-    'HC2000 ID': ['HC2000 {}'.format(_.replace('_', ' ')) for _ in list(sources_vrel.HC2000)],
-    'K19 ID': sources_vrel.
+results_table = pd.DataFrame({
+    'HC2000 ID': ['HC2000 {}'.format(_.replace('_', ' ')) for _ in list(sources.HC2000)],
+    'K19 ID': sources.
     'APOGEE ID'
-)
+})
 ascii.write(observation_table[:5], format='latex')

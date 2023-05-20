@@ -250,8 +250,8 @@ def calculate_velocity(sources, dist=389, dist_e=3):
     vt = 4.74e-3 * pm * dist
     vt_e = vt * np.sqrt((pm_e / pm)**2 + (dist_e / dist)**2)
     
-    vr = sources.vr
-    vr_e = sources.vr_e
+    vr = sources.rv
+    vr_e = sources.rv_e
     
     v = np.sqrt(vt**2 + vr**2)
     v_e = 1/v * np.sqrt((vt * vt_e)**2 + (vr * vr_e)**2)
@@ -427,7 +427,7 @@ def plot_2d(sources, scale=0.004):
     return fig
 
 
-def plot_pm_vr(sources, save_path=None):
+def plot_pm_rv(sources, save_path=None):
     center = SkyCoord("05h35m17.5s", "-05d23m16.4s")
     image_path = f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
     hdu = fits.open(image_path)[0]
@@ -450,7 +450,7 @@ def plot_pm_vr(sources, save_path=None):
         dec_wcs,
         -sources.pmRA,
         sources.pmDE,
-        sources.vr,
+        sources.rv,
         cmap='coolwarm',
         width=0.006,
         scale=25
@@ -579,7 +579,7 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_vr=np.inf, max_v_error=5., max_mass_error=0.5, kde_percentile=84, update_sources=False, save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_rv=np.inf, max_v_error=5., max_mass_error=0.5, kde_percentile=84, update_sources=False, save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
@@ -596,9 +596,9 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
         whether resample or not, and number of resamples, 100000 by default. If False or None, will try to read from previous results
     self_included : bool, optional
         include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
-    max_vr : float, optional
+    max_rv : float, optional
         maximum radial velocity, by default inf.
-    max_vr_error : float, optional
+    max_rv_error : float, optional
         maximum radial velocity error, by default 5
     max_mass_error : float, optional
         maximum mass error, by default 0.5
@@ -641,7 +641,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
         (~sources[f'mass_{model_name}'].isna()) & \
         (sources[f'mass_e_{model_name}'] < max_mass_error) & \
-        (sources.vr < max_vr) & (sources.v_e < max_v_error)
+        (sources.rv < max_rv) & (sources.v_e < max_v_error)
     
     # sources = sources.loc[constraint].reset_index(drop=True)
     sources_coord = SkyCoord(
@@ -959,7 +959,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     vdisps_all: dict
         velocity dispersion for all sources.
         vdisps_all[key] = [value, error].
-        keys: mu_RA, mu_DE, mu_vr, sigma_RA, sigma_DE, sigma_vr, rho_RA, rho_DE, rho_vr.
+        keys: mu_RA, mu_DE, mu_rv, sigma_RA, sigma_DE, sigma_rv, rho_RA, rho_DE, rho_rv.
     '''
     # all velocity dispersions
     print('Fitting for all velocity dispersion...')
@@ -971,8 +971,8 @@ def vdisp_all(sources, save_path, MCMC=True):
     
     vdisp_1d = [0, 0]
     
-    vdisp_1d[0] = ((vdisps_all['sigma_RA'][0]**2 + vdisps_all['sigma_DE'][0]**2 + vdisps_all['sigma_vr'][0]**2)/3)**(1/2)
-    vdisp_1d[1] = np.sqrt(1 / (3*vdisp_1d[0])**2 * ((vdisps_all['sigma_RA'][0] * vdisps_all['sigma_RA'][1])**2 + (vdisps_all['sigma_DE'][0] * vdisps_all['sigma_DE'][1])**2 + (vdisps_all['sigma_vr'][0] * vdisps_all['sigma_vr'][1])**2))
+    vdisp_1d[0] = ((vdisps_all.sigma_RA[0]**2 + vdisps_all.sigma_DE[0]**2 + vdisps_all.sigma_rv[0]**2)/3)**(1/2)
+    vdisp_1d[1] = np.sqrt(1 / (3*vdisp_1d[0])**2 * ((vdisps_all.sigma_RA[0] * vdisps_all.sigma_RA[1])**2 + (vdisps_all.sigma_DE[0] * vdisps_all.sigma_DE[1])**2 + (vdisps_all.sigma_rv[0] * vdisps_all.sigma_rv[1])**2))
     
     with open(f'{save_path}/all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
@@ -1018,10 +1018,10 @@ def vdisp_vs_sep_binned(sources, separations, save_path, MCMC=True):
     Returns
     ------------------------
     vdisps: list of velocity dispersion results of each bin. length = len(separations) - 1
-        vdisps[i] = pd.DataFrame({'mu_RA': [value, error], 'mu_DE': [value, error], 'mu_vr': [value, error], ...})
-        keys: mu_RA, mu_DE, mu_vr, sigma_RA, sigma_DE, sigma_vr, rho_RA, rho_DE, rho_vr.
+        vdisps[i] = pd.DataFrame({'mu_RA': [value, error], 'mu_DE': [value, error], 'mu_rv': [value, error], ...})
+        keys: mu_RA, mu_DE, mu_rv, sigma_RA, sigma_DE, sigma_rv, rho_RA, rho_DE, rho_rv.
     '''
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
     
     separations_arcmin = separations.to(u.arcmin).value
     separations_arcmin_binned = (separations_arcmin[:-1] + separations_arcmin[1:])/2
@@ -1064,10 +1064,10 @@ def vdisp_vs_sep_equally_spaced(sources:pd.DataFrame, nbins:int, save_path:str, 
         Separation borders of each bin. e.g., np.array([0, 1, 2, 3, 4]) * u.arcmin
     vdisps : list
         Velocity dispersion fitting results of length nbins.
-        Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_vr', 'sigma_RA', 'sigma_DE', 'sigma_vr', 'rho_RA', 'rho_DE', 'rho_vr'].
+        Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_rv', 'sigma_RA', 'sigma_DE', 'sigma_rv', 'rho_RA', 'rho_DE', 'rho_rv'].
     """
     # filter nans.
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
 
     separation_borders = np.linspace(0, 4, nbins+1)*u.arcmin
     return separation_borders, vdisp_vs_sep_binned(sources, separation_borders, f'{save_path}/equally spaced/{nbins}-binned/', MCMC=MCMC)
@@ -1095,10 +1095,10 @@ def vdisp_vs_sep_equally_grouped(sources:pd.DataFrame, ngroups:int, save_path:st
         Separation borders of each bin. e.g., np.array([0, 1, 2, 3, 4]) * u.arcmin
     vdisps : list
         List of velocity dispersion fitting results of length nbins.
-        Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_vr', 'sigma_RA', 'sigma_DE', 'sigma_vr', 'rho_RA', 'rho_DE', 'rho_vr'].
+        Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_rv', 'sigma_RA', 'sigma_DE', 'sigma_rv', 'rho_RA', 'rho_DE', 'rho_rv'].
     """
     # filter nans.
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
 
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
@@ -1131,7 +1131,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         run mcmc or not.
     """
     # filter nans.
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
     
     # virial equilibrium model
     model_separations_pc = np.logspace(-4, np.log10(4/60*np.pi/180*389), 100)   # separations in pc
@@ -1157,21 +1157,21 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sources_in_bins = [sum((sources.sep_to_trapezium > min_sep) & (sources.sep_to_trapezium <= max_sep)) for min_sep, max_sep in zip(separations_arcmin[:-1], separations_arcmin[1:])]
     
     # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
-    sigma_RA = np.array([vdisp['sigma_RA'] for vdisp in vdisps]).transpose()
-    sigma_DE = np.array([vdisp['sigma_DE'] for vdisp in vdisps]).transpose()
-    sigma_vr = np.array([vdisp['sigma_vr'] for vdisp in vdisps]).transpose()
+    sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
+    sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
+    sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
 
     sigma_pm = np.empty_like(sigma_RA)
     sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
     sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
 
     sigma_1d = np.empty_like(sigma_RA)
-    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_vr[0]**2)/3)
-    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_vr[0]/sigma_1d[0]*sigma_vr[1])**2))    
+    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
+    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
     fig, axs = plt.subplots(3, 2, figsize=(8, 9), dpi=300, sharex='col', sharey='row')
     
-    for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_vr]):
+    for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_rv]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1226,19 +1226,19 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     
     # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
-    sigma_RA = np.array([vdisp['sigma_RA'] for vdisp in vdisps]).transpose()
-    sigma_DE = np.array([vdisp['sigma_DE'] for vdisp in vdisps]).transpose()
-    sigma_vr = np.array([vdisp['sigma_vr'] for vdisp in vdisps]).transpose()
+    sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
+    sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
+    sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
 
     sigma_pm = np.empty_like(sigma_RA)
     sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
     sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
 
     sigma_1d = np.empty_like(sigma_RA)
-    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_vr[0]**2)/3)
-    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_vr[0]/sigma_1d[0]*sigma_vr[1])**2))    
+    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
+    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
 
-    for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_vr]):
+    for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_rv]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1305,10 +1305,10 @@ def vdisp_vs_mass_binned(sources, model_name, masses, save_path, MCMC=True):
     Returns
     ------------------------
     vdisps: list of velocity dispersion results of each bin. length = len(masses) - 1
-        vdisps[i] = pd.DataFrame({'mu_RA': [value, error], 'mu_DE': [value, error], 'mu_vr': [value, error], ...})
-        keys: mu_RA, mu_DE, mu_vr, sigma_RA, sigma_DE, sigma_vr, rho_RA, rho_DE, rho_vr.
+        vdisps[i] = pd.DataFrame({'mu_RA': [value, error], 'mu_DE': [value, error], 'mu_rv': [value, error], ...})
+        keys: mu_RA, mu_DE, mu_rv, sigma_RA, sigma_DE, sigma_rv, rho_RA, rho_DE, rho_rv.
     '''
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
     
     masses_binned = (masses[:-1] + masses[1:])/2
     
@@ -1353,10 +1353,10 @@ def vdisp_vs_mass_equally_grouped(sources:pd.DataFrame, model_name:str, ngroups:
         Dividing masses. e.g., [0, 1, 2, 3, 4].
     vdisps : list
         List of velocity dispersion fitting results of length nbins.
-        Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_vr', 'sigma_RA', 'sigma_DE', 'sigma_vr', 'rho_RA', 'rho_DE', 'rho_vr'].
+        Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_rv', 'sigma_RA', 'sigma_DE', 'sigma_rv', 'rho_RA', 'rho_DE', 'rho_rv'].
     """
     # filter nans.
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
 
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
@@ -1389,7 +1389,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
         run mcmc or not.
     """
     # filter nans.
-    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.vr.isna())].reset_index(drop=True)
+    sources = sources.loc[~(sources.vRA.isna() | sources.vDE.isna() | sources.rv.isna())].reset_index(drop=True)
     
         
     # Equally Grouped
@@ -1412,21 +1412,21 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     
     # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
-    sigma_RA = np.array([vdisp['sigma_RA'] for vdisp in vdisps]).transpose()
-    sigma_DE = np.array([vdisp['sigma_DE'] for vdisp in vdisps]).transpose()
-    sigma_vr = np.array([vdisp['sigma_vr'] for vdisp in vdisps]).transpose()
+    sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
+    sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
+    sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
     
     sigma_pm = np.empty_like(sigma_RA)
     sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
     sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
 
     sigma_1d = np.empty_like(sigma_RA)
-    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_vr[0]**2)/3)
-    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_vr[0]/sigma_1d[0]*sigma_vr[1])**2))    
+    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
+    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
     
     fig, axs = plt.subplots(1, 3, figsize=(12, 3.5), sharey=True)
-    for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_vr]):
+    for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_rv]):
         # arcmin axis
         ax.set_ylim((1.3, 6))
         ax.set_xscale('log')
@@ -1988,10 +1988,10 @@ def preprocessing(sources):
 
     # choose one from the two options: weighted avrg or prioritize nirspec.
     # # weighted average
-    # sources['vr'], sources['vr_e'] = weighted_avrg_and_merge(sources.rv_helio, sources.rv_apogee, error1=sources.rv_e_nirspec, error2=sources.rv_e_apogee)
+    # sources['rv'], sources['rv_e'] = weighted_avrg_and_merge(sources.rv_helio, sources.rv_apogee, error1=sources.rv_e_nirspec, error2=sources.rv_e_apogee)
     # prioritize nirspec values
-    sources['vr'] = merge(sources.rv_helio, sources.rv_apogee)
-    sources['vr_e'] = merge(sources.rv_e_nirspec, sources.rv_e_apogee)
+    sources['rv'] = merge(sources.rv_helio, sources.rv_apogee)
+    sources['rv_e'] = merge(sources.rv_e_nirspec, sources.rv_e_apogee)
 
     sources['dist'] = 1000/sources.plx
     sources['dist_e'] = sources.dist / sources.plx * sources.plx_e
@@ -2085,7 +2085,7 @@ fig_2d = plot_2d(sources_2d)
 fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
 # fig_3d1, fig_3d2 = plot_3d(sources_coord_3d)
 # fig_3d2.write_html(f'{user_path}/ONC/figures/sky 3d small.html')
-plot_pm_vr(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
+plot_pm_rv(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
 
 # pm angle distribution
 # pm_angle_distribution(sources_2d)
@@ -2110,9 +2110,9 @@ base_path_mean_offset = 'linear-mean-offset'
 
 # Remove the high relative velocity sources.
 vr_threshold = 40
-print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
+print(f'Removed {sum(sources_2d.rv > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
 
-mean_diff, maximum_diff = compare_teff_with_apogee(sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True))
+mean_diff, maximum_diff = compare_teff_with_apogee(sources_2d.loc[sources_2d.rv <= vr_threshold].reset_index(drop=True))
 print(f'Mean difference in teff: {mean_diff:.2f} K')
 print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
@@ -2131,7 +2131,7 @@ sources_mean_offset.loc[indices, columns] = np.nan
 for radius in radii:
     for model_name in model_names:
         
-        if radius == 0.1*u.pc and model_name=='MIST':
+        if radius == 0.1*u.pc:
             update_sources = True
         else:
             update_sources = False
@@ -2142,7 +2142,7 @@ for radius in radii:
             model_type='linear',
             radius=radius, 
             resampling=True,
-            max_v=vr_threshold,
+            max_rv=vr_threshold,
             update_sources=update_sources,
             kde_percentile=84,
             show_figure=False,
@@ -2154,8 +2154,8 @@ for radius in radii:
             model_name,
             model_type='linear',
             radius=radius,
-            resampling=True,
-            max_v=vr_threshold,
+            resampling=False,
+            max_rv=vr_threshold,
             update_sources=False,
             kde_percentile=84,
             show_figure=False,
@@ -2202,12 +2202,12 @@ plt.show()
 #################################################
 # Apply rv constraint
 rv_constraint = ((
-    abs(sources_2d.vr - np.nanmean(sources_2d.vr)) <= 3*np.nanstd(sources_2d.vr)
+    abs(sources_2d.rv - np.nanmean(sources_2d.rv)) <= 3*np.nanstd(sources_2d.rv)
     ) | (
         ~sources_2d.theta_orionis.isna()
 ))
 print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna())} out of {len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())} remains.')
-print(f'Accepted radial velocity range: {np.nanmean(sources.vr):.3f} ± {3*np.nanstd(sources.vr):.3f} km/s.')
+print(f'Accepted radial velocity range: {np.nanmean(sources.rv):.3f} ± {3*np.nanstd(sources.rv):.3f} km/s.')
 
 if not os.path.exists(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results'):
     os.mkdir(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results')
@@ -2216,8 +2216,8 @@ with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean
     file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'vr'])))
 
 fig, ax = plt.subplots(figsize=(6, 4))
-ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.vr, yerr=sources_2d.vr_e, fmt='.', label='Measurements')
-ax.hlines([np.nanmean(sources_2d.vr) - 3*np.nanstd(sources_2d.vr), np.nanmean(sources_2d.vr) + 3*np.nanstd(sources_2d.vr)], xmin=min(sources_2d.sep_to_trapezium), xmax=max(sources_2d.sep_to_trapezium), linestyles='--', colors='C1', label='3σ range')
+ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.rv, yerr=sources_2d.rv_e, fmt='.', label='Measurements')
+ax.hlines([np.nanmean(sources_2d.rv) - 3*np.nanstd(sources_2d.rv), np.nanmean(sources_2d.rv) + 3*np.nanstd(sources_2d.rv)], xmin=min(sources_2d.sep_to_trapezium), xmax=max(sources_2d.sep_to_trapezium), linestyles='--', colors='C1', label='3σ range')
 ax.set_xlabel('Separation From Trapezium (arcmin)')
 ax.set_ylabel('Radial Velocity')
 ax.legend()

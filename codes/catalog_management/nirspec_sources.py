@@ -81,16 +81,10 @@ def nirspec_sources(dates, names, exceptions, save_path):
         'model_std_O35':        [],
         'wave_offset_O32':      [],
         'wave_offset_O32_e':    [],
-        # 'flux_offset_O32':      [],
-        # 'flux_offset_O32_e':    [],
         'wave_offset_O33':      [],
         'wave_offset_O33_e':    [],
-        # 'flux_offset_O33':      [],
-        # 'flux_offset_O33_e':    [],
         'wave_offset_O35':      [],
         'wave_offset_O35_e':    [],
-        # 'flux_offset_O35':      [],
-        # 'flux_offset_O35_e':    [],
         'snr_O32':              [],
         'snr_O33':              [],
         'snr_O35':              [],
@@ -106,9 +100,6 @@ def nirspec_sources(dates, names, exceptions, save_path):
                   'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
     
     # read catalogs
-    # global hc_x_pm
-    # hc_x_pm = pd.read_csv(f'{user_path}/ONC/Catalogs/Hillenbrand x Kim.csv',
-    #                       dtype={'[HC2000]': str, 'ID': str}).to_dict(orient='list')
     hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
     
     #################################################
@@ -221,20 +212,10 @@ def nirspec_sources(dates, names, exceptions, save_path):
                 result['wave_offset_O32'].append(value)
                 result['wave_offset_O32_e'].append(error)
             
-            # elif line.startswith('flux_offset_O32:'):
-            #     value, error = read_text(line)
-            #     result['flux_offset_O32'].append(value)
-            #     result['flux_offset_O32_e'].append(error)
-            
             elif line.startswith('wave_offset_O33:'):
                 value, error = read_text(line)
                 result['wave_offset_O33'].append(value)
                 result['wave_offset_O33_e'].append(error)
-            
-            # elif line.startswith('flux_offset_O33:'):
-            #     value, error = read_text(line)
-            #     result['flux_offset_O33'].append(value)
-            #     result['flux_offset_O33_e'].append(error)
             
             elif line.startswith('snr_O32:'):
                 result['snr_O32'].append(read_text(line))
@@ -343,11 +324,6 @@ def nirspec_sources(dates, names, exceptions, save_path):
                         result['wave_offset_O35'].append(value)
                         result['wave_offset_O35_e'].append(error)
                     
-                    # elif line.startswith('flux_offset_O35:'):
-                    #     value, error = read_text(line)
-                    #     result['flux_offset_O35'].append(value)
-                    #     result['flux_offset_O35_e'].append(error)
-                    
                     elif line.startswith('snr_O35:'):
                         result['snr_O35'].append(read_text(line))
         
@@ -358,8 +334,6 @@ def nirspec_sources(dates, names, exceptions, save_path):
             result['model_std_O35'].append('')
             result['wave_offset_O35'].append('')
             result['wave_offset_O35_e'].append('')
-            # result['flux_offset_O35'].append('')
-            # result['flux_offset_O35_e'].append('')
             result['snr_O35'].append('')
     
     # result.update(cross_kim(result))

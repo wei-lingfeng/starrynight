@@ -1,9 +1,10 @@
 import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
-import numpy as np
 import copy
 import emcee
 import corner
+import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from multiprocessing.pool import Pool
 
@@ -85,7 +86,7 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     -------
     results: dict
         results[key] = [value, error]
-        keys: mu_RA, mu_DE, mu_vr, sigma_RA, sigma_DE, sigma_vr, rho_RA, rho_DE, rho_vr.
+        keys: mu_RA, mu_DE, mu_rv, sigma_RA, sigma_DE, sigma_rv, rho_RA, rho_DE, rho_rv.
         mu: velocity; sigma: intrinsic dispersion.
     """
     
@@ -116,9 +117,10 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     ]) for i in range(nwalkers)]
     
     
-    labels = ['μ_RA', 'μ_DE', 'μ_vr', 'σ_RA', 'σ_DE', 'σ_vr', 'ρ_RA', 'ρ_DE', 'ρ_vr']
+    labels = ['μ_RA', 'μ_DE', 'μ_rv', 'σ_RA', 'σ_DE', 'σ_rv', 'ρ_RA', 'ρ_DE', 'ρ_rv']
     ylabels = [r'$\mu_{RA}$', r'$\mu_{DE}$', r'$\mu_{vr}$', r'$\sigma_{RA}$', r'$\sigma_{DE}$', r'$\sigma_{vr}$', r'$\rho_{RA}$', r'$\rho_{DE}$', r'$\rho_{vr}$']
-    text_labels = ['mu_RA', 'mu_DE', 'mu_vr', 'sigma_RA', 'sigma_DE', 'sigma_vr', 'rho_RA', 'rho_DE', 'rho_vr']
+    params = ['mu_RA', 'mu_DE', 'mu_rv', 'sigma_RA', 'sigma_DE', 'sigma_rv', 'rho_RA', 'rho_DE', 'rho_rv']
+    nparams = len(params)
     
     if MCMC:
         backend = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
@@ -129,13 +131,14 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
             sampler.run_mcmc(pos, step, progress=True)
         
         flat_samples = sampler.get_chain(discard=discard, flat=True)
-        mcmc = np.empty((ndim, 3))
-        for i in range(ndim):
-            mcmc[i, :] = np.percentile(flat_samples[:, i], [16, 50, 84])
-        
-        # results[i, :] = [value, error]
-        results = np.array([mcmc[:, 1], (mcmc[:, 2] - mcmc[:, 0])/2]).transpose()
 
+        # mcmc[:, i] (2 by N) = [value, error]
+        mcmc = np.empty((2, nparams))
+        for i in range(nparams):
+            mcmc[:, i] = np.array([np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2])        
+        
+        mcmc = pd.DataFrame(mcmc, columns=params)
+        
         ##################################################
         ################## Create Plots ##################
         ##################################################
@@ -173,11 +176,12 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         sampler = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
     
         flat_samples = sampler.get_chain(discard=discard, flat=True)
-        mcmc = np.empty((ndim, 3))
-        for i in range(ndim):
-            mcmc[i, :] = np.percentile(flat_samples[:, i], [16, 50, 84])
         
-        # results[i, :] = [value, error]
-        results = np.array([mcmc[:, 1], (mcmc[:, 2] - mcmc[:, 0])/2]).transpose()
+        # mcmc[:, i] (2 by N) = [value, error]
+        mcmc = np.empty((2, nparams))
+        for i in range(nparams):
+            mcmc[:, i] = np.array([np.median(flat_samples[:, i]), np.diff(np.percentile(flat_samples[:, i], [15.9, 84.1]))[0]/2])        
+        
+        mcmc = pd.DataFrame(mcmc, columns=params)
     
-    return {k:v for k,v in zip(text_labels, results)}
+    return mcmc
