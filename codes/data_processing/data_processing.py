@@ -948,7 +948,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     Parameters
     ----------
     sources: pd.DataFrame
-        sources dataframe with keys: vRA, vRA_e, vDE, vDE_e, rv, vr_e.
+        sources dataframe with keys: vRA, vRA_e, vDE, vDE_e, rv, rv_e.
     save_path: str
         Folder under which to save.
     MCMC: bool

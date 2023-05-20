@@ -587,9 +587,9 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         with open(f'{save_path}/mcmc_params.txt', 'w') as file:
             for key, value in result.items():
                 if isinstance(value, Iterable) and (not isinstance(value, str)):
-                    file.write(f"{key}: \t{', '.join(str(_) for _ in value)}\n")
+                    file.write(f"{key}:\t{', '.join(str(_) for _ in value)}\n")
                 else:
-                    file.write(f'{key}: \t{value}\n')
+                    file.write(f'{key}:\t{value}\n')
         
         return result
     

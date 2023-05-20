@@ -161,7 +161,7 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         
         ########## Corner Plot ##########
         fig = corner.corner(
-            flat_samples, labels=labels, truths=results[:, 0], quantiles=[0.16, 0.84]
+            flat_samples, labels=labels, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
         )
         plt.savefig(f'{save_path}/mcmc_corner.png', dpi=300, bbox_inches='tight')
         plt.close()
@@ -169,7 +169,7 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         
         ########## Write Parameters ##########
         with open(f'{save_path}/mcmc_params.txt', 'w') as file:
-            for ylabel, values in zip(labels, results):
+            for ylabel, values in zip(ylabels, mcmc.values()):
                 file.write(f'{ylabel}:\t{", ".join(str(value) for value in values)}\n')
     
     else:
