@@ -614,7 +614,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     chris_table = pd.read_csv(chris_table_path)
     apogee      = pd.read_csv(apogee_path)
     kounkel     = pd.read_csv(kounkel_path)
-    pm          = pd.read_csv(pm_path)
+    pm          = pd.read_csv(pm_path, dtype={'ID': str})
     gaia        = pd.read_csv(gaia_path, dtype={'source_id': str})
     hillenbrand = pd.read_csv(hillenbrand_path)
     tobin       = pd.read_csv(tobin_path)

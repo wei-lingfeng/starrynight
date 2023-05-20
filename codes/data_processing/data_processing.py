@@ -2060,7 +2060,7 @@ C6 = '#e377c2'
 C7 = '#7f7f7f'
 C9 = '#17becf'
 
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str})
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str, 'ID_kim': str})
 save_path = f'{user_path}/ONC/starrynight/codes/data_processing'
 
 chris_table = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv')

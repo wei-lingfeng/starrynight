@@ -1,5 +1,4 @@
 import os
-import astropy
 import pandas as pd
 from astropy.io import ascii
 from astropy.table import Table
@@ -22,10 +21,23 @@ observation_table = pd.DataFrame({
 })
 observation_table = Table.from_pandas(observation_table)
 
-results_table = pd.DataFrame({
-    'HC2000 ID': ['HC2000 {}'.format(_.replace('_', ' ')) for _ in list(sources_2d.HC2000)],
+result_table = pd.DataFrame({
+    'HC2000 ID': [f"HC2000 {_.replace('_', ' ')}" if isinstance(_, str) else '' for _ in list(sources_2d.HC2000)],
     'K19 ID': sources_2d.ID_kim,
     'APOGEE ID': sources_2d.ID_kim,
-    'RAJ2000': sources_2d._RAJ2000
+    'RAJ2000': sources_2d._RAJ2000,
+    'DEJ2000': sources_2d._DEJ2000,
+    'rv': sources_2d.rv,
+    'rv_e': sources_2d.rv_e,
+    'pmRA': sources_2d.pmRA,
+    'pmRA_e': sources_2d.pmRA_e,
+    'pmDE_e': sources_2d.pmDE_e,
+    'teff': sources_2d.teff,
+    'teff_e': sources_2d.teff_e,
+    'vsini': sources_2d.vsini,
+    'veiling param': sources_2d.veiling_param_O33
 })
+result_table = Table.from_pandas(result_table)
+
 ascii.write(observation_table[:5], format='latex')
+ascii.write(result_table[:5], format='latex')
