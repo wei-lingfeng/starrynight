@@ -579,7 +579,7 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_mass_error=0.5, max_v_error=5., kde_percentile=84, update_sources=False, save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_vr=np.inf, max_v_error=5., max_mass_error=0.5, kde_percentile=84, update_sources=False, save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
@@ -596,10 +596,12 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
         whether resample or not, and number of resamples, 100000 by default. If False or None, will try to read from previous results
     self_included : bool, optional
         include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
-    mass_max_error : float, optional
+    max_vr : float, optional
+        maximum radial velocity, by default inf.
+    max_vr_error : float, optional
+        maximum radial velocity error, by default 5
+    max_mass_error : float, optional
         maximum mass error, by default 0.5
-    v_max_error : float, optional
-        maximum velocity error, by default 5
     update_sources : bool, optional
         update the original sources dataframe or not, by default False
     kde_percentile : int, optional
@@ -639,7 +641,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
         (~sources[f'mass_{model_name}'].isna()) & \
         (sources[f'mass_e_{model_name}'] < max_mass_error) & \
-        (sources.v_e < max_v_error)
+        (sources.vr < max_vr) & (sources.v_e < max_v_error)
     
     # sources = sources.loc[constraint].reset_index(drop=True)
     sources_coord = SkyCoord(
@@ -736,7 +738,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     
     # Resampling
     if resampling is True:
-        resampling = 10000
+        resampling = 100000
     if resampling:
         ks = np.empty(resampling)
         ebs = np.empty(resampling)
@@ -927,6 +929,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     
     ########## Updating the original DataFrame ##########
     if update_sources:
+        print('Changing sources...')
         sources.loc[valid_idx, f'vrel_{model_name}'] = vrel
         sources.loc[valid_idx, f'vrel_e_{model_name}'] = vrel_e
     else:
@@ -2044,7 +2047,7 @@ def preprocessing(sources):
 global user_path
 user_path = os.path.expanduser('~')
 
-MCMC = True
+MCMC = False
 Multiprocess = True
 
 np.seterr(all="ignore")
@@ -2108,14 +2111,13 @@ base_path_mean_offset = 'linear-mean-offset'
 # Remove the high relative velocity sources.
 vr_threshold = 40
 print(f'Removed {sum(sources_2d.vr > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
-sources_remove_high_vrs = sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True)
 
-mean_diff, maximum_diff = compare_teff_with_apogee(sources_remove_high_vrs)
+mean_diff, maximum_diff = compare_teff_with_apogee(sources_2d.loc[sources_2d.vr <= vr_threshold].reset_index(drop=True))
 print(f'Mean difference in teff: {mean_diff:.2f} K')
 print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
 # teff offset simulation
-sources_mean_offset = copy.deepcopy(sources_remove_high_vrs)
+sources_mean_offset = copy.deepcopy(sources_2d)
 sources_mean_offset.teff_nirspec += mean_diff
 sources_mean_offset.teff = sources_mean_offset.teff_nirspec.fillna(sources_mean_offset.teff_apogee)
 
@@ -2135,11 +2137,12 @@ for radius in radii:
             update_sources = False
         
         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
-            sources_remove_high_vrs, 
+            sources_2d, 
             model_name, 
             model_type='linear',
             radius=radius, 
             resampling=True,
+            max_v=vr_threshold,
             update_sources=update_sources,
             kde_percentile=84,
             show_figure=False,
@@ -2152,6 +2155,7 @@ for radius in radii:
             model_type='linear',
             radius=radius,
             resampling=True,
+            max_v=vr_threshold,
             update_sources=False,
             kde_percentile=84,
             show_figure=False,
@@ -2235,3 +2239,5 @@ lambda_msr_with_trapezium = mass_segregation_ratio(sources_2d, model_name='MIST'
 lambda_msr_no_trapezium = mass_segregation_ratio(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), model_name='MIST', save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
 
 mean_mass_vs_separation(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+
+print('--------------------Finished--------------------')

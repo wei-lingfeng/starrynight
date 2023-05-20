@@ -731,7 +731,6 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
         plt.close()
     
     print('--------------------Finished--------------------')
-    print('\n')
     
     return result
 
