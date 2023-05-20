@@ -43,10 +43,10 @@ def nirspec_sources(dates, names, exceptions, save_path):
     
     result = {
         'HC2000':               [],
-        '_RAJ2000':             [],
-        '_DEJ2000':             [],
         'RAJ2000':              [],
         'DEJ2000':              [],
+        '_RAJ2000':             [],
+        '_DEJ2000':             [],
         'year':                 [],
         'month':                [],
         'day':                  [],
@@ -101,7 +101,10 @@ def nirspec_sources(dates, names, exceptions, save_path):
     
     # read catalogs
     hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
-    
+    hc2000 = hc2000.rename(columns={
+        'RAJ2000': '_RAJ2000',
+        'DEJ2000': '_DEJ2000',
+    })
     #################################################
     ############### Construct Catalog ###############
     #################################################
@@ -114,13 +117,13 @@ def nirspec_sources(dates, names, exceptions, save_path):
             lines = file.readlines()
         
         index = list(hc2000['[HC2000]']).index(name.split('_')[0])
-        coord = SkyCoord(' '.join((hc2000['RAJ2000'][index], hc2000['DEJ2000'][index])), unit=(u.hourangle, u.deg))
+        coord = SkyCoord(' '.join((hc2000['_RAJ2000'][index], hc2000['_DEJ2000'][index])), unit=(u.hourangle, u.deg))
         
         result['HC2000'].append(name)
-        result['_RAJ2000'].append(coord.ra.degree)
-        result['_DEJ2000'].append(coord.dec.degree)
-        result['RAJ2000'].append(hc2000['RAJ2000'][index])
-        result['DEJ2000'].append(hc2000['DEJ2000'][index])
+        result['RAJ2000'].append(coord.ra.degree)
+        result['DEJ2000'].append(coord.dec.degree)
+        result['_RAJ2000'].append(hc2000['_RAJ2000'][index])
+        result['_DEJ2000'].append(hc2000['_DEJ2000'][index])
         result['Kmag'].append(hc2000['Kmag'][index].strip())
         result['Hmag'].append(hc2000['Hmag'][index].strip())
         if hc2000['Kmag'][index].strip():

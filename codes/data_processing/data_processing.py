@@ -231,7 +231,7 @@ def calculate_velocity(sources, dist=389, dist_e=3):
     '''Calculate velocity
     ------------------------------
     - Parameters:
-        - sources: pandas DataFrame containing keys: pmRA, pmRA_e, pmDE, pmDE_e, vr, rv_e.
+        - sources: pandas DataFrame containing keys: pmRA, pmRA_e, pmDE, pmDE_e, rv, rv_e.
         - dist: distance to target in parsecs. Default is 389 pc uniform.
         - dist_e: distance uncertainty in parsecs.
     
@@ -327,8 +327,8 @@ def plot_2d(sources, scale=0.004):
     fig_data = [
         # nirspec quiver
         ff.create_quiver(
-            sources.loc[nirspec_flag, '_RAJ2000'],
-            sources.loc[nirspec_flag, '_DEJ2000'],
+            sources.loc[nirspec_flag, 'RAJ2000'],
+            sources.loc[nirspec_flag, 'DEJ2000'],
             sources.loc[nirspec_flag, 'pmRA'],
             sources.loc[nirspec_flag, 'pmDE'],
             name='NIRSPEC Velocity',
@@ -342,8 +342,8 @@ def plot_2d(sources, scale=0.004):
         
         # apogee quiver
         ff.create_quiver(
-            sources.loc[apogee_flag, '_RAJ2000'],
-            sources.loc[apogee_flag, '_DEJ2000'],
+            sources.loc[apogee_flag, 'RAJ2000'],
+            sources.loc[apogee_flag, 'DEJ2000'],
             sources.loc[apogee_flag, 'pmRA'],
             sources.loc[apogee_flag, 'pmDE'],
             name='APOGEE Velocity',
@@ -357,8 +357,8 @@ def plot_2d(sources, scale=0.004):
         
         # matched quiver
         ff.create_quiver(
-            sources.loc[matched_flag, '_RAJ2000'], 
-            sources.loc[matched_flag, '_DEJ2000'], 
+            sources.loc[matched_flag, 'RAJ2000'], 
+            sources.loc[matched_flag, 'DEJ2000'], 
             sources.loc[matched_flag, 'pmRA'], 
             sources.loc[matched_flag, 'pmDE'], 
             name='Matched Velocity', 
@@ -374,8 +374,8 @@ def plot_2d(sources, scale=0.004):
         # nirspec scatter
         go.Scatter(
             name='NIRSPEC Sources',
-            x=sources.loc[nirspec_flag, '_RAJ2000'], 
-            y=sources.loc[nirspec_flag, '_DEJ2000'], 
+            x=sources.loc[nirspec_flag, 'RAJ2000'], 
+            y=sources.loc[nirspec_flag, 'DEJ2000'], 
             mode='markers',
             marker=dict(
                 size=marker_size,
@@ -386,8 +386,8 @@ def plot_2d(sources, scale=0.004):
         # apogee scatter
         go.Scatter(
             name='APOGEE Sources',
-            x=sources.loc[apogee_flag, '_RAJ2000'], 
-            y=sources.loc[apogee_flag, '_DEJ2000'], 
+            x=sources.loc[apogee_flag, 'RAJ2000'], 
+            y=sources.loc[apogee_flag, 'DEJ2000'], 
             mode='markers',
             marker=dict(
                 size=marker_size,
@@ -398,8 +398,8 @@ def plot_2d(sources, scale=0.004):
         # matched scatter
         go.Scatter(
             name='Matched Sources',
-            x=sources.loc[matched_flag, '_RAJ2000'], 
-            y=sources.loc[matched_flag, '_DEJ2000'], 
+            x=sources.loc[matched_flag, 'RAJ2000'], 
+            y=sources.loc[matched_flag, 'DEJ2000'], 
             mode='markers',
             marker=dict(
                 size=marker_size,
@@ -439,7 +439,7 @@ def plot_pm_rv(sources, save_path=None):
     image_data = ((np.power(a, cutout.data/255) - 1)/a)*255
     # image_data_zoom = (cutout.data/255)**2*255
     image_wcs = cutout.wcs
-    ra_wcs, dec_wcs = image_wcs.wcs_world2pix(sources._RAJ2000, sources._DEJ2000, 0)
+    ra_wcs, dec_wcs = image_wcs.wcs_world2pix(sources.RAJ2000, sources.DEJ2000, 0)
     
     fig = plt.figure(figsize=(7, 6), dpi=300)
     ax = fig.add_subplot(1, 1, 1, projection=image_wcs)
@@ -645,12 +645,12 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     
     # sources = sources.loc[constraint].reset_index(drop=True)
     sources_coord = SkyCoord(
-        ra=sources.loc[constraint, '_RAJ2000'].to_numpy()*u.degree,
-        dec=sources.loc[constraint, '_DEJ2000'].to_numpy()*u.degree,
+        ra=sources.loc[constraint, 'RAJ2000'].to_numpy()*u.degree,
+        dec=sources.loc[constraint, 'DEJ2000'].to_numpy()*u.degree,
         distance=sources.loc[constraint, 'dist'].to_numpy()*u.pc,
         pm_ra_cosdec=sources.loc[constraint, 'pmRA'].to_numpy()*u.mas/u.yr,
         pm_dec=sources.loc[constraint, 'pmDE'].to_numpy()*u.mas/u.yr,
-        radial_velocity=sources.loc[constraint, 'vr'].to_numpy()*u.km/u.s
+        radial_velocity=sources.loc[constraint, 'rv'].to_numpy()*u.km/u.s
     )
     
     mass = sources.loc[constraint, f'mass_{model_name}']
@@ -694,12 +694,12 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     valid_idx = np.where(constraint)[0][~no_neighbor]
     
     sources_coord = SkyCoord(
-        ra=sources.loc[valid_idx, '_RAJ2000'].to_numpy()*u.degree,
-        dec=sources.loc[valid_idx, '_DEJ2000'].to_numpy()*u.degree,
+        ra=sources.loc[valid_idx, 'RAJ2000'].to_numpy()*u.degree,
+        dec=sources.loc[valid_idx, 'DEJ2000'].to_numpy()*u.degree,
         distance=sources.loc[valid_idx, 'dist'].to_numpy()*u.pc,
         pm_ra_cosdec=sources.loc[valid_idx, 'pmRA'].to_numpy()*u.mas/u.yr,
         pm_dec=sources.loc[valid_idx, 'pmDE'].to_numpy()*u.mas/u.yr,
-        radial_velocity=sources.loc[valid_idx, 'vr'].to_numpy()*u.km/u.s
+        radial_velocity=sources.loc[valid_idx, 'rv'].to_numpy()*u.km/u.s
     )
     
     mass = sources.loc[valid_idx, f'mass_{model_name}'].to_numpy()
@@ -948,7 +948,7 @@ def vdisp_all(sources, save_path, MCMC=True):
     Parameters
     ----------
     sources: pd.DataFrame
-        sources dataframe with keys: vRA, vRA_e, vDE, vDE_e, vr, vr_e.
+        sources dataframe with keys: vRA, vRA_e, vDE, vDE_e, rv, vr_e.
     save_path: str
         Folder under which to save.
     MCMC: bool
@@ -1171,7 +1171,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     
     fig, axs = plt.subplots(3, 2, figsize=(8, 9), dpi=300, sharex='col', sharey='row')
     
-    for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_rv]):
+    for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1184,7 +1184,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
             ax.set_ylabel(r'$\sigma_{\mathrm{1D, rms}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         elif direction=='pm':
             ax.set_ylabel(r'$\sigma_{\mathrm{pm, rms}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
-        elif direction=='vr':
+        elif direction=='rv':
             ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
             ax.set_ylabel(r'$\sigma_{\mathrm{RV}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         
@@ -1238,7 +1238,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
 
-    for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_rv]):
+    for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1247,7 +1247,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         dotted_line, = ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
         ax.plot(model_separations_arcmin, sigma_lo, color='k', linestyle='dotted')
         gray_fill = ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
-        if direction=='vr':
+        if direction=='rv':
             ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
         
         errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
@@ -1426,7 +1426,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     
     
     fig, axs = plt.subplots(1, 3, figsize=(12, 3.5), sharey=True)
-    for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'vr'], [sigma_1d, sigma_pm, sigma_rv]):
+    for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
         # arcmin axis
         ax.set_ylim((1.3, 6))
         ax.set_xscale('log')
@@ -1440,7 +1440,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
         elif direction=='pm':
             ax.set_title('$\sigma_{\mathrm{pm, rms}}$', fontsize=15)
             ax.set_xlabel(f'{model_name} Mass ($M_\odot$)', fontsize=15, labelpad=10)
-        elif direction=='vr':
+        elif direction=='rv':
             ax.set_title('$\sigma_{\mathrm{RV}}$', fontsize=15)
 
         errorbar = ax.errorbar(mass_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
@@ -1503,7 +1503,7 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
     sources = sources.reset_index(drop=True)
 
     # Construct separation matrix
-    sources_coord = SkyCoord(ra=sources._RAJ2000.to_numpy()*u.degree, dec=sources._DEJ2000.to_numpy()*u.degree)
+    sources_coord = SkyCoord(ra=sources.RAJ2000.to_numpy()*u.degree, dec=sources.DEJ2000.to_numpy()*u.degree)
     sep_matrix = np.zeros((len(sources), len(sources)))
 
     for i in range(len(sources)):
@@ -1732,8 +1732,8 @@ def pm_angle_distribution(sources, save_path=None):
         return np.arctan2(np.linalg.det(np.array([v1, v2])), np.dot(v1, v2))
 
     position = np.array([
-        -(sources._RAJ2000 - trapezium.ra.degree),
-        sources._DEJ2000 - trapezium.dec.degree
+        -(sources.RAJ2000 - trapezium.ra.degree),
+        sources.DEJ2000 - trapezium.dec.degree
     ])
 
     pm = np.array([
@@ -1802,12 +1802,12 @@ def compare_chris(sources, save_path=None):
     idx_other = np.delete(sources.index.to_numpy(), np.array(idx_binary))
 
     teff_diff = sources.teff - sources.teff_chris
-    vr_diff = sources.loc[idx_other, 'vr'] - sources.loc[idx_other, 'vr_chris']
+    rv_diff = sources.loc[idx_other, 'rv'] - sources.loc[idx_other, 'rv_chris']
     print(f'Median absolute Teff difference: {abs(teff_diff).median():.2f} K')
     print(f'Max. absolute Teff difference: {abs(teff_diff).max():.2f} K')
     print(f'Standard deviation of Teff difference: {teff_diff.std():.2f} K')
-    print(f'Median absolute RV difference: {abs(vr_diff).median():.2f} km/s')
-    print(f'Standard deviation RV difference: {vr_diff.std():.2f} km/s')
+    print(f'Median absolute RV difference: {abs(rv_diff).median():.2f} km/s')
+    print(f'Standard deviation RV difference: {rv_diff.std():.2f} km/s')
     
     # compare veiling parameter of order 33    
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 3))
@@ -1833,20 +1833,20 @@ def compare_chris(sources, save_path=None):
     ax1.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
     ax1.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
     
-    # compare vr
+    # compare rv
     ax2.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
     ax2.errorbar(
-        sources.loc[idx_other, 'vr'].values, 
-        sources.loc[idx_other, 'vr_chris'].values, 
-        xerr=sources.loc[idx_other, 'vr_e'].values, 
-        yerr=sources.loc[idx_other, 'vr_e_chris'].values, 
+        sources.loc[idx_other, 'rv'].values, 
+        sources.loc[idx_other, 'rv_chris'].values, 
+        xerr=sources.loc[idx_other, 'rv_e'].values, 
+        yerr=sources.loc[idx_other, 'rv_e_chris'].values, 
         color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
     )
     ax2.errorbar(
-        sources.loc[idx_binary, 'vr'].values, 
-        sources.loc[idx_binary, 'vr_chris'].values, 
-        xerr=sources.loc[idx_binary, 'vr_e'].values, 
-        yerr=sources.loc[idx_binary, 'vr_e_chris'].values, 
+        sources.loc[idx_binary, 'rv'].values, 
+        sources.loc[idx_binary, 'rv_chris'].values, 
+        xerr=sources.loc[idx_binary, 'rv_e'].values, 
+        yerr=sources.loc[idx_binary, 'rv_e_chris'].values, 
         color='C0', label='Parenago 1837', 
         fmt='o', alpha=0.5, markersize=3
     )
@@ -1979,7 +1979,7 @@ def preprocessing(sources):
     sources.pmDE_gaia -= offset_DE
     # sources.pmRA_e_kim = np.sqrt(sources.pmRA_e_kim**2 + ((offset[2] - offset[1])/2)**2)
 
-    # merge proper motion and vr
+    # merge proper motion and rv
     # prioritize kim
     sources['pmRA'] = merge(sources.pmRA_kim, sources.pmRA_gaia)
     sources['pmRA_e'] = merge(sources.pmRA_e_kim, sources.pmRA_e_gaia)
@@ -2008,8 +2008,8 @@ def preprocessing(sources):
     sources_2d.dist = 389
     sources_2d.dist_e = 3
     sources_coord_2d = SkyCoord(
-        ra=sources_2d._RAJ2000.to_numpy()*u.degree,
-        dec=sources_2d._DEJ2000.to_numpy()*u.degree, 
+        ra=sources_2d.RAJ2000.to_numpy()*u.degree,
+        dec=sources_2d.DEJ2000.to_numpy()*u.degree, 
         pm_ra_cosdec=sources_2d.pmRA.to_numpy()*u.mas/u.yr,
         pm_dec=sources_2d.pmDE.to_numpy()*u.mas/u.yr
     )
@@ -2022,12 +2022,12 @@ def preprocessing(sources):
     # sources_3d = sources.loc[dist_constraint].reset_index(drop=True)
     # sources_3d = calculate_velocity(sources_3d, dist=sources_3d.dist, dist_e=sources_3d.dist_e)
     # sources_coord_3d = SkyCoord(
-    #     ra=sources_3d._RAJ2000.to_numpy()*u.degree, 
-    #     dec=sources_3d._DEJ2000.to_numpy()*u.degree, 
+    #     ra=sources_3d.RAJ2000.to_numpy()*u.degree, 
+    #     dec=sources_3d.DEJ2000.to_numpy()*u.degree, 
     #     distance=1000/sources_3d.plx.to_numpy()*u.pc,
     #     pm_ra_cosdec=sources_3d.pmRA.to_numpy()*u.mas/u.yr,
     #     pm_dec=sources_3d.pmDE.to_numpy()*u.mas/u.yr,
-    #     radial_velocity=sources_3d.vr.to_numpy()*u.km/u.s
+    #     radial_velocity=sources_3d.rv.to_numpy()*u.km/u.s
     # )
 
     print('After all constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
@@ -2109,10 +2109,10 @@ base_path = 'linear'
 base_path_mean_offset = 'linear-mean-offset'
 
 # Remove the high relative velocity sources.
-vr_threshold = 40
-print(f'Removed {sum(sources_2d.rv > vr_threshold)} sources with radial velocity exceeding {vr_threshold} km/s.')
+rv_threshold = 40
+print(f'Removed {sum(sources_2d.rv > rv_threshold)} sources with radial velocity exceeding {rv_threshold} km/s.')
 
-mean_diff, maximum_diff = compare_teff_with_apogee(sources_2d.loc[sources_2d.rv <= vr_threshold].reset_index(drop=True))
+mean_diff, maximum_diff = compare_teff_with_apogee(sources_2d.loc[sources_2d.rv <= rv_threshold].reset_index(drop=True))
 print(f'Mean difference in teff: {mean_diff:.2f} K')
 print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
@@ -2141,8 +2141,8 @@ for radius in radii:
             model_name, 
             model_type='linear',
             radius=radius, 
-            resampling=True,
-            max_rv=vr_threshold,
+            resampling=False,
+            max_rv=rv_threshold,
             update_sources=update_sources,
             kde_percentile=84,
             show_figure=False,
@@ -2155,7 +2155,7 @@ for radius in radii:
             model_type='linear',
             radius=radius,
             resampling=False,
-            max_rv=vr_threshold,
+            max_rv=rv_threshold,
             update_sources=False,
             kde_percentile=84,
             show_figure=False,
@@ -2213,7 +2213,7 @@ if not os.path.exists(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_
     os.mkdir(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results')
 
 with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean_rv.txt', 'w') as file:
-    file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'vr'])))
+    file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'rv'])))
 
 fig, ax = plt.subplots(figsize=(6, 4))
 ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.rv, yerr=sources_2d.rv_e, fmt='.', label='Measurements')

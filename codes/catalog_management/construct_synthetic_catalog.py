@@ -197,10 +197,10 @@ def match_and_merge(catalog1, catalog2, mode, max_sep=1.0*u.arcsec, plot=True, *
     '''Cross match and merge two catalogs.
     --------------------
     For each star in catalog1, match the closest star in catalog2 that has a separation < max_sep.
-    A suffix is added to the keys of catalog2 for duplicate columns. _RAJ2000 and _DEJ2000 are merged, prioritizing catalog1.
+    A suffix is added to the keys of catalog2 for duplicate columns. RAJ2000 and DEJ2000 are merged, prioritizing catalog1.
     - Parameters: 
-        - catalog1: pandas dataframe with _RAJ2000 and _DEJ2000 columns in degrees.
-        - catalog2: pandas dataframe with _RAJ2000 and _DEJ2000 columns in degrees.
+        - catalog1: pandas dataframe with RAJ2000 and DEJ2000 columns in degrees.
+        - catalog2: pandas dataframe with RAJ2000 and DEJ2000 columns in degrees.
         - mode: "and" or "or". Determine whether to keep unmatched sources in catalog2 or not.
         - max_sep: maximum separation (1.0 arcsec by default).
         - kwargs: 
@@ -214,8 +214,8 @@ def match_and_merge(catalog1, catalog2, mode, max_sep=1.0*u.arcsec, plot=True, *
         - result: pandas dataframe of cross-matched catalog.
     '''
     
-    catalog1_coord = SkyCoord(ra=catalog1._RAJ2000*u.degree, dec=catalog1._DEJ2000*u.degree)
-    catalog2_coord = SkyCoord(ra=catalog2._RAJ2000*u.degree, dec=catalog2._DEJ2000*u.degree)
+    catalog1_coord = SkyCoord(ra=catalog1.RAJ2000*u.degree, dec=catalog1.DEJ2000*u.degree)
+    catalog2_coord = SkyCoord(ra=catalog2.RAJ2000*u.degree, dec=catalog2.DEJ2000*u.degree)
     result = copy.deepcopy(catalog1)
     
     label1 = kwargs.get('label1', 'Sources 1')
@@ -232,10 +232,10 @@ def match_and_merge(catalog1, catalog2, mode, max_sep=1.0*u.arcsec, plot=True, *
     
     
     columns = kwargs.get('columns', catalog2.keys())
-    if '_RAJ2000' not in columns:
-        columns.append('_RAJ2000')
-    if '_DEJ2000' not in columns:
-        columns.append('_DEJ2000')
+    if 'RAJ2000' not in columns:
+        columns.append('RAJ2000')
+    if 'DEJ2000' not in columns:
+        columns.append('DEJ2000')
     
     # record if the column is provided or modified (combined with the suffix) within this function.
     new_column_flag = [True if column in catalog1.keys() else False for column in columns]
@@ -274,10 +274,10 @@ def match_and_merge(catalog1, catalog2, mode, max_sep=1.0*u.arcsec, plot=True, *
             
     result = result.reset_index(drop=True)
     # merge coordinates, prioritizing catalog1.
-    result._RAJ2000 = result._RAJ2000.fillna(result['_RAJ2000{}'.format(suffix)])
-    result._DEJ2000 = result._DEJ2000.fillna(result['_DEJ2000{}'.format(suffix)])
-    result.pop('_RAJ2000{}'.format(suffix))
-    result.pop('_DEJ2000{}'.format(suffix))
+    result.RAJ2000 = result.RAJ2000.fillna(result['RAJ2000{}'.format(suffix)])
+    result.DEJ2000 = result.DEJ2000.fillna(result['DEJ2000{}'.format(suffix)])
+    result.pop('RAJ2000{}'.format(suffix))
+    result.pop('DEJ2000{}'.format(suffix))
     return result
 
 
@@ -462,7 +462,7 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
     
     sources_epoch_combined, apogee, pm, gaia = catalogs
     
-    pm_coord = SkyCoord(ra=pm._RAJ2000*u.degree, dec=pm._DEJ2000*u.degree)
+    pm_coord = SkyCoord(ra=pm.RAJ2000*u.degree, dec=pm.DEJ2000*u.degree)
     
     matched_circles_idx = np.arange(len(sources_epoch_combined))[~sources_epoch_combined.ID_gaia.isna() | ~sources_epoch_combined.ID_kim.isna()]
     
@@ -472,10 +472,10 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         ply_shapes['shape_' + str(i)] = go.layout.Shape(
             type='circle',
             xref='x', yref='y',
-            x0=sources_epoch_combined._RAJ2000[i] - (max_sep.to(u.degree)).value / np.cos(sources_epoch_combined._DEJ2000[i]*np.pi/180),
-            y0=sources_epoch_combined._DEJ2000[i] - (max_sep.to(u.degree)).value,
-            x1=sources_epoch_combined._RAJ2000[i] + (max_sep.to(u.degree)).value / np.cos(sources_epoch_combined._DEJ2000[i]*np.pi/180),
-            y1=sources_epoch_combined._DEJ2000[i] + (max_sep.to(u.degree)).value,
+            x0=sources_epoch_combined.RAJ2000[i] - (max_sep.to(u.degree)).value / np.cos(sources_epoch_combined.DEJ2000[i]*np.pi/180),
+            y0=sources_epoch_combined.DEJ2000[i] - (max_sep.to(u.degree)).value,
+            x1=sources_epoch_combined.RAJ2000[i] + (max_sep.to(u.degree)).value / np.cos(sources_epoch_combined.DEJ2000[i]*np.pi/180),
+            y1=sources_epoch_combined.DEJ2000[i] + (max_sep.to(u.degree)).value,
             line_color='#2f2f2f',
             line_width=1,
             opacity=opacity,
@@ -505,8 +505,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='Gaia Sources',
-            x=gaia._RAJ2000, 
-            y=gaia._DEJ2000, 
+            x=gaia.RAJ2000, 
+            y=gaia.DEJ2000, 
             opacity=opacity,
             marker=dict(
                 size=marker_size,
@@ -519,8 +519,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='Proper Motion Sources',
-            x=pm._RAJ2000[pm_coord.separation(trapezium) < 4*u.arcmin], 
-            y=pm._DEJ2000[pm_coord.separation(trapezium) < 4*u.arcmin], 
+            x=pm.RAJ2000[pm_coord.separation(trapezium) < 4*u.arcmin], 
+            y=pm.DEJ2000[pm_coord.separation(trapezium) < 4*u.arcmin], 
             opacity=opacity/2,
             marker=dict(
                 size=marker_size,
@@ -533,8 +533,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='APOGEE Sources',
-            x=apogee._RAJ2000[apogee_index], 
-            y=apogee._DEJ2000[apogee_index], 
+            x=apogee.RAJ2000[apogee_index], 
+            y=apogee.DEJ2000[apogee_index], 
             opacity=1,
             marker=dict(
                 size=marker_size,
@@ -547,8 +547,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='NIRSPEC Sources',
-            x=sources_epoch_combined._RAJ2000[~sources_epoch_combined.HC2000.isna()], 
-            y=sources_epoch_combined._DEJ2000[~sources_epoch_combined.HC2000.isna()], 
+            x=sources_epoch_combined.RAJ2000[~sources_epoch_combined.HC2000.isna()], 
+            y=sources_epoch_combined.DEJ2000[~sources_epoch_combined.HC2000.isna()], 
             opacity=1,
             marker=dict(
                 size=marker_size,
@@ -631,16 +631,16 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     
     trapezium_stars = pd.DataFrame.from_dict(trapezium_stars)
     
-    trapezium_stars.insert(1, '_RAJ2000', np.nan)
-    trapezium_stars.insert(2, '_DEJ2000', np.nan)
+    trapezium_stars.insert(1, 'RAJ2000', np.nan)
+    trapezium_stars.insert(2, 'DEJ2000', np.nan)
     
     # Get RA DEC from nirspec catalog
     hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
     for i in range(len(trapezium_stars)):
         index = list(hc2000['[HC2000]']).index(trapezium_stars.loc[i, 'HC2000'])
         coord = SkyCoord(' '.join((hc2000['RAJ2000'][index], hc2000['DEJ2000'][index])), unit=(u.hourangle, u.deg))
-        trapezium_stars.loc[i, '_RAJ2000'] = coord.ra.degree
-        trapezium_stars.loc[i, '_DEJ2000'] = coord.dec.degree
+        trapezium_stars.loc[i, 'RAJ2000'] = coord.ra.degree
+        trapezium_stars.loc[i, 'DEJ2000'] = coord.dec.degree
     
     # Remove trapezium stars from nirspec
     nirspec_hc2000 = [_.split('_')[0] for _ in nirspec.HC2000]
@@ -701,13 +701,13 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     
     apogee = apogee.rename(columns={
         'APOGEE_ID': 'ID_apogee',
+        '_RAJ2000': 'RAJ2000',
+        '_DEJ2000': 'DEJ2000',
         'rv':   'rv_apogee',
         'rv_e': 'rv_e_apogee'
     })
     
     kounkel = kounkel.rename(columns={
-        'RAJ2000':  '_RAJ2000',
-        'DEJ2000':  '_DEJ2000',
         '_2MASS':   'ID_2MASS',
         'Gaia':     'ID_gaia_dr2',
         'Teff':     'teff_kounkel',
@@ -720,6 +720,8 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     
     pm = pm.rename(columns={
         'ID':       'ID_kim',
+        '_RAJ2000': 'RAJ2000',
+        '_DEJ2000': 'DEJ2000',
         'pmRA':     'pmRA_kim',
         'e_pmRA':   'pmRA_e_kim',
         'pmDE':     'pmDE_kim',
@@ -728,8 +730,8 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     
     gaia = gaia.rename(columns={
         'source_id':        'ID_gaia',
-        'ra':               '_RAJ2000',
-        'dec':              '_DEJ2000',
+        'ra':               'RAJ2000',
+        'dec':              'DEJ2000',
         'parallax':         'plx',
         'parallax_error':   'plx_e',
         'parallax_over_error': 'plx_over_e',
@@ -749,20 +751,22 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
         value=((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2)
     )
     
-    hillenbrand = hillenbrand.rename(columns={'RAJ2000': '_RAJ2000', 'DEJ2000': '_DEJ2000', 'ID': 'ID_hillenbrand', 'M': 'mass_Hillenbrand'})
+    hillenbrand = hillenbrand.rename(columns={'ID': 'ID_hillenbrand', 'M': 'mass_Hillenbrand'})
     # Offset specified in https://iopscience.iop.org/article/10.1086/309309/pdf, Section 4.5.
-    hillenbrand_coord = SkyCoord(ra=(hillenbrand._RAJ2000 + 1.5/3600)*u.deg, dec=(hillenbrand._DEJ2000 - 0.3/3600)*u.deg)
-    hillenbrand._RAJ2000 = hillenbrand_coord.ra.deg
-    hillenbrand._DEJ2000 = hillenbrand_coord.dec.deg
+    hillenbrand_coord = SkyCoord(ra=(hillenbrand.RAJ2000 + 1.5/3600)*u.deg, dec=(hillenbrand.DEJ2000 - 0.3/3600)*u.deg)
+    hillenbrand.RAJ2000 = hillenbrand_coord.ra.deg
+    hillenbrand.DEJ2000 = hillenbrand_coord.dec.deg
     hillenbrand = hillenbrand.loc[hillenbrand_coord.separation(trapezium) <= 4*u.arcmin].reset_index(drop=True)
     hillenbrand = hillenbrand.replace(r' ', np.nan)
     
     tobin = tobin.rename(columns={
-        '_2MASS': 'ID_2MASS_tobin',
-        'HRV':  'rv_tobin',
+        '_2MASS':   'ID_2MASS_tobin',
+        '_RAJ2000': 'RAJ2000',
+        '_DEJ2000': 'DEJ2000',
+        'HRV':      'rv_tobin',
         'e_HRV':    'rv_e_tobin',
-        'Vmag': 'Vmag_tobin',
-        'V-I':  'V-I_tobin'
+        'Vmag':     'Vmag_tobin',
+        'V-I':      'V-I_tobin'
     })
     
     ###############################################
@@ -796,8 +800,8 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
         'pmDE_kim', 'pmDE_e_kim'
     ])
     
-    sources_coord = SkyCoord(ra=sources._RAJ2000*u.degree, dec=sources._DEJ2000*u.degree)
-    gaia_coord = SkyCoord(ra=gaia._RAJ2000*u.degree, dec=gaia._DEJ2000*u.degree)
+    sources_coord = SkyCoord(ra=sources.RAJ2000*u.degree, dec=sources.DEJ2000*u.degree)
+    gaia_coord = SkyCoord(ra=gaia.RAJ2000*u.degree, dec=gaia.DEJ2000*u.degree)
         
     max_sep = 1 * u.arcsec
     matches = cross_match_gaia(sources_coord, gaia_coord, gaia.plx, max_sep=max_sep)
