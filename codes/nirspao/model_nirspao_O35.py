@@ -130,9 +130,9 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
     legend_elements = [_ for _ in legend_elements if _ is not None]
     ax2.legend(handles=legend_elements, frameon=True, loc='lower left', bbox_to_anchor=(1, -0.08), fontsize=12, borderpad=0.5)
     
-    object_name = f"[HC2000]{sci_spec.header['OBJECT'].strip().replace('_', ' ', 1).split()[1]}"
+    object_name = f"HC2000 {sci_spec.header['OBJECT'].strip().replace('_', ' ', 1).split()[1]}"
     texts = '\n'.join((
-        f"{object_name}  Order {order}",
+        f"{object_name}, Order {order}",
         f"$T_\mathrm{{eff}}={result['teff'][0]:.2f}\pm{result['teff'][1]:.2f}$ K",
         f"$V_r={result['rv_helio']:.2f}\pm{result['rv'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
         f"$v\sin i={result['vsini'][0]:.2f}\pm{result['vsini'][1]:.2f}$ km$\cdot$s$^{{-1}}$",
@@ -328,8 +328,8 @@ def model_nirspao(infos, orders=[32, 33], initial_mcmc=True, finetune=True, fine
             
             if year >= 19:
                 # For data after 2018, sci_names = [nspec200118_0027, ...]
-                sci_name = f'nspec{str(year).zfill(2)}{str(month)}{str(day).zfill(2)}_{str(sci_frame).zfill(4)}'
-                tel_name = f'nspec{str(year).zfill(2)}{str(month)}{str(day).zfill(2)}_{str(tel_frame).zfill(4)}'
+                sci_name = f'nspec{str(year).zfill(2)}{str(month).zfill(2)}{str(day).zfill(2)}_{str(sci_frame).zfill(4)}'
+                tel_name = f'nspec{str(year).zfill(2)}{str(month).zfill(2)}{str(day).zfill(2)}_{str(tel_frame).zfill(4)}'
                 pixel_start = 20
                 pixel_end = -48
             
