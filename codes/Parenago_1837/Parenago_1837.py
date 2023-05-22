@@ -52,9 +52,9 @@ if new_sampling:
     joker = TheJoker(prior)
     prior_samples = prior.sample(size=100000)
     samples = joker.rejection_sample(data, prior_samples)
-    samples.write(f'{user_path}/ONC/starrynight/codes/HC2000 546/samples.hdf5', overwrite=True)
+    samples.write(f'{user_path}/ONC/starrynight/codes/Parenago_1837/samples.hdf5', overwrite=True)
 else:
-    samples = tj.JokerSamples.read(f'{user_path}/ONC/starrynight/codes/HC2000 546/samples.hdf5')
+    samples = tj.JokerSamples.read(f'{user_path}/ONC/starrynight/codes/Parenago_1837/samples.hdf5')
 
 valid_idx = []
 m = []
@@ -102,12 +102,12 @@ m_grid_left_circular = np.linspace(m_intersections_circular[0], m_intersections_
 m_grid_fill = np.concatenate((m_grid_left, m_grids[-1])).flatten()   # m grid for fill
 
 
-fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+fig, ax = plt.subplots(1, 1, figsize=(6, 6))
 ax.scatter(m, a, 1, color='C7', marker='.', label='Sampled Systems')
 ax.plot(m_grids[0], lower_bound(m_grids[0]), linewidth=2, label=f'Min. Period: {P_min.value:.0f} days', zorder=5)
 ax.plot(m_grids[-1], upper_bound(m_grids[-1]), linewidth=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days', zorder=4)
-ax.plot(m_grid_left_circular, left_bound_circular(m_grid_left_circular), linewidth=2, linestyle='--', label=r'Min. $\Delta v$ with $e = 0$', zorder=3)
-ax.plot(m_grid_left, left_bound(m_grid_left, e_max), linewidth=2, linestyle='--', label=rf'Min. $\Delta v$ with $e = {e_max:.1f}$', zorder=2)
+ax.plot(m_grid_left_circular, left_bound_circular(m_grid_left_circular), linewidth=2, linestyle='--', label=r'$\Delta v_\mathrm{{max}}\geq\Delta v_\mathrm{{obs}}$, $e = 0$', zorder=3)
+ax.plot(m_grid_left, left_bound(m_grid_left, e_max), linewidth=2, linestyle='--', label=rf'$\Delta v_\mathrm{{max}}\geq\Delta v_\mathrm{{obs}}$, $e = {e_max:.1f}$', zorder=2)
 ax.vlines(M, lower_bound(M), upper_bound(M), linewidth=2, color='k', label='Max. Companion Mass', zorder=1)
 for i in range(1, len(m_grids)-1):
     if i==1:
@@ -129,25 +129,26 @@ ax.set_ylim(bottom=-0.2)
 
 log_percentile = lambda x, percentile : 10**(np.percentile(np.log10(np.array(x)[[0, -1]]), percentile))
 log_middle = lambda x : log_percentile(x, 50)
-ax.annotate(rf'$P={P_min.value:.0f}$ days', xy=(log_percentile(m_grids[0], 60), lower_bound(log_percentile(m_grids[0], 60)) - 0.05), horizontalalignment='center', verticalalignment='top', size=11)
-ax.annotate(rf'$P={P_max.value:.0f}$ days', xy=(log_middle(m_grids[-1]) - 0.02, upper_bound(log_middle(m_grids[-1])) - 0.05), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=12)
-ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e={e_max:.1f}$', xy=(log_percentile(m_grid_left, 70), left_bound(log_percentile(m_grid_left, 70), e_max)), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=68)
-ax.annotate(rf'$\Delta v_\mathrm{{min}}$, $e=0$', xy=(log_percentile(m_grid_left_circular, 70) + 0.003, left_bound_circular(log_percentile(m_grid_left_circular, 70))), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=67)
-ax.annotate(rf'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, (lower_bound(M) + upper_bound(M))/2), horizontalalignment='center', verticalalignment='center', size=11, rotation=-90)
+ax.annotate(rf'$P={P_min.value:.0f}$ days', xy=(log_percentile(m_grids[0], 60), lower_bound(log_percentile(m_grids[0], 60)) - 0.05), horizontalalignment='center', verticalalignment='top', size=12)
+ax.annotate(rf'$P={P_max.value:.0f}$ days', xy=(log_middle(m_grids[-1]) - 0.02, upper_bound(log_middle(m_grids[-1])) - 0.05), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=12)
+ax.annotate(rf'$\Delta v_\mathrm{{max}}\geq\Delta v_\mathrm{{obs}}$, $e={e_max:.1f}$', xy=(log_percentile(m_grid_left, 60) + 0.005, left_bound(log_percentile(m_grid_left, 60), e_max)), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=68)
+ax.annotate(rf'$\Delta v_\mathrm{{max}}\geq\Delta v_\mathrm{{obs}}$, $e=0$', xy=(log_percentile(m_grid_left_circular, 60) + 0.012, left_bound_circular(log_percentile(m_grid_left_circular, 60))), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=67.5)
+ax.annotate(rf'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, (lower_bound(M) + upper_bound(M))/2), horizontalalignment='center', verticalalignment='center', size=12, rotation=-90)
 
-ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=13)
-ax.annotate('$P=\Delta t/2$', xy=(0.3, period(0.3, Ps[-3])), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=8)
-ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontalalignment='center', verticalalignment='bottom', size=11, rotation=7)
-ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=11, rotation=5)
+ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=13)
+ax.annotate('$P=\Delta t/2$', xy=(0.3, period(0.3, Ps[-3])), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=8)
+ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=7)
+ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=12, rotation=5)
 
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
 ax.set_xticks([0.02, 0.04, 0.06, 0.1, 0.2, 0.3, 0.5])
-ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$', fontsize=12)
-ax.set_ylabel('Semi-Major Axis (au)', fontsize=12)
+ax.tick_params(axis='both', which='major', labelsize=12)
+ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$', fontsize=15, labelpad=10)
+ax.set_ylabel('Semi-Major Axis (au)', fontsize=15, labelpad=10)
 handles, labels = ax.get_legend_handles_labels()
 handles[0] = Line2D([], [], marker='.', color='C7', label='Sampled Systems', markersize=5, linestyle='None')
 ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023), fontsize=12)
-plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Allowed Param.pdf', bbox_inches='tight')
+plt.savefig(f'{user_path}/ONC/figures/Parenago 1837 - Allowed Param.pdf', bbox_inches='tight')
 plt.show()
 
 # only plot orbits with period > Δt/3
@@ -164,5 +165,5 @@ ax.set_ylim((min(rv.value) - 5, max(rv.value) + 7))
 ax.set_ylabel(r'RV ($\mathrm{km}\cdot\mathrm{s}^{-1}$)')
 ax.set_xlabel(r'Days after 2019.2.25')
 ax.legend(loc='lower right')
-plt.savefig(f'{user_path}/ONC/figures/HC2000 546 - Orbital Fits.pdf', bbox_inches='tight')
+plt.savefig(f'{user_path}/ONC/figures/Parenago 1837 - Orbital Fits.pdf', bbox_inches='tight')
 plt.show()
