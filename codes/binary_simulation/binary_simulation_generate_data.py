@@ -18,22 +18,22 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
 
     N = len(sources)
     print('N={}'.format(N))
-    vr = sources.vr
-    vr_err = sources.vr_e
+    rv = sources.rv
+    rv_err = sources.rv_e
     mass_MIST = sources.loc[~sources.mass_MIST.isna(), 'mass_MIST']
 
     # sort the data
-    vr_err_sorted = np.sort(vr_err)
+    rv_err_sorted = np.sort(rv_err)
     mass_MIST_sorted = np.sort(mass_MIST)
 
     # calculate the porportional values of samples
-    p_vr_err = 1. * np.arange(len(vr)) / (len(vr) - 1)
+    p_rv_err = 1. * np.arange(len(rv)) / (len(rv) - 1)
     p_mass_MIST = 1. * np.arange(len(mass_MIST)) / (len(mass_MIST) - 1)
 
     # interpolate inverse cdf
-    # cdf_vr_err(vr_err_sorted) = p_vr_err
-    # cdf_vr_err(mass_MIST_sorted) = p_mass_MIST
-    inv_cdf_vr_err = interp1d(p_vr_err, vr_err_sorted)
+    # cdf_rv_err(rv_err_sorted) = p_rv_err
+    # cdf_rv_err(mass_MIST_sorted) = p_mass_MIST
+    inv_cdf_rv_err = interp1d(p_rv_err, rv_err_sorted)
     inv_cdf_mass_MIST = interp1d(p_mass_MIST, mass_MIST_sorted)
 
     # Parameters
@@ -42,10 +42,10 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
 
     with open(user_path + '/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
-    raw = [line for line in raw if line.startswith('σ_vr:')][0]
-    vdisp_vr, vdisp_vr_e = eval(raw.strip('σ_vr:\t\n'))
+    raw = [line for line in raw if line.startswith('σ_rv:')][0]
+    vdisp_rv, vdisp_rv_e = eval(raw.strip('σ_rv:\t\n'))
 
-    limit_low, limit_high = 1, 4
+    limit_low, limit_high = 1, 4.5
 
     # Simulation
     valid_sims = 0
@@ -63,7 +63,7 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
         velocities = all_binaries.velocity(masses)
         
         vdisp = np.random.uniform(low=limit_low, high=limit_high, size=1)
-        sigvel = inv_cdf_vr_err(np.random.uniform(low=0, high=1., size=N))
+        sigvel = inv_cdf_rv_err(np.random.uniform(low=0, high=1., size=N))
 
         # fake dataset
         v_systematic = np.random.randn(N) * vdisp
@@ -80,7 +80,7 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
         mean_mock, std_mock = norm.fit(mock_dataset[abs(mock_dataset) <= 7])
         # mean_mock, std_mock = norm.fit(mock_dataset)
         
-        if abs(std_mock - vdisp_vr) > vdisp_vr_e * sigma:
+        if abs(std_mock - vdisp_rv) > vdisp_rv_e * sigma:
             continue
         
         v_dispersions[valid_sims] = vdisp
@@ -88,8 +88,8 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
     
     # Plot
     if show_figure & (fbin==0.5):
-        vr_offset = vr - np.mean(vr)
-        mean_obs, std_obs = norm.fit(vr_offset[abs(vr_offset) <= 7])
+        rv_offset = rv - np.mean(rv)
+        mean_obs, std_obs = norm.fit(rv_offset[abs(rv_offset) <= 7])
         x = np.linspace(-10, 10, 1000)
         y_mock = norm.pdf(x, mean_mock, std_mock)
         y_intrinsic = norm.pdf(x, 0, vdisp)
@@ -101,7 +101,7 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
         alpha = 0.7
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.hist(mock_dataset, color='C0', bins=bins, histtype='step', density=True, alpha=alpha, linewidth=linewidth)
-        ax.hist(vr - np.mean(vr), color='C7', label='Observed', bins=bins, histtype='step', density=True, alpha=alpha, linewidth=linewidth)
+        ax.hist(rv - np.mean(rv), color='C7', label='Observed', bins=bins, histtype='step', density=True, alpha=alpha, linewidth=linewidth)
         ax.hist(v_errors, color='C2', label='Errors', bins=bins, histtype='step', density=True, alpha=alpha, linestyle='-.', linewidth=linewidth)
         ax.hist(v_binary, color='C6', label=r'Binaries ({0:.0%})'.format(fbin), bins=bins, histtype='step', density=True, alpha=alpha, linestyle='--', linewidth=linewidth)
         ax.plot(x, y_intrinsic, color='C3', label='Intrinsic', linestyle=':', linewidth=linewidth*1.2)
