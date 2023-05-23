@@ -55,7 +55,7 @@ ax.legend([
     r'$\sigma_{RV}$ - Measured',
     r'$\sigma_{RA}$ - Measured',
     r'$\sigma_{DE}$ - Measured'
-], loc=(1.04, 0), fontsize=14)
+], loc=(1.04, 0), fontsize=12)
 
 ax.tick_params(axis='both', which='major', labelsize=12)
 ax.set_xticks(fbins*100)
