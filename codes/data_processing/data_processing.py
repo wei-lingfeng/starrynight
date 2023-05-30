@@ -1831,7 +1831,7 @@ def compare_chris(sources, save_path=None):
     )
     ax1.legend()
     ax1.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
-    ax1.set_ylabel(r'$T_\mathrm{eff, Theissen}$ (K)', fontsize=12)
+    ax1.set_ylabel(r'$T_\mathrm{eff, T22}$ (K)', fontsize=12)
     
     # compare rv
     ax2.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
@@ -1852,7 +1852,7 @@ def compare_chris(sources, save_path=None):
     )
     ax2.legend()
     ax2.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
-    ax2.set_ylabel(r'$\mathrm{RV}_\mathrm{Theissen}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+    ax2.set_ylabel(r'$\mathrm{RV}_\mathrm{T22}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
     
     # compare veiling param    
     ax3.hist(sources.veiling_param_O33_chris, bins=20, range=(0, 1), histtype='step', color='C0', label='T22', lw=2)
