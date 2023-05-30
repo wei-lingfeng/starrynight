@@ -87,8 +87,16 @@ print(result_latex)
 
 
 # save mrt
+obs_table = Table()
+obs_table['HC2000 ID'] = Column(obs_df['HC2000 ID'], format=str, description='Identifier in [HC2000], Hillenbrand & Carpenter (2000) [2000ApJ...540..236H]')
+obs_table['Obs Time'] = Column(obs_df['Obs. Date'], format=str, description='Observation Date')
+obs_table['No. of Frames'] = Column(obs_df['No. of Frames'], description='Number of Frames')
+obs_table['Int. Time'] = Column(obs_df['Int. Time'], unit=u.s, description='Integration Time of each frame')
+# obs_table.write(f'{user_path}/ONC/starrynight/catalogs/obs_table.dat', format='ascii.mrt', overwrite=True)
+obs_table.write(sys.stdout, format='ascii.mrt')
+
 result_table = Table()
-result_table['  HC2000 ID'] = Column(result_df['HC2000 ID'].values, format=str, description='Identifier in [HC2000], Hillenbrand & Carpenter (2000) [2000ApJ...540..236H]')
+result_table['  HC2000 ID'] = Column(result_df['HC2000 ID'], format=str, description='Identifier in [HC2000], Hillenbrand & Carpenter (2000) [2000ApJ...540..236H]')
 result_table['  K19 ID']    = Column(result_df['K19 ID'], format=str, description='Identifier in Kim et al. (2019) [2019AJ....157..109K]')
 result_table['  RAJ2000']   = Column(result_df.RAJ2000, unit=u.deg, description='Right ascension in decimal degrees (J2000)')
 result_table['  DEJ2000']   = Column(result_df.DEJ2000, unit=u.deg, description='Declination in decimal degrees (J2000)')
@@ -107,4 +115,5 @@ for model_name in ['MIST','BHAC15', 'Feiden', 'Palla']:
     result_table[f'e_M_{model_name}'] = Column(result_df[f'mass_e_{model_name}'], unit=u.Msun, description=f'Stellar mass uncertainty based on {model_name} model')
 
 
-result_table.write(f'{user_path}/ONC/starrynight/catalogs/result_table.dat', format='ascii.mrt', overwrite=True)
+# result_table.write(f'{user_path}/ONC/starrynight/catalogs/result_table.dat', format='ascii.mrt', overwrite=True)
+result_table.write(sys.stdout, format='ascii.mrt')
