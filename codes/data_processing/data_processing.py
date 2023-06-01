@@ -322,8 +322,6 @@ def plot_2d(sources, scale=0.004):
     apogee_flag     = np.logical_and(sources.HC2000.isna(), ~sources.ID_apogee.isna())
     matched_flag    = np.logical_and(~sources.HC2000.isna(), ~sources.ID_apogee.isna())
 
-    trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
-
     fig_data = [
         # nirspec quiver
         ff.create_quiver(
@@ -428,13 +426,12 @@ def plot_2d(sources, scale=0.004):
 
 
 def plot_pm_rv(sources, save_path=None):
-    center = SkyCoord("05h35m17.5s", "-05d23m16.4s")
     image_path = f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
     hdu = fits.open(image_path)[0]
     wcs = WCS(image_path)
     box_size = 5200
     # Cutout. See https://docs.astropy.org/en/stable/nddata/utils.html.
-    cutout = Cutout2D(hdu.data, position=center, size=(box_size, box_size), wcs=wcs)
+    cutout = Cutout2D(hdu.data, position=trapezium, size=(box_size, box_size), wcs=wcs)
     a = 1e4
     image_data = ((np.power(a, cutout.data/255) - 1)/a)*255
     # image_data_zoom = (cutout.data/255)**2*255
@@ -496,9 +493,6 @@ def plot_3d(sources_coord_3d, scale=3):
     
     marker_size = 3
     opacity = 0.7
-    
-    # ~HC2000 322
-    trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
     
     # v = np.linalg.norm(sources_coord_3d.velocity.d_xyz.value, axis=0)
     
@@ -2065,7 +2059,8 @@ save_path = f'{user_path}/ONC/starrynight/codes/data_processing'
 
 chris_table = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv')
 
-trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
+# LV 3 / HC2000 322 / Gaia DR3 3017364063323188864 / 
+trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
 
 print('Before any constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
     sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna())),

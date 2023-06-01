@@ -46,8 +46,8 @@ image_size=18000
 margin=0.05
 
 # filter
-ra_upper_large, dec_lower_large = image_wcs_large.wcs_pix2world(0 - image_size*margin, 0 - image_size*margin, 0)
-ra_lower_large, dec_upper_large = image_wcs_large.wcs_pix2world(image_size*(margin + 1) - 1, image_size*(margin + 1) - 1, 0)
+ra_upper_large, dec_lower_large = image_wcs_large.pixel_to_world(0 - image_size*margin, 0 - image_size*margin, 0)
+ra_lower_large, dec_upper_large = image_wcs_large.pixel_to_world(image_size*(margin + 1) - 1, image_size*(margin + 1) - 1, 0)
 apogee_large = apogee.loc[
     (apogee.RAJ2000 >= ra_lower_large) & (apogee.RAJ2000 <= ra_upper_large) & (apogee.DEJ2000 >= dec_lower_large) & (apogee.DEJ2000 <= dec_upper_large)
 ]
@@ -61,10 +61,10 @@ binary_coord = SkyCoord('05h35m14.9890227096s -05d21m59.923205424s')
 idx_hc2000 = ~sources.HC2000.isna()
 
 # Convert sources to pixels: https://python4astronomers.github.io/astropy/wcs.html.
-hc2000_ra_large, hc2000_de_large = image_wcs_large.wcs_world2pix(sources.RAJ2000[idx_hc2000], sources.DEJ2000[idx_hc2000], 0)
-apogee_ra_large, apogee_de_large = image_wcs_large.wcs_world2pix(apogee_large.RAJ2000, apogee_large.DEJ2000, 0)
-tobin_ra_large, tobin_de_large = image_wcs_large.wcs_world2pix(tobin_large.RAJ2000, tobin_large.DEJ2000, 0)
-# binary_ra, binary_de = image_wcs.wcs_world2pix(binary_coord.ra, binary_coord.dec, 0)
+hc2000_ra_large, hc2000_de_large = image_wcs_large.world_to_pixel(sources.RAJ2000[idx_hc2000], sources.DEJ2000[idx_hc2000], 0)
+apogee_ra_large, apogee_de_large = image_wcs_large.world_to_pixel(apogee_large.RAJ2000, apogee_large.DEJ2000, 0)
+tobin_ra_large, tobin_de_large = image_wcs_large.world_to_pixel(tobin_large.RAJ2000, tobin_large.DEJ2000, 0)
+# binary_ra, binary_de = image_wcs.world_to_pixel(binary_coord.ra, binary_coord.dec, 0)
 hc2000_ra_large -= ra_offset
 hc2000_de_large -= de_offset
 apogee_ra_large -= ra_offset
@@ -90,9 +90,9 @@ image_wcs_zoom = cutout.wcs
 # # filter
 # margin = 0.05
 # # 左下
-# ra_upper_zoom, dec_lower_zoom = image_wcs_zoom.wcs_pix2world(0 - cut_size*margin, 0 - cut_size*margin, 0)
+# ra_upper_zoom, dec_lower_zoom = image_wcs_zoom.pixel_to_world(0 - cut_size*margin, 0 - cut_size*margin, 0)
 # # 右上
-# ra_lower_zoom, dec_upper_zoom = image_wcs_zoom.wcs_pix2world(cut_size*(margin + 1) - 1, cut_size*(margin + 1) - 1, 0)
+# ra_lower_zoom, dec_upper_zoom = image_wcs_zoom.pixel_to_world(cut_size*(margin + 1) - 1, cut_size*(margin + 1) - 1, 0)
 # apogee_zoom = apogee.loc[
 #     (apogee.RAJ2000 >= ra_lower_zoom) & (apogee.RAJ2000 <= ra_upper_zoom) & (apogee.DEJ2000 >= dec_lower_zoom) & (apogee.DEJ2000 <= dec_upper_zoom)
 # ]
@@ -104,10 +104,10 @@ apogee_zoom = apogee.loc[apogee.sep_to_trapezium <= 4]
 tobin_zoom = tobin.loc[tobin.sep_to_trapezium <= 4]
 
 # Convert sources to pixels: https://python4astronomers.github.io/astropy/wcs.html.
-hc2000_ra_zoom, hc2000_de_zoom = image_wcs_zoom.wcs_world2pix(sources.RAJ2000[idx_hc2000], sources.DEJ2000[idx_hc2000], 0)
-apogee_ra_zoom, apogee_de_zoom = image_wcs_zoom.wcs_world2pix(apogee_zoom.RAJ2000, apogee_zoom.DEJ2000, 0)
-tobin_ra_zoom, tobin_de_zoom = image_wcs_zoom.wcs_world2pix(tobin_zoom.RAJ2000, tobin_zoom.DEJ2000, 0)
-# binary_ra, binary_de = image_wcs.wcs_world2pix(binary_coord.ra, binary_coord.dec, 0)
+hc2000_ra_zoom, hc2000_de_zoom = image_wcs_zoom.world_to_pixel(sources.RAJ2000[idx_hc2000], sources.DEJ2000[idx_hc2000], 0)
+apogee_ra_zoom, apogee_de_zoom = image_wcs_zoom.world_to_pixel(apogee_zoom.RAJ2000, apogee_zoom.DEJ2000, 0)
+tobin_ra_zoom, tobin_de_zoom = image_wcs_zoom.world_to_pixel(tobin_zoom.RAJ2000, tobin_zoom.DEJ2000, 0)
+# binary_ra, binary_de = image_wcs.world_to_pixel(binary_coord.ra, binary_coord.dec, 0)
 hc2000_ra_zoom -= ra_offset
 hc2000_de_zoom -= de_offset
 apogee_ra_zoom -= ra_offset
