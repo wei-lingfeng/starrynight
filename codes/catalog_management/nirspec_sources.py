@@ -4,6 +4,9 @@ import pandas as pd
 from itertools import repeat
 from collections.abc import Iterable
 from astropy import units as u
+from astropy.io import ascii
+from astropy.time import Time
+from astropy.table import QTable
 from astropy.coordinates import SkyCoord
 
 user_path = os.path.expanduser('~')
@@ -26,10 +29,10 @@ def read_text(text):
 ################ Parameter setup ################
 #################################################
 
-def nirspec_sources(dates, names, exceptions, save_path):
+def nirspec_sources(dates, names, exceptions, save_path=None, overwrite=False):
     '''Generate dataframe for NIRSPEC sources.
     - Parameters:
-        dates: list of iterables of the form (yy, mm, dd).
+        dates: list of astropy Times.
         names: list of HC2000 IDs, integer or string. e.g. [322, '522A']
         exceptions: dictionary of exceptions using O35.
     - Returns:
@@ -41,15 +44,16 @@ def nirspec_sources(dates, names, exceptions, save_path):
     if dim_check[0] != dim_check[1]:
         sys.exit('Dimensions not agree: dates {}, names {}'.format(*dim_check))
     
+    for i in range(len(exceptions['dates'])):
+        exceptions['dates'][i].out_subfmt = 'date'
+    
     result = {
         'HC2000':               [],
         'RAJ2000':              [],
         'DEJ2000':              [],
         '_RAJ2000':             [],
         '_DEJ2000':             [],
-        'year':                 [],
-        'month':                [],
-        'day':                  [],
+        'date':                 [],
         'itime':                [],
         'sci_frames':           [],
         'tel_frames':           [],
@@ -110,9 +114,12 @@ def nirspec_sources(dates, names, exceptions, save_path):
     #################################################
     
     for date, name in zip(dates, names):
-        year, month, day = date
+        date.out_subfmt = 'date'
+        year    = date.datetime.year    # int
+        month   = date.datetime.month   # int
+        day     = date.datetime.day     # int
         
-        data_path = f'{user_path}/ONC/data/nirspao/20{str(year).zfill(2)}{month_list[month-1]}{str(day).zfill(2)}/reduced/mcmc_median/{name}_O{[32, 33]}_params/mcmc_params.txt'
+        data_path = f'{user_path}/ONC/data/nirspao/{year}{month_list[month-1]}{str(day).zfill(2)}/reduced/mcmc_median/{name}_O{[32, 33]}_params/mcmc_params.txt'
         with open(data_path, 'r') as file:
             lines = file.readlines()
         
@@ -135,9 +142,7 @@ def nirspec_sources(dates, names, exceptions, save_path):
             result['Hmag_e'].append(hc2000['e_Hmag'][index])
         else:
             result['Hmag_e'].append('')
-        result['year'].append(date[0])
-        result['month'].append(date[1])
-        result['day'].append(date[2])
+        result['date'].append(date.value)
         
         for line in lines:
             if line.startswith('itime:'):
@@ -265,7 +270,7 @@ def nirspec_sources(dates, names, exceptions, save_path):
         # exceptions
         if (date in exceptions['dates']) and (name in exceptions['names']):
             if exceptions['dates'].index(date) == exceptions['names'].index(name):
-                data_path = f"{user_path}/ONC/data/nirspao/20{str(year).zfill(2)}{month_list[month-1]}{str(day).zfill(2)}/reduced/mcmc_median/{name}_O{exceptions['orders']}_params/mcmc_params.txt"
+                data_path = f"{user_path}/ONC/data/nirspao/{year}{month_list[month-1]}{str(day).zfill(2)}/reduced/mcmc_median/{name}_O{exceptions['orders']}_params/mcmc_params.txt"
                 with open(data_path, 'r') as file:
                     lines = file.readlines()
                 
@@ -339,11 +344,20 @@ def nirspec_sources(dates, names, exceptions, save_path):
             result['wave_offset_O35_e'].append('')
             result['snr_O35'].append('')
     
-    # result.update(cross_kim(result))
     result = pd.DataFrame.from_dict(result)
+    result = QTable.from_pandas(result, units={
+        'RAJ2000': u.deg,
+        'DEJ2000': u.deg,
+        'itime': u.s,
+        'teff': u.K, 'teff_e': u.K,
+        'vsini': u.km/u.s, 'vsini_e': u.km/u.s,
+        'rv': u.km/u.s, 'rv_helio': u.km/u.s, 'rv_e': u.km/u.s,
+    })
     
-    # write into csv
-    pd.DataFrame.from_dict(result).to_csv(save_path, index=False)
+    # write result
+    if save_path is not None:
+        ascii.write(result, save_path, format=save_path.split('.')[-1], overwrite=overwrite)
+        # pd.DataFrame.from_dict(result).to_csv(save_path, index=False)
     
     return result
 
@@ -357,25 +371,25 @@ def nirspec_sources(dates, names, exceptions, save_path):
 if __name__ == '__main__':
 
     dates = [
-        *list(repeat((15, 12, 23), 4)),
-        *list(repeat((15, 12, 24), 8)),
-        *list(repeat((16, 12, 14), 4)),
-        *list(repeat((18, 2, 11), 7)),
-        *list(repeat((18, 2, 12), 5)),
-        *list(repeat((18, 2, 13), 6)),
-        *list(repeat((19, 1, 12), 5)),
-        *list(repeat((19, 1, 13), 6)),
-        *list(repeat((19, 1, 16), 6)),
-        *list(repeat((19, 1, 17), 5)),
-        *list(repeat((20, 1, 18), 2)),
-        *list(repeat((20, 1, 19), 3)),
-        *list(repeat((20, 1, 20), 6)),
-        *list(repeat((20, 1, 21), 7)),
-        *list(repeat((21, 2, 1), 2)),
-        *list(repeat((21, 10, 20), 4)),
-        *list(repeat((22, 1, 18), 6)),
-        *list(repeat((22, 1, 19), 5)),
-        *list(repeat((22, 1, 20), 7))
+        *list(repeat(Time('2015-12-23'), 4)),
+        *list(repeat(Time('2015-12-24'), 8)),
+        *list(repeat(Time('2016-12-14'), 4)),
+        *list(repeat(Time('2018-2-11'), 7)),
+        *list(repeat(Time('2018-2-12'), 5)),
+        *list(repeat(Time('2018-2-13'), 6)),
+        *list(repeat(Time('2019-1-12'), 5)),
+        *list(repeat(Time('2019-1-13'), 6)),
+        *list(repeat(Time('2019-1-16'), 6)),
+        *list(repeat(Time('2019-1-17'), 5)),
+        *list(repeat(Time('2020-1-18'), 2)),
+        *list(repeat(Time('2020-1-19'), 3)),
+        *list(repeat(Time('2020-1-20'), 6)),
+        *list(repeat(Time('2020-1-21'), 7)),
+        *list(repeat(Time('2021-2-1'), 2)),
+        *list(repeat(Time('2021-10-20'), 4)),
+        *list(repeat(Time('2022-1-18'), 6)),
+        *list(repeat(Time('2022-1-19'), 5)),
+        *list(repeat(Time('2022-1-20'), 7))
     ]
 
     names = [
@@ -421,8 +435,8 @@ if __name__ == '__main__':
     
     exceptions = {
         'dates':[
-            (15, 12, 24),
-            (18, 2, 11)
+            Time('2015-12-24'),
+            Time('2018-2-11')
         ],
         'names':[
             '291_A',
@@ -431,4 +445,5 @@ if __name__ == '__main__':
         'orders':[35]
     }
     
-    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv')
+    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv', overwrite=True)
+    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.ecsv', overwrite=True)

@@ -6,6 +6,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.table import QTable
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astropy.visualization.wcsaxes import SphericalCircle
@@ -35,7 +36,7 @@ class StarCluster:
         Parameters
         ----------
         value : str | astropy quantity
-            The value to be determined
+            The value to be accessed, either a str of column name of self.data or array.
         unit : int | astropy unit, optional
             Unit of value if value is str, by default 1
 
