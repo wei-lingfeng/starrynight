@@ -16,38 +16,161 @@ trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
 
 class StarCluster:
     def __init__(self, pandas_df) -> None:
+        """Initialize StarCluster with attribute: data
+
+        Parameters
+        ----------
+        pandas_df : pandas dataframe
+            Dataframe containing information about the star cluster
+        """
         self.data = pandas_df.copy()
-        self.validate_columns(self)
-        self.ra         = self.data.RAJ2000.values  * u.degree
-        self.dec        = self.data.DEJ2000.values  * u.degree
-        self.teff       = self.data.teff.values     * u.K
-        self.teff_e     = self.data.teff_e.values   * u.K
-        self.rv         = self.data.rv.values       * u.km/u.s
-        self.rv_e       = self.data.rv_e.values     * u.km/u.s
-        self.vsini      = self.data.vsini.values    * u.km/u.s
-        self.vsini_e    = self.data.vsini_e.values  * u.km/u.s
-        self.pmRA       = self.data.pmRA.values     * u.mas/u.yr
-        self.pmRA_e     = self.data.pmRA_e.values   * u.mas/u.yr
-        self.pmDE       = self.data.pmDE.values     * u.mas/u.yr
-        self.pmDE_e     = self.data.pmDE_e.values   * u.mas/u.yr
-    
-    @staticmethod
-    def validate_columns(self, columns=['RAJ2000', 'DEJ2000', 'teff', 'teff_e', 'rv', 'rv_e', 'pmRA', 'pmRA_e', 'pmDE', 'pmDE_e']):
-        if 'rv' in columns:
-            if 'rv' not in self.data.keys():
-                print('Replacing rv with rv_helio')
-                columns[columns.index('rv')] = 'rv_helio'
-        
-        iskey = [_ in self.data.keys() for _ in columns]
-        if all(iskey):
-            pass
-        else:
-            raise KeyError(f'Column not found: {", ".join(list(compress(columns, ~np.array(iskey))))}')
-    
+
     @property
     def len(self):
         return len(self.data)
+
+    def _string_or_quantity(self, value, unit=1):
+        """Access data for setting attributes.
+
+        Parameters
+        ----------
+        value : str | astropy quantity
+            The value to be determined
+        unit : int | astropy unit, optional
+            Unit of value if value is str, by default 1
+
+        Returns
+        -------
+        data
+            Astropy quanitity from the data column or user input
+
+        Raises
+        ------
+        KeyError
+            If value is a str but not a key in self.data
+        ValueError
+            If value is neither of str, ndarray, int, or float
+        """
+        if isinstance(value, str):
+            try:
+                return self.data[value].values * unit
+            except KeyError:
+                raise KeyError(f'{value} is not a key in self.data!') from None
+        elif isinstance(value, np.ndarray) or isinstance(value, int) or isinstance(value, float):
+            return value
+        else:
+            raise ValueError(f'The parameter must be either a string of column name or a quantity, not {type(value)}.')
     
+    
+    def set_ra_dec(self, ra, dec):
+        """Set ra and dec with attributes: ra, dec
+        
+        Parameters
+        ----------
+        ra : str | astropy quantity
+            Column name or astropy quantity of ra
+        dec : str | astropy quantity
+            Column name or astropy quantity of dec
+        """
+        self.ra  = self._string_or_quantity(ra, unit=u.degree)
+        self.dec = self._string_or_quantity(dec, unit=u.degree)
+    
+    
+    def set_pm(self, pmRA, pmRA_e, pmDE, pmDE_e):
+        """Set proper motion with attributes: pmRA, pmRA_e, pmDE, pmDE_e
+
+        Parameters
+        ----------
+        pmRA : str | astropy quantity
+            Column name or astropy quantity of proper motion in RA
+        pmRA_e : str | astropy quantity
+            Column name or astropy quantity of proper motion in RA uncertainty
+        pmDE : str | astropy quantity
+            Column name or astropy quantity of proper motion in DE
+        pmDE_e : str | astropy quantity
+            Column name or astropy quantity of proper motion in DE uncertainty
+        """
+        self.pmRA   = self._string_or_quantity(pmRA,   unit=u.mas/u.yr)
+        self.pmRA_e = self._string_or_quantity(pmRA_e, unit=u.mas/u.yr)
+        self.pmDE   = self._string_or_quantity(pmDE,   unit=u.mas/u.yr)
+        self.pmDE_e = self._string_or_quantity(pmDE_e, unit=u.mas/u.yr)
+    
+    
+    def set_rv(self, rv, rv_e):
+        """Set radial velocity with attributes: rv, rv_e
+
+        Parameters
+        ----------
+        rv : str | astropy quantity
+            Column name or astropy quantity of radial velocity
+        rv_e : str | astropy quantity
+            Column name or astropy quantity of radial velocity uncertainty
+        """
+        self.rv   = self._string_or_quantity(rv,   unit=u.km/u.s)
+        self.rv_e = self._string_or_quantity(rv_e, unit=u.km/u.s)
+    
+    
+    def set_coord(self, distance=None, distance_e=None):
+        """Set astropy SkyCoord with attributes: coord (and velocity, if distance is not None)
+
+        Parameters
+        ----------
+        distance : str | astropy quantity, optional
+            Column name or astropy quantity of distance, by default None
+        distance_e : str | astropy quantity, optional
+            Column name or astropy quantity of distance uncertainty, by default None
+        """
+        if distance is not None:
+            self.distance = self._string_or_quantity(distance, unit=u.pc)
+            if distance_e is not None:
+                self.distance_e = self._string_or_quantity(distance_e, unit=u.pc)
+            self.coord = SkyCoord(
+                ra=self.ra,
+                dec=self.dec,
+                pm_ra_cosdec=self.pmRA,
+                pm_dec=self.pmDE,
+                radial_velocity=self.rv,
+                distance=self.distance
+            )
+            self.velocity = self.coord.velocity.d_xyz
+        else:
+            self.coord = SkyCoord(
+                ra=self.ra,
+                dec=self.dec,
+                pm_ra_cosdec=self.pmRA,
+                pm_dec=self.pmDE,
+                radial_velocity=self.rv
+            )
+    
+    
+    def set_teff(self, teff, teff_e):
+        """Set effective temperature with attributes: teff, teff_e
+
+        Parameters
+        ----------
+        teff : str | astropy quantity
+            Column name or astropy quantity of effective temperature
+        teff_e : str | astropy quantity
+            Column name or astropy quantity of effective temperature uncertainty
+        """
+        self.teff   = self._string_or_quantity(teff,   unit=u.K)
+        self.teff_e = self._string_or_quantity(teff_e, unit=u.K)
+    
+        
+    def set_mass(self, mass, mass_e):
+        """Set mass with attributes: mass, mass_e
+
+        Parameters
+        ----------
+        mass : str | astropy quantity
+            Column name or astropy quantity of mass.
+        mass_e : str | astropy quantity
+            Column name or astropy quantity of mass uncertainty.
+        """
+        self.mass = self._string_or_quantity(mass, unit=u.solMass)
+        self.mass_e = self._string_or_quantity(mass_e, unit=u.solMass)
+    
+        
     def apply_constraint(self, constraint, return_copy=False):
         """Apply constraint to the star cluster.
 
@@ -66,38 +189,6 @@ class StarCluster:
             return StarCluster(self.data.loc[constraint].reset_index(drop=True))
         else:
             self.__init__(self.data.loc[constraint].reset_index(drop=True))
-    
-    
-    def assign_coord(self, distance):
-        """Assign coordinates in 3D given distance
-
-        Parameters
-        ----------
-        distance : astropy quantity
-            distance from Earth
-        """
-        self.distance=distance
-        self.coord = SkyCoord(
-            ra=self.ra,
-            dec=self.dec,
-            pm_ra_cosdec=self.pmRA,
-            pm_dec=self.pmDE,
-            radial_velocity=self.rv,
-            distance=self.distance
-        )
-        self.velocity = self.coord.velocity.d_xyz
-    
-
-    def assign_mass(self, model_name):
-        """Assign mass to self
-
-        Parameters
-        ----------
-        model_name : str
-            name of stellar evolutionary model from which the masses are derived
-        """
-        self.mass = self.data[f'mass_{model_name}'].values * u.solMass
-        self.mass_e = self.data[f'mass_e_{model_name}'].values * u.solMass
     
     
     def plot_skymap(self, background_path=None, show_figure=True, save_path=None, **kwargs):
@@ -122,7 +213,6 @@ class StarCluster:
             dec += dec_offset # offset in pixels
             fig = plt.figure(figsize=(6, 6))
             ax  = fig.add_subplot(1, 1, 1, projection=wcs)
-            print(f'Type when initialized: {type(ax)}')
             ax.imshow(hdu.data, cmap='gray')
             ax.scatter(ra, dec, s=10, edgecolor=color, linewidths=linewidth, facecolor='none', zorder=1)
             ax.set_xlim([0, image_size - 1])
@@ -135,7 +225,6 @@ class StarCluster:
             plt.savefig(save_path, bbox_inches='tight')
         if show_figure:
             plt.show()
-        print(f'Type before returned: {type(ax)}')
         return fig, ax
 
 
@@ -143,6 +232,11 @@ class StarCluster:
 class ONC(StarCluster):
     def __init__(self, pandas_df) -> None:
         super().__init__(pandas_df)
+        super().set_ra_dec('RAJ2000', 'DEJ2000')
+        super().set_pm('pmRA', 'pmRA_e', 'pmDE', 'pmDE_e')
+        super().set_rv('rv', 'rv_e')
+        super().set_coord(distance=389*u.pc, distance_e=3*u.pc)
+        super().set_teff('teff', 'teff_e')
     
     def plot_skymap(self, circle=4.*u.arcmin, zoom=False, background_path=None, show_figure=True, **kwargs):
         color=kwargs.get('color', 'C6')
@@ -178,23 +272,19 @@ class ONC(StarCluster):
         if show_figure:
             plt.show()
         return fig, ax
-
+    
+    def preprocessing(self):
+        trapezium_names = ['A', 'B', 'C', 'D', 'E']
+            # Replace Trapezium stars fitting results with literature values.
+        for i in range(len(trapezium_names)):
+            trapezium_index = self.data.loc[self.data.theta_orionis == trapezium_names[i]].index[-1]
+            for model_name in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
+                self.data.loc[trapezium_index, [f'mass_{model_name}', f'mass_e_{model_name}']] = [self.data.loc[trapezium_index, 'mass_literature'], self.data.loc[trapezium_index, 'mass_e_literature']]
 
 # Main function
-orion = ONC(pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', dtype={'ID_gaia': str, 'ID_kim': str}))
-orion.assign_mass('MIST')
-orion.assign_coord(distance=389*u.pc)
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', dtype={'ID_gaia': str, 'ID_kim': str})
+orion = ONC(sources)
 
-max_mass_error=0.5 * u.solMass
-max_rv=np.inf * u.km/u.s
-max_v_error=5. * u.km/u.s
-constraint = \
-    (~np.isnan(orion.pmRA)) & (~np.isnan(orion.pmDE)) & \
-    (~np.isnan(orion.mass)) & \
-    (orion.mass_e < max_mass_error) & \
-    (orion.rv < max_rv)
-
-orion.apply_constraint(constraint=constraint)
 orion.plot_skymap()
-fig, ax = orion.plot_skymap(background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits', show_figure=False)
-plt.show()
+orion.plot_skymap(background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
+orion.plot_skymap(zoom=True, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
