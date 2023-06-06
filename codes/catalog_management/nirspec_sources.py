@@ -1,13 +1,15 @@
 # Grab median combined nirspec params & proper motion table & fitted mass
 import os, sys
 import pandas as pd
+from numpy import ma
 from itertools import repeat
 from collections.abc import Iterable
-from astropy import units as u
-from astropy.io import ascii
 from astropy.time import Time
-from astropy.table import QTable
+from astropy import units as u
+from astropy.table import Table, QTable
 from astropy.coordinates import SkyCoord
+from astroquery.vizier import Vizier
+Vizier.ROW_LIMIT = -1
 
 user_path = os.path.expanduser('~')
 
@@ -104,11 +106,9 @@ def nirspec_sources(dates, names, exceptions, save_path=None, overwrite=False):
                   'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
     
     # read catalogs
-    hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
-    hc2000 = hc2000.rename(columns={
-        'RAJ2000': '_RAJ2000',
-        'DEJ2000': '_DEJ2000',
-    })
+    hc2000 = Vizier.get_catalogs('J/ApJ/540/236')['J/ApJ/540/236/table1']
+    coords = SkyCoord([f'{ra} {dec}' for ra, dec in zip(hc2000['RAJ2000'], hc2000['DEJ2000'])], unit=(u.hourangle, u.deg))
+    
     #################################################
     ############### Construct Catalog ###############
     #################################################
@@ -123,25 +123,25 @@ def nirspec_sources(dates, names, exceptions, save_path=None, overwrite=False):
         with open(data_path, 'r') as file:
             lines = file.readlines()
         
-        index = list(hc2000['[HC2000]']).index(name.split('_')[0])
-        coord = SkyCoord(' '.join((hc2000['_RAJ2000'][index], hc2000['_DEJ2000'][index])), unit=(u.hourangle, u.deg))
+        index = list(hc2000['__HC2000_']).index(int(name.split('_')[0]))
         
         result['HC2000'].append(name)
-        result['RAJ2000'].append(coord.ra.degree)
-        result['DEJ2000'].append(coord.dec.degree)
-        result['_RAJ2000'].append(hc2000['_RAJ2000'][index])
-        result['_DEJ2000'].append(hc2000['_DEJ2000'][index])
-        result['Kmag'].append(hc2000['Kmag'][index].strip())
-        result['Hmag'].append(hc2000['Hmag'][index].strip())
-        if hc2000['Kmag'][index].strip():
+        result['RAJ2000'].append(coords[index].ra.degree)
+        result['DEJ2000'].append(coords[index].dec.degree)
+        result['_RAJ2000'].append(hc2000['RAJ2000'][index])
+        result['_DEJ2000'].append(hc2000['DEJ2000'][index])
+        if hc2000['Kmag'].mask[index]:
+            result['Kmag'].append(None)
+            result['Kmag_e'].append(None)
+        else:
+            result['Kmag'].append(hc2000['Kmag'][index])
             result['Kmag_e'].append(hc2000['e_Kmag'][index])
+        if hc2000['Hmag'].mask[index]:
+            result['Hmag'].append(None)
+            result['Hmag_e'].append(None)
         else:
-            result['Kmag_e'].append('')
-        
-        if hc2000['Hmag'][index].strip():
+            result['Hmag'].append(hc2000['Hmag'][index])
             result['Hmag_e'].append(hc2000['e_Hmag'][index])
-        else:
-            result['Hmag_e'].append('')
         result['date'].append(date.value)
         
         for line in lines:
@@ -337,12 +337,12 @@ def nirspec_sources(dates, names, exceptions, save_path=None, overwrite=False):
         
         # if not exception:
         else:
-            result['veiling_param_O35'].append('')
-            result['model_dip_O35'].append('')
-            result['model_std_O35'].append('')
-            result['wave_offset_O35'].append('')
-            result['wave_offset_O35_e'].append('')
-            result['snr_O35'].append('')
+            result['veiling_param_O35'].append(None)
+            result['model_dip_O35'].append(None)
+            result['model_std_O35'].append(None)
+            result['wave_offset_O35'].append(None)
+            result['wave_offset_O35_e'].append(None)
+            result['snr_O35'].append(None)
     
     result = pd.DataFrame.from_dict(result)
     result = QTable.from_pandas(result, units={
@@ -351,12 +351,13 @@ def nirspec_sources(dates, names, exceptions, save_path=None, overwrite=False):
         'itime': u.s,
         'teff': u.K, 'teff_e': u.K,
         'vsini': u.km/u.s, 'vsini_e': u.km/u.s,
-        'rv': u.km/u.s, 'rv_helio': u.km/u.s, 'rv_e': u.km/u.s,
+        'rv': u.km/u.s, 'rv_helio': u.km/u.s, 'rv_e': u.km/u.s, 
+        'Kmag': u.mag, 'Kmag_e': u.mag, 'Hmag': u.mag, 'Hmag_e': u.mag
     })
     
     # write result
     if save_path is not None:
-        ascii.write(result, save_path, format=save_path.split('.')[-1], overwrite=overwrite)
+        result.write(save_path, overwrite=overwrite)
         # pd.DataFrame.from_dict(result).to_csv(save_path, index=False)
     
     return result

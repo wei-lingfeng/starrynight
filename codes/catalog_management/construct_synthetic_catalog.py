@@ -5,8 +5,15 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import astropy.units as u
+from astropy.io import ascii
+from astropy.table import Table, QTable
 from astropy.coordinates import SkyCoord
-from astropy.coordinates import ICRS
+from astroquery.gaia import Gaia
+from astroquery.vizier import Vizier
+from astroquery.xmatch import XMatch
+Vizier.ROW_LIMIT = -1
+Gaia.ROW_LIMIT = -1
+Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
 
 from starrynight.models.BHAC15 import BHAC15_Fit
 from starrynight.models.Feiden import Feiden_Fit
@@ -586,19 +593,13 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
 ######### Construct Synthetic Catalog #########
 ###############################################
 
-def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kounkel_path, pm_path, gaia_path, hillenbrand_path, tobin_path, save_path):
+def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
     '''Construct synthetic catalog combining nirspec, apogee, pm, gaia, and ONC Mass catalog by Hillenbrand 1997 (J/AJ/113/1733/ONC).
     --------------------
     Both a multi-epoch combined & not combined catalog are saved under the save_path folder.
     - Parameters:
         - nirspec_path: path of nirspec catalog csv.
-        - chris_table_path: path of Chris's table.
         - apogee_path: path of apogee catalog csv.
-        - kounkel_path: path of Kounkel et al. 2018.
-        - pm_path: path of pm catalog csv.
-        - gaia_path: path of gaia catalog csv.
-        - hillenbrand_path: path of ONC mass catalog.
-        - tobin_path: path of Tobin et al. 2009.
         - save_path: folder path to save the two catalogs.
     - Returns:
         - sources: pandas dataframe of the synthetic catalog.
@@ -610,15 +611,24 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     '''
     trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
     
-    nirspec     = pd.read_csv(nirspec_path)
-    chris_table = pd.read_csv(chris_table_path)
-    apogee      = pd.read_csv(apogee_path)
-    kounkel     = pd.read_csv(kounkel_path)
-    pm          = pd.read_csv(pm_path, dtype={'ID': str})
-    gaia        = pd.read_csv(gaia_path, dtype={'source_id': str})
-    hillenbrand = pd.read_csv(hillenbrand_path)
-    tobin       = pd.read_csv(tobin_path)
+    nirspec     = Table.read(nirspec_path)
+    chris_table = Vizier.get_catalogs('J/ApJ/926/141/table3')[0]
+    apogee      = Vizier.get_catalogs('J/ApJ/926/141/table5')[0]
+    # 2mass: II/246/out
+    kounkel     = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
+    kim         = Vizier.get_catalogs('J/AJ/157/109/table3')[0]
+    gaia        = Gaia.cone_search_async(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
+    hillenbrand = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
+    tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
     
+    # Cross match apogee with 2MASS to get Hmag and Kmag
+    apogee = XMatch.query(
+        cat1=apogee, cat2='vizier:II/246/out', 
+        max_distance=1 * u.arcsec, 
+        colRA1='RAJ2000', colDec1='DEJ2000'
+    )
+    apogee.remove_columns(['angDist', '2MASS', 'RAJ2000_2', 'DEJ2000_2'])
+    apogee.rename_columns(['RAJ2000_1', 'DEJ2000_1'], ['RAJ2000', 'DEJ2000'])
     
     # Add & Replace Trapezium Stars
     trapezium_stars = {}
@@ -629,16 +639,15 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     trapezium_stars['mass_literature'] = [26.6, 16.3, 44, 25, 5.604]
     trapezium_stars['mass_e_literature'] = [26.6*0.05, 16.3*0.05, 5*2**0.5, 25*0.05, 0.048*2**0.5]
     
-    trapezium_stars = pd.DataFrame.from_dict(trapezium_stars)
+    trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'mass_e_literature': u.solMass})
     
     trapezium_stars.insert(1, 'RAJ2000', np.nan)
     trapezium_stars.insert(2, 'DEJ2000', np.nan)
     
     # Get RA DEC from nirspec catalog
-    hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
     for i in range(len(trapezium_stars)):
-        index = list(hc2000['[HC2000]']).index(trapezium_stars.loc[i, 'HC2000'])
-        coord = SkyCoord(' '.join((hc2000['RAJ2000'][index], hc2000['DEJ2000'][index])), unit=(u.hourangle, u.deg))
+        index = list(kounkel['[HC2000]']).index(trapezium_stars.loc[i, 'HC2000'])
+        coord = SkyCoord(' '.join((kounkel['RAJ2000'][index], kounkel['DEJ2000'][index])), unit=(u.hourangle, u.deg))
         trapezium_stars.loc[i, 'RAJ2000'] = coord.ra.degree
         trapezium_stars.loc[i, 'DEJ2000'] = coord.dec.degree
     
@@ -649,7 +658,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
         if trapezium_stars.loc[i, 'HC2000'] in nirspec_hc2000:
             remove_list.extend([index for index, element in enumerate(nirspec_hc2000) if element == trapezium_stars.loc[i, 'HC2000']])
     
-    nirspec = nirspec.drop(remove_list).reset_index(drop=True)
+    nirspec = nirspec.remove_rows(remove_list)
             
     # Merge nirspec and trapezium stars
     nirspec = pd.concat([nirspec, trapezium_stars], ignore_index=True, sort=False)
@@ -668,28 +677,28 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     nirspec.insert(12, 'teff', np.nan)
     nirspec.insert(13, 'teff_e', np.nan)
     
-    chris_table = chris_table.rename(columns={
-        'teff': 'teff_chris',
-        'teff_e': 'teff_e_chris',
-        'rv': 'rv_chris',
-        'rv_e': 'rv_e_chris',
+    chris_table = chris_table.rename_columns(columns={
+        'Teff': 'teff_chris',
+        'e_Teff': 'teff_e_chris',
+        'RV': 'rv_chris',
+        'RV_e': 'rv_e_chris',
         'vsini': 'vsini_chris',
-        'vsini_e': 'vsini_e_chris',
-        'veiling_param_O33': 'veiling_param_O33_chris'
+        'e_vsini': 'vsini_e_chris',
+        'Veiling': 'veiling_param_O33_chris'
     })
     
     # merge with chris table
     chris_table_binary_idx = np.where([_.endswith(('A', 'B')) for _ in chris_table.HC2000])[0]
     chris_table_binary_hc2000 = set(_.strip('A|B') for _ in chris_table.HC2000[chris_table_binary_idx])
-    for hc2000 in chris_table_binary_hc2000:
+    for kounkel in chris_table_binary_hc2000:
         # if a target has both A and B, change both suffix to _A and _B.
-        if ((hc2000 + 'A') in list(chris_table.HC2000)) and ((hc2000 + 'B') in list(chris_table.HC2000)):
-            chris_table.loc[chris_table.HC2000==hc2000 + 'A', 'HC2000'] = hc2000 + '_A'
-            chris_table.loc[chris_table.HC2000==hc2000 + 'B', 'HC2000'] = hc2000 + '_B'
+        if ((kounkel + 'A') in list(chris_table.HC2000)) and ((kounkel + 'B') in list(chris_table.HC2000)):
+            chris_table.loc[chris_table.HC2000==kounkel + 'A', 'HC2000'] = kounkel + '_A'
+            chris_table.loc[chris_table.HC2000==kounkel + 'B', 'HC2000'] = kounkel + '_B'
         # else: remove the suffix
         else:
-            chris_table.loc[chris_table.HC2000==hc2000 + 'A', 'HC2000'] = hc2000
-            chris_table.loc[chris_table.HC2000==hc2000 + 'B', 'HC2000'] = hc2000
+            chris_table.loc[chris_table.HC2000==kounkel + 'A', 'HC2000'] = kounkel
+            chris_table.loc[chris_table.HC2000==kounkel + 'B', 'HC2000'] = kounkel
     
     nirspec = nirspec.merge(chris_table[[
         'HC2000', 
@@ -718,7 +727,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
         'e_RVmean': 'rv_mean_e_kounkel'
     })
     
-    pm = pm.rename(columns={
+    kim = kim.rename(columns={
         'ID':       'ID_kim',
         '_RAJ2000': 'RAJ2000',
         '_DEJ2000': 'DEJ2000',
@@ -794,7 +803,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     ])
     
     # cross match proper motion
-    sources = match_and_merge(sources, pm, mode='and', plot=False, suffix='_kim', columns=[
+    sources = match_and_merge(sources, kim, mode='and', plot=False, suffix='_kim', columns=[
         'ID_kim',
         'pmRA_kim', 'pmRA_e_kim',
         'pmDE_kim', 'pmDE_e_kim'
@@ -890,7 +899,7 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
     ##################### Plot ####################
     ###############################################
     
-    plot_four_catalogs([sources_epoch_combined, apogee, pm, gaia], save_path=save_path)
+    plot_four_catalogs([sources_epoch_combined, apogee, kim, gaia], save_path=save_path)
     return sources, sources_epoch_combined
 
 
@@ -898,14 +907,8 @@ def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kou
 
 
 if __name__=='__main__':
-    nirspec_path        = f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv'
-    chris_table_path    = f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv'
+    nirspec_path        = f'{user_path}/ONC/starrynight/catalogs/nirspec sources.ecsv'
     apogee_path         = f'{user_path}/ONC/starrynight/catalogs/apogee x 2mass.csv'
-    kounkel_path        = f'{user_path}/ONC/starrynight/catalogs/kounkel 2018.csv'
-    pm_path             = f'{user_path}/ONC/starrynight/catalogs/proper motion.csv'
-    gaia_path           = f'{user_path}/ONC/starrynight/catalogs/gaia dr3.csv'
-    hillenbrand_path    = f'{user_path}/ONC/starrynight/catalogs/hillenbrand mass.csv'
-    tobin_path          = f'{user_path}/ONC/starrynight/catalogs/tobin 2009.csv'
     save_path           = f'{user_path}/ONC/starrynight/catalogs/'
 
-    sources, sources_epoch_combined = construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kounkel_path, pm_path, gaia_path, hillenbrand_path, tobin_path, save_path)
+    sources, sources_epoch_combined = construct_synthetic_catalog(nirspec_path, apogee_path, save_path)
