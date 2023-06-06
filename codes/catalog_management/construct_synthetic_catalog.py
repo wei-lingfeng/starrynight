@@ -278,7 +278,7 @@ def match_and_merge(catalog1, catalog2, mode, max_sep=1.0*u.arcsec, plot=True, *
         pass
     else:
         raise ValueError("mode {} not recognized! Have to be 'and' or 'or'.".format(mode))
-            
+    
     result = result.reset_index(drop=True)
     # merge coordinates, prioritizing catalog1.
     result.RAJ2000 = result.RAJ2000.fillna(result['RAJ2000{}'.format(suffix)])
@@ -593,7 +593,7 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
 ######### Construct Synthetic Catalog #########
 ###############################################
 
-def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
+def construct_synthetic_catalog(nirspao_path, apogee_path, save_path):
     '''Construct synthetic catalog combining nirspec, apogee, pm, gaia, and ONC Mass catalog by Hillenbrand 1997 (J/AJ/113/1733/ONC).
     --------------------
     Both a multi-epoch combined & not combined catalog are saved under the save_path folder.
@@ -611,16 +611,31 @@ def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
     '''
     trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
     
-    nirspec     = Table.read(nirspec_path)
-    chris_table = Vizier.get_catalogs('J/ApJ/926/141/table3')[0]
+    # Read tables
+    nirspao     = Table.read(nirspao_path)
+    nirspao_old = Vizier.get_catalogs('J/ApJ/926/141/table3')[0]
     apogee      = Vizier.get_catalogs('J/ApJ/926/141/table5')[0]
-    # 2mass: II/246/out
-    kounkel     = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
+    kounkel     = Vizier.get_catalogs('J/AJ/156/84/table1')[0]
     kim         = Vizier.get_catalogs('J/AJ/157/109/table3')[0]
     gaia        = Gaia.cone_search_async(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
-    hillenbrand = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
+    hc2000      = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
     tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
     
+    # Rename
+    hc2000.rename_columns(['__HC2000_'], ['HC2000'])
+    nirspao_old = nirspao_old.rename_columns(
+        ['Teff',        'e_Teff',       'RV',       'RV_e',         'vsini',        'e_vsini',          'Veiling'],
+        ['teff_chris',  'teff_e_chris', 'rv_chris', 'rv_e_chris',   'vsini_chris',  'vsini_e_chris',    'veiling_param_O33_chris']
+    )
+    
+    nirspao = nirspao.rename_columns(
+        ['teff',            'teff_e',           'rv',           'rv_e'],
+        ['teff_nirspao',    'teff_e_nirspao',   'rv_nirspao',   'rv_e_nirspao']
+    )
+    
+    nirspao.insert(12, 'teff', np.nan)
+    nirspao.insert(13, 'teff_e', np.nan)
+
     # Cross match apogee with 2MASS to get Hmag and Kmag
     apogee = XMatch.query(
         cat1=apogee, cat2='vizier:II/246/out', 
@@ -634,73 +649,52 @@ def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
     trapezium_stars = {}
 
     # A1-A3, B1-B5, C1-C2, D, EA-EB
-    trapezium_stars['HC2000'] = ['336', '354', '309', '330', '344']
+    trapezium_stars['HC2000'] = [336, 354, 309, 330, 344]
     trapezium_stars['theta_orionis'] = ['A', 'B', 'C', 'D', 'E']
     trapezium_stars['mass_literature'] = [26.6, 16.3, 44, 25, 5.604]
     trapezium_stars['mass_e_literature'] = [26.6*0.05, 16.3*0.05, 5*2**0.5, 25*0.05, 0.048*2**0.5]
     
     trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'mass_e_literature': u.solMass})
+    trapezium_stars.add_columns([None, None], indexes=[2, 2], names=['RAJ2000', 'DEJ2000'])
     
-    trapezium_stars.insert(1, 'RAJ2000', np.nan)
-    trapezium_stars.insert(2, 'DEJ2000', np.nan)
-    
-    # Get RA DEC from nirspec catalog
+    # Get RA DEC from HC2000 catalog
+    coords = SkyCoord([f'{ra} {dec}' for ra, dec in zip(hc2000['RAJ2000'], hc2000['DEJ2000'])], unit=(u.hourangle, u.deg))
     for i in range(len(trapezium_stars)):
-        index = list(kounkel['[HC2000]']).index(trapezium_stars.loc[i, 'HC2000'])
-        coord = SkyCoord(' '.join((kounkel['RAJ2000'][index], kounkel['DEJ2000'][index])), unit=(u.hourangle, u.deg))
-        trapezium_stars.loc[i, 'RAJ2000'] = coord.ra.degree
-        trapezium_stars.loc[i, 'DEJ2000'] = coord.dec.degree
+        index = list(hc2000['__HC2000_']).index(trapezium_stars['HC2000'][i])
+        trapezium_stars['RAJ2000'][i] = coords[i].ra.degree
+        trapezium_stars['DEJ2000'][i] = coords[i].dec.degree
     
     # Remove trapezium stars from nirspec
-    nirspec_hc2000 = [_.split('_')[0] for _ in nirspec.HC2000]
+    nirspao_hc2000 = [_.split('_')[0] for _ in nirspao.HC2000]
     remove_list = []
     for i in range(len(trapezium_stars)):
-        if trapezium_stars.loc[i, 'HC2000'] in nirspec_hc2000:
-            remove_list.extend([index for index, element in enumerate(nirspec_hc2000) if element == trapezium_stars.loc[i, 'HC2000']])
+        if trapezium_stars.loc[i, 'HC2000'] in nirspao_hc2000:
+            remove_list.extend([index for index, element in enumerate(nirspao_hc2000) if element == trapezium_stars.loc[i, 'HC2000']])
     
-    nirspec = nirspec.remove_rows(remove_list)
+    nirspao = nirspao.remove_rows(remove_list)
             
     # Merge nirspec and trapezium stars
-    nirspec = pd.concat([nirspec, trapezium_stars], ignore_index=True, sort=False)
+    nirspao = pd.concat([nirspao, trapezium_stars], ignore_index=True, sort=False)
     
-    theta_orionis = nirspec.theta_orionis
-    nirspec = nirspec.drop(columns='theta_orionis')
-    nirspec.insert(1, 'theta_orionis', theta_orionis)
-    
-    nirspec = nirspec.rename(columns={
-        'teff':     'teff_nirspec',
-        'teff_e':   'teff_e_nirspec',
-        'rv':       'rv_nirspec',
-        'rv_e':     'rv_e_nirspec'
-    })
-    
-    nirspec.insert(12, 'teff', np.nan)
-    nirspec.insert(13, 'teff_e', np.nan)
-    
-    chris_table = chris_table.rename_columns(columns={
-        'Teff': 'teff_chris',
-        'e_Teff': 'teff_e_chris',
-        'RV': 'rv_chris',
-        'RV_e': 'rv_e_chris',
-        'vsini': 'vsini_chris',
-        'e_vsini': 'vsini_e_chris',
-        'Veiling': 'veiling_param_O33_chris'
-    })
+    theta_orionis = nirspao.theta_orionis
+    nirspao = nirspao.drop(columns='theta_orionis')
+    nirspao.insert(1, 'theta_orionis', theta_orionis)
+        
     
     # merge with chris table
-    chris_table_binary_idx = np.where([_.endswith(('A', 'B')) for _ in chris_table.HC2000])[0]
-    chris_table_binary_hc2000 = set(_.strip('A|B') for _ in chris_table.HC2000[chris_table_binary_idx])
+    chris_table_binary_idx = np.where([_.endswith(('A', 'B')) for _ in nirspao_old.HC2000])[0]
+    chris_table_binary_hc2000 = set(_.strip('A|B') for _ in nirspao_old.HC2000[chris_table_binary_idx])
     for kounkel in chris_table_binary_hc2000:
         # if a target has both A and B, change both suffix to _A and _B.
-        if ((kounkel + 'A') in list(chris_table.HC2000)) and ((kounkel + 'B') in list(chris_table.HC2000)):
-            chris_table.loc[chris_table.HC2000==kounkel + 'A', 'HC2000'] = kounkel + '_A'
-            chris_table.loc[chris_table.HC2000==kounkel + 'B', 'HC2000'] = kounkel + '_B'
+        if ((kounkel + 'A') in list(nirspao_old.HC2000)) and ((kounkel + 'B') in list(nirspao_old.HC2000)):
+            nirspao_old.loc[nirspao_old.HC2000==kounkel + 'A', 'HC2000'] = kounkel + '_A'
+            nirspao_old.loc[nirspao_old.HC2000==kounkel + 'B', 'HC2000'] = kounkel + '_B'
         # else: remove the suffix
         else:
-            chris_table.loc[chris_table.HC2000==kounkel + 'A', 'HC2000'] = kounkel
-            chris_table.loc[chris_table.HC2000==kounkel + 'B', 'HC2000'] = kounkel
+            nirspao_old.loc[nirspao_old.HC2000==kounkel + 'A', 'HC2000'] = kounkel
+            nirspao_old.loc[nirspao_old.HC2000==kounkel + 'B', 'HC2000'] = kounkel
     
-    nirspec = nirspec.merge(chris_table[[
+    nirspao = nirspao.merge(nirspao_old[[
         'HC2000', 
         'teff_chris', 'teff_e_chris', 
         'rv_chris', 'rv_e_chris', 
@@ -760,13 +754,13 @@ def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
         value=((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2)
     )
     
-    hillenbrand = hillenbrand.rename(columns={'ID': 'ID_hillenbrand', 'M': 'mass_Hillenbrand'})
+    hc2000 = hc2000.rename(columns={'ID': 'ID_hillenbrand', 'M': 'mass_Hillenbrand'})
     # Offset specified in https://iopscience.iop.org/article/10.1086/309309/pdf, Section 4.5.
-    hillenbrand_coord = SkyCoord(ra=(hillenbrand.RAJ2000 + 1.5/3600)*u.deg, dec=(hillenbrand.DEJ2000 - 0.3/3600)*u.deg)
-    hillenbrand.RAJ2000 = hillenbrand_coord.ra.deg
-    hillenbrand.DEJ2000 = hillenbrand_coord.dec.deg
-    hillenbrand = hillenbrand.loc[hillenbrand_coord.separation(trapezium) <= 4*u.arcmin].reset_index(drop=True)
-    hillenbrand = hillenbrand.replace(r' ', np.nan)
+    hillenbrand_coord = SkyCoord(ra=(hc2000.RAJ2000 + 1.5/3600)*u.deg, dec=(hc2000.DEJ2000 - 0.3/3600)*u.deg)
+    hc2000.RAJ2000 = hillenbrand_coord.ra.deg
+    hc2000.DEJ2000 = hillenbrand_coord.dec.deg
+    hc2000 = hc2000.loc[hillenbrand_coord.separation(trapezium) <= 4*u.arcmin].reset_index(drop=True)
+    hc2000 = hc2000.replace(r' ', np.nan)
     
     tobin = tobin.rename(columns={
         '_2MASS':   'ID_2MASS_tobin',
@@ -784,7 +778,7 @@ def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
     
     # cross match apogee
     print('length of apogee: {}'.format(len(apogee)))
-    sources = match_and_merge(nirspec, apogee, mode='or', plot=False, suffix='_apogee', columns=[
+    sources = match_and_merge(nirspao, apogee, mode='or', plot=False, suffix='_apogee', columns=[
         'ID_apogee', 
         'rv_apogee',       'rv_e_apogee', 
         'teff',     'teff_e', 
@@ -827,7 +821,7 @@ def construct_synthetic_catalog(nirspec_path, apogee_path, save_path):
     ])
     
     # cross match hillenbrand
-    sources = match_and_merge(sources, hillenbrand, mode='and', plot=True, suffix='_hillenbrand', max_sep=2*u.arcsec, label1='NIRSPEC+APOGEE', label2='Hillenbrand')
+    sources = match_and_merge(sources, hc2000, mode='and', plot=True, suffix='_hillenbrand', max_sep=2*u.arcsec, label1='NIRSPEC+APOGEE', label2='Hillenbrand')
     
     # cross match tobin
     sources = match_and_merge(sources, tobin, mode='and', plot=False, suffix='_tobin', columns=[

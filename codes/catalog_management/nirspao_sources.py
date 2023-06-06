@@ -1,4 +1,4 @@
-# Grab median combined nirspec params & proper motion table & fitted mass
+# Grab median combined nirspao params & proper motion table & fitted mass
 import os, sys
 import pandas as pd
 from numpy import ma
@@ -31,14 +31,14 @@ def read_text(text):
 ################ Parameter setup ################
 #################################################
 
-def nirspec_sources(dates, names, exceptions, save_path=None, overwrite=False):
-    '''Generate dataframe for NIRSPEC sources.
+def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
+    '''Generate dataframe for NIRSPAO sources.
     - Parameters:
         dates: list of astropy Times.
         names: list of HC2000 IDs, integer or string. e.g. [322, '522A']
         exceptions: dictionary of exceptions using O35.
     - Returns:
-        result: pandas dataframe of NIRSPEC sources.
+        result: pandas dataframe of NIRSPAO sources.
     '''
     
     dim_check = [len(_) for _ in [dates, names]]
@@ -446,5 +446,5 @@ if __name__ == '__main__':
         'orders':[35]
     }
     
-    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv', overwrite=True)
-    result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.ecsv', overwrite=True)
+    result = nirspao_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspao sources.csv', overwrite=True)
+    result = nirspao_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspao sources.ecsv', overwrite=True)
