@@ -5,15 +5,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import astropy.units as u
-from astropy.io import ascii
-from astropy.table import Table, QTable, MaskedColumn, vstack, join
 from astropy.coordinates import SkyCoord
-from astroquery.gaia import Gaia
-from astroquery.vizier import Vizier
-from astroquery.xmatch import XMatch
-Vizier.ROW_LIMIT = -1
-Gaia.ROW_LIMIT = -1
-Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
+from astropy.coordinates import ICRS
 
 from starrynight.models.BHAC15 import BHAC15_Fit
 from starrynight.models.Feiden import Feiden_Fit
@@ -112,24 +105,17 @@ def weighted_avrg_and_merge(array1, array2, error1=None, error2=None):
             return avrg
 
 
-def cross_match(coord1, coord2, max_sep=1*u.arcsec, plot=True, label_names = ['1', '2']):
+def cross_match(coord1, coord2, max_sep=1*u.arcsec, plot=True, label1='Sources 1', label2='Sources 2'):
     '''Cross match two coordinates.
-    
-    
-    Parameters
-    ----------
-        coord1 : astropy SkyCoord
-        coord2 : astropy SkyCoord
-        max_sep : astropy quantity
-            Maximum allowed separation, by default 1*u.arcsec.
-        plot : boolean.
-            Plot cross match results or not.
-        label_names : list or None
-            Legend labels, by default ['1', '2'].
-    
-    Returns
-    -------
-        idx, sep_constraint: coord1[sep_constraint] <--> coord2[idx[sep_constraint]]. See https://docs.astropy.org/en/stable/coordinates/matchsep.html#matching-catalogs.
+    Parameters:
+        coord1: astropy coordinates.
+        coord2: astropy coordinates.
+        max_sep: maximum allowed separation. Default is 1 arcsec.
+        plot: boolean. Plot cross match results or not.
+        label1: legend label of coord1. Default is 'Sources 1'.
+        label2: legend label of coord2. Default is 'Sources 2'.
+    Returns:
+        idx, sep_constraint: coord1[sep_constraint] -> coord2[idx[sep_constraint]]. See https://docs.astropy.org/en/stable/coordinates/matchsep.html#matching-catalogs.
     '''
     
     idx, d2d, d3d = coord1.match_to_catalog_sky(coord2)
@@ -140,7 +126,7 @@ def cross_match(coord1, coord2, max_sep=1*u.arcsec, plot=True, label_names = ['1
         fig_data = [
             go.Scatter(
                 mode='markers',
-                name=label_names[1],
+                name=label2,
                 x=coord2.ra.deg,
                 y=coord2.dec.deg,
                 marker=dict(
@@ -152,7 +138,7 @@ def cross_match(coord1, coord2, max_sep=1*u.arcsec, plot=True, label_names = ['1
             
             go.Scatter(
                 mode='markers',
-                name=label_names[0],
+                name=label1,
                 x=coord1.ra.deg,
                 y=coord1.dec.deg,
                 marker=dict(
@@ -197,232 +183,142 @@ def cross_match(coord1, coord2, max_sep=1*u.arcsec, plot=True, label_names = ['1
         
         fig.show()
     
-    print('{} pairs are found when cross matching between table {} and table {} with a radius of {} {}.'.format(
+    print('{} pairs are found when cross matching between {} and {} with a radius of {} {}.'.format(
         sum(sep_constraint), 
-        label_names[0], 
-        label_names[0], 
+        label1, 
+        label2, 
         max_sep.value, 
         max_sep.unit.to_string())
     )
     return idx, sep_constraint
 
 
-def merge_on_coords(catalog1, catalog2, join_type='left', max_sep=1.*u.arcsec, coord_cols=['RAJ2000', 'DEJ2000'], matches=None, left_coord_cols=None, right_coord_cols=None, merge_coords=True, plot=True, table_names=['1', '2'], uniq_col_name='{col_name}_{table_name}'):
-    """Merge tables on coordinates
-
-    Parameters
-    ----------
-    catalog1 : astropy table
-    catalog2 : astropy table
-    join_type : str, optional
-        Join type, one of 'inner', 'outer', 'left', or 'right', by default 'left'
-    max_sep : astropy quantity, optional
-        Maximum allowed separation when cross matching, by default 1.*u.arcsec
-    coord_cols : list of str, optional
-        Column names with RA and DEC, by default ['RAJ2000', 'DEJ2000']
-    matches : array-like, optional
-        catalog1[i] <--> catalog2[matches[i]]. If matches[i]=NaN, there is no match for catalog1[i]. If not provided, the function will automatically calculate based on keys or coordinates, by default None
-    left_coord_cols : list of str, optional
-        Column names with RA and DEC for the left table, by default None
-    right_coord_cols : list of str, optional
-        Column names with RA and DEC for the right table, by default None
-    merge_coords : bool, optional
-        Merge the RA and DEC columns or not, by default True
-    plot : bool, optional
-        Plot the cross match by plotly or not, by default True
-    table_names : list of str, optional
-        Two-element list of table names used when generating unique output column names, by default ['1', '2']. See https://docs.astropy.org/en/stable/api/astropy.table.join.html
-    uniq_col_name : str, optional
-        String generate a unique output column name in case of a conflict, by default '{col_name}_{table_name}'. See https://docs.astropy.org/en/stable/api/astropy.table.join.html
+def match_and_merge(catalog1, catalog2, mode, max_sep=1.0*u.arcsec, plot=True, **kwargs):
+    '''Cross match and merge two catalogs.
+    --------------------
+    For each star in catalog1, match the closest star in catalog2 that has a separation < max_sep.
+    A suffix is added to the keys of catalog2 for duplicate columns. RAJ2000 and DEJ2000 are merged, prioritizing catalog1.
+    - Parameters: 
+        - catalog1: pandas dataframe with RAJ2000 and DEJ2000 columns in degrees.
+        - catalog2: pandas dataframe with RAJ2000 and DEJ2000 columns in degrees.
+        - mode: "and" or "or". Determine whether to keep unmatched sources in catalog2 or not.
+        - max_sep: maximum separation (1.0 arcsec by default).
+        - kwargs: 
+            - label1: legend label of catalog1. Default is 'Sources 1'.
+            - label2: legend label of catalog2. Default is 'Sources 2'.
+            - suffix: a string to be added to the columns of catalog2 after merge if there are duplicate columns. Default is '_{}'.format(label2).
+            - columns: list of desired keys in catalog2 that will appear in the result (default: every column in catalog2). Other columns will not be included in the result.
+            - matches: user-provided list of matched index. catalog1[i] --> catalog2[matches[i]]. 
+                np.nan for unmatched sources. Length is the same as catalog1.
+    - Returns: 
+        - result: pandas dataframe of cross-matched catalog.
+    '''
     
-    Returns
-    -------
-    astropy table
-        Astropy table merged on coordinates
-    """
+    catalog1_coord = SkyCoord(ra=catalog1.RAJ2000*u.degree, dec=catalog1.DEJ2000*u.degree)
+    catalog2_coord = SkyCoord(ra=catalog2.RAJ2000*u.degree, dec=catalog2.DEJ2000*u.degree)
+    result = copy.deepcopy(catalog1)
+    
+    label1 = kwargs.get('label1', 'Sources 1')
+    label2 = kwargs.get('label2', 'Sources 2')
+    suffix = kwargs.get('suffix', '_{}'.format(label2))
     
     # match the closest among sep < max_sep
     # idx, d2d, d3d = catalog1_coord.match_to_catalog_sky(catalog2_coord)
     # sep_constraint = d2d < max_sep
-    if left_coord_cols is None and right_coord_cols is None:
-        left_coord_cols = coord_cols
-        right_coord_cols = coord_cols
-    catalog1_coord = SkyCoord(ra=catalog1[left_coord_cols[0]], dec=catalog1[left_coord_cols[1]])
-    catalog2_coord = SkyCoord(ra=catalog2[right_coord_cols[0]], dec=catalog2[right_coord_cols[1]])
-    idx, sep_constraint = cross_match(catalog1_coord, catalog2_coord, max_sep, plot, label_names=table_names)
-    matches = np.array([np.nan if valid_match else i for i, valid_match in zip(idx, sep_constraint)])
     
-    result = merge(catalog1, catalog2, matches, join_type, table_names, uniq_col_name)
+    idx, sep_constraint = cross_match(catalog1_coord, catalog2_coord, max_sep, plot, label1=label1, label2=label2)
     
-    # If merge_coords, remove duplicate RA and DEC columns
-    left_coord_cols_new = [uniq_col_name.format(col_name=left_col, table_name=table_names[0]) if table_names[0]!='' and table_names[0] is not None else left_col for left_col in left_coord_cols]
-    right_coord_cols_new = [uniq_col_name.format(col_name=right_col, table_name=table_names[1]) if table_names[1]!='' and table_names[1] is not None else right_col for right_col in right_coord_cols]
-
-    if merge_coords:
-        if any(result[left_coord_cols_new[0]].mask):
-            if join_type=='right':
-                left_coord_cols, right_coord_cols = right_coord_cols, left_coord_cols
-                table_names = table_names[::-1]
-            
-            for left_col_new, right_col_new in zip(left_coord_cols_new, right_coord_cols_new):
-                result[left_col_new][result[left_col_new].mask] = result[right_col_new][result[left_col_new].mask]
-        result.rename_columns(left_coord_cols_new, left_coord_cols)
-        result.remove_columns(right_coord_cols_new)
-    return result
+    matches = kwargs.get('matches', [i if constraint else np.nan for i, constraint in zip(idx, sep_constraint)])
     
-
-def merge_on_keys(catalog1, catalog2, keys, keys_left=None, keys_right=None, join_type='left', table_names=['1', '2'], uniq_col_name='{col_name}_{table_name}'):
-    """Merge tables on keys
-
-    Parameters
-    ----------
-    catalog1 : astropy table
-    catalog2 : astropy table
-    keys : str or list of str, optional
-        Name(s) of column(s) used to match rows of left and right tables.
-    keys_left : str or list of str, optional
-        Left column(s) used to match rows instead of keys arg. This can be be a single left table column name or list of column names, by default None
-    keys_left : str or list of str, optional
-        Right column(s) used to match rows instead of keys arg. This can be be a single left table column name or list of column names, by default None
-    join_type : str, optional
-        Join type, one of 'inner', 'outer', 'left', or 'right', by default 'left'
-    table_names : list of str, optional
-        Two-element list of table names used when generating unique output column names, by default ['1', '2']. See https://docs.astropy.org/en/stable/api/astropy.table.join.html
-    uniq_col_name : str, optional
-        String generate a unique output column name in case of a conflict, by default '{col_name}_{table_name}'. See https://docs.astropy.org/en/stable/api/astropy.table.join.html
     
-    Returns
-    -------
-    astropy table
-        Astropy table merged on keys
-    """
-    if isinstance(keys, str):
-        keys = [keys]
-    if keys is not None or (keys_left is not None and keys_right is not None):
-        keys_left = keys
-        keys_right = keys
-        matches = np.empty(len(catalog1))
-        for i in range(len(catalog1)):
-            matched = [True if list(catalog1[keys][i]) == list(catalog2[keys][j]) else False for j in range(len(catalog2))]
-            if any(matched):
-                matches[i] = np.where(matched)[0][0]
-            else:
-                matches[i] = np.nan
+    columns = kwargs.get('columns', catalog2.keys())
+    if 'RAJ2000' not in columns:
+        columns.append('RAJ2000')
+    if 'DEJ2000' not in columns:
+        columns.append('DEJ2000')
     
-    return merge(catalog1, catalog2, matches, join_type, table_names, uniq_col_name)
-
+    # record if the column is provided or modified (combined with the suffix) within this function.
+    new_column_flag = [True if column in catalog1.keys() else False for column in columns]
+    new_columns = [''.join((column, suffix)) if column in catalog1.keys() else column for column in columns]
     
-def merge(catalog1, catalog2, matches, join_type='left', table_names=['1', '2'], uniq_col_name='{col_name}_{table_name}'):
-    """Cross match and merge two catalogs.
-
-    Parameters
-    ----------
-    catalog1 : astropy table
-    catalog2 : astropy table
-    matches : array-like, optional
-        catalog1[i] <--> catalog2[matches[i]]. If matches[i]=NaN, there is no match for catalog1[i]. If not provided, the function will automatically calculate based on keys or coordinates. None by default.
-    join_type : str
-        Specifies the join type: inner, outter, left, or right, by default left.
-    table_names : list of str, optional
-        Two-element list of table names used when generating unique output column names, by default ['1', '2']. See https://docs.astropy.org/en/stable/api/astropy.table.join.html.
-    uniq_col_names : str, optional
-        String generate a unique output column name in case of a conflict. The default is '{col_name}_{table_name}'. https://docs.astropy.org/en/stable/api/astropy.table.join.html.
-    
-    Returns
-    -------
-    astropy table
-        Merged astropy table
-
-    Raises
-    ------
-    ValueError
-        A value error will be raised if join_type is not one of 'inner', 'outter', 'left', or 'right'.
-    """
-    catalog1 = catalog1.copy()
-    catalog2 = catalog2.copy()
-    if join_type not in ['inner', 'outer', 'left', 'right']:
-        raise ValueError(f"join_type must be 'inner', 'outer', 'left', or 'right', not '{join_type}'.")
-
-    if join_type=='right':
-        catalog1, catalog2 = catalog2, catalog1
-        table_names = table_names[::-1]
-
-    valid_match = ~np.isnan(matches)
-
-    uniq_columns_catalog1 = [uniq_col_name.format(col_name=col, table_name=table_names[0]) if col in catalog2.keys() else col for col in catalog1.keys()] if table_names[0]!='' and table_names[0] is not None else catalog1.keys()
-    uniq_columns_catalog2 = [uniq_col_name.format(col_name=col, table_name=table_names[1]) if col in catalog1.keys() else col for col in catalog2.keys()] if table_names[1]!='' and table_names[1] is not None else catalog2.keys()
-    catalog1.rename_columns(catalog1.keys(), uniq_columns_catalog1)
-    catalog2.rename_columns(catalog2.keys(), uniq_columns_catalog2)
-
-    # outer join matched sources
-    result = catalog1.copy()
-    # hstack matched
-    for col in uniq_columns_catalog2:
-        # add empty column
-        if np.issubdtype(catalog2[col].dtype, np.integer):
-            result[col] = MaskedColumn([None]*len(result), dtype=float, mask=[True]*len(result))
+    # merge matched sources
+    for flag, column in zip(new_column_flag, new_columns):
+        if flag:
+            result[column] = list(catalog2[column.replace(suffix, '')].reindex(matches))
         else:
-            result[col] = MaskedColumn([None]*len(result), dtype=catalog2[col].dtype, mask=[True]*len(result))
-        # fill empty column with catalog2
-        result[col][valid_match] = catalog2[col][matches[valid_match].astype(int)]
-
-    if join_type=='inner':
-        result = result[valid_match]
-
-    # vstack unmatched
-    if join_type=='outer':
-        result = vstack((result, catalog2[list(set(range(len(catalog2))) - set(matches[valid_match]))]))
+            result[column] = list(catalog2[column].reindex(matches))
+        
+    
+    # merge unmatched sources
+    if mode=='or':
+        unmatched = dict()
+        for column in list(catalog1.keys()) + new_columns:
+            unmatched[column] = list()
+        
+        for i in [_ for _ in range(len(catalog2)) if _ not in idx[sep_constraint]]:
+            for column in catalog1.keys():
+                unmatched[column].append(np.nan)
+            
+            for flag, column in zip(new_column_flag, new_columns):
+                if flag:
+                    unmatched[column].append(catalog2[column.replace(suffix, '')][i])
+                else:
+                    unmatched[column].append(catalog2[column][i])
+        
+        unmatched = pd.DataFrame.from_dict(unmatched)
+        result = pd.concat((result, unmatched))
+    elif mode=='and':
+        pass
+    else:
+        raise ValueError("mode {} not recognized! Have to be 'and' or 'or'.".format(mode))
+            
+    result = result.reset_index(drop=True)
+    # merge coordinates, prioritizing catalog1.
+    result.RAJ2000 = result.RAJ2000.fillna(result['RAJ2000{}'.format(suffix)])
+    result.DEJ2000 = result.DEJ2000.fillna(result['DEJ2000{}'.format(suffix)])
+    result.pop('RAJ2000{}'.format(suffix))
+    result.pop('DEJ2000{}'.format(suffix))
     return result
 
 
-def cross_match_gaia(coord, gaia_coord, plx, max_sep=1*u.arcsec):
-    """On-sky cross match for ALL candidates within a certain radius.
+def cross_match_gaia(a_coord, b_coord, plx, max_sep=1*u.arcsec):
+    '''On-sky cross match for ALL candidates within a certain radius.
     User can configure the matches with the help of the printed information for multiple candidates within the maximum allowed separation.
     The closest is chosen by default.
-    
-    Parameters
-    ----------
-        coord : astropy SkyCoord
-            Coordinates to be matched
-        gaia_coord : astropy SkyCoord
-            Gaia coordinates
-        plx : astropy quantity
-            Gaia parallax
-        max_sep : astropy quantity
-            Maximum separation for cross-matching, by default 1*u.arcsec
-    
-    Returns
-    -------
-        matches : array
-            array of closest index in b_coord or np.nan if there is no match. i.e.: a_coord[i] --> b_coord[matches[i]].
-    
-    Prints
-    ------
+    - Parameters: 
+        - a_coord: Coordinates to be matched. astropy SkyCoord.
+        - b_coord: Gaia Coordinates.
+        - plx: Gaia parallax
+        - max_sep: maximum separation. Default is 1 arcsec.
+    - Returns: 
+        matches: list of closest index in b_coord or np.nan. i.e.: a_coord[i] --> b_coord[matches[i]].
+        If there's no match: np.nan.
+    - Prints:
         When there are multiple matches within max_sep, print out their distances and parallax.
         The closest match is chosen by defaut. However, users can easily change the match with the help of printed information.
-    """
+    '''
     
-    gaia_idx = np.arange(0, len(gaia_coord))
-    matches = np.empty(len(coord))
+    b_idx = np.arange(0, len(b_coord))
+    matches = []
     
     print('Multiple Cross Match Results with Gaia:')
     
-    for i, star in enumerate(coord):
+    for i, star in enumerate(a_coord):
         
-        circle_match = gaia_idx[star.separation(gaia_coord) < max_sep]
+        circle_match = b_idx[star.separation(b_coord) < max_sep]
         
         if len(circle_match) > 1:
-            separation = star.separation(gaia_coord[circle_match])
+            separation = star.separation(b_coord[circle_match])
             circle_match = circle_match[np.argsort(separation)]
             separation.sort()
-            matches[i] = circle_match[0]
+            matches.append(circle_match[0])
             print('{} --> {}'.format(i, circle_match))
             print('Distances from Earth:\t{} pc'.format(1000/np.array(plx[circle_match])))
             print('Mutual separations:\t{}\n'.format(separation.to(u.arcsec)))
         elif len(circle_match) == 1:
-            matches[i] = circle_match[0]
+            matches.append(circle_match[0])
         else:
-            matches[i] = np.nan
+            matches.append(np.nan)
     
     exception = input('Exceptions? y/n:')
     
@@ -470,7 +366,7 @@ def merge_multiepoch(sources, **kwargs):
                 sources.loc[indices, value_column], error=sources.loc[indices, error_column]
             )
         sources_epoch_combined.loc[indices[-1], 'rv_helio'] = weighted_avrg(
-            sources.loc[indices, 'rv_helio'], error=sources.loc[indices, 'rv_e_nirspao']
+            sources.loc[indices, 'rv_helio'], error=sources.loc[indices, 'rv_e_nirspec']
         )[0]
         sources_epoch_combined = sources_epoch_combined.drop(indices[:-1])
     sources_epoch_combined = sources_epoch_combined.reset_index(drop=True)
@@ -538,7 +434,7 @@ def fit_mass(teff, teff_e):
 
 
 def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, marker_size=3, opacity=1):
-    """Plot four catalogs:NIRSPAO sources, APOGEE, Proper Motion by Kim, and Gaia DR3.
+    """Plot four catalogs:NIRSPEC sources, APOGEE, Proper Motion by Kim, and Gaia DR3.
     Any matches with Gaia or Kim's proper motion catalog will be circled out.
 
     Parameters
@@ -647,10 +543,10 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
             legendrank=3
         ),
         
-        # Plot NIRSPAO Sources
+        # Plot NIRSPEC Sources
         go.Scatter(
             mode='markers',
-            name='NIRSPAO Sources',
+            name='NIRSPEC Sources',
             x=sources_epoch_combined.RAJ2000[~sources_epoch_combined.HC2000.isna()], 
             y=sources_epoch_combined.DEJ2000[~sources_epoch_combined.HC2000.isna()], 
             opacity=1,
@@ -690,12 +586,19 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
 ######### Construct Synthetic Catalog #########
 ###############################################
 
-def construct_synthetic_catalog(nirspao_path, save_path):
-    '''Construct synthetic catalog combining nirspao, apogee, pm, gaia, and ONC Mass catalog by Hillenbrand 1997 (J/AJ/113/1733/ONC).
+def construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kounkel_path, pm_path, gaia_path, hillenbrand_path, tobin_path, save_path):
+    '''Construct synthetic catalog combining nirspec, apogee, pm, gaia, and ONC Mass catalog by Hillenbrand 1997 (J/AJ/113/1733/ONC).
     --------------------
     Both a multi-epoch combined & not combined catalog are saved under the save_path folder.
     - Parameters:
-        - nirspao_path: path of nirspao catalog ecsv.
+        - nirspec_path: path of nirspec catalog csv.
+        - chris_table_path: path of Chris's table.
+        - apogee_path: path of apogee catalog csv.
+        - kounkel_path: path of Kounkel et al. 2018.
+        - pm_path: path of pm catalog csv.
+        - gaia_path: path of gaia catalog csv.
+        - hillenbrand_path: path of ONC mass catalog.
+        - tobin_path: path of Tobin et al. 2009.
         - save_path: folder path to save the two catalogs.
     - Returns:
         - sources: pandas dataframe of the synthetic catalog.
@@ -707,197 +610,221 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     '''
     trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
     
-    # Read tables
-    nirspao     = QTable.read(nirspao_path)
-    nirspao_old = Vizier.get_catalogs('J/ApJ/926/141/table3')[0]
-    apogee      = Vizier.get_catalogs('J/ApJ/926/141/table5')[0]
-    # kounkel     = Vizier.get_catalogs('J/AJ/156/84/table1')[0]
-    kounkel     = Vizier(
-        columns=['RAJ2000', 'DEJ2000', '2MASS', 'Gaia', 'Teff', 'e_Teff', 'logg', 'e_logg', 'RVmean', 'e_RVmean', 'Fbol', 'Av', 'Theta', 'SimbadName'],
-        row_limit=-1
-    ).get_catalogs('J/AJ/156/84/table1')[0]
-    kim         = Vizier.get_catalogs('J/AJ/157/109/table3')[0]
-    gaia        = Gaia.cone_search_async(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
-    hc2000      = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
-    hillenbrand = Vizier.get_catalogs('J/AJ/113/1733/ONC')[0]
-    tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
-    
-    # Cross match apogee with 2MASS to get Hmag and Kmag
-    apogee_keys = apogee.keys()
-    apogee_units = [apogee[_].unit for _ in apogee.keys()]
-    apogee = XMatch.query(
-        cat1=apogee, cat2='vizier:II/246/out', 
-        max_distance=1 * u.arcsec, 
-        colRA1='RAJ2000', colDec1='DEJ2000'
-    )
-    apogee.remove_columns(['angDist', '2MASS', 'RAJ2000_2', 'DEJ2000_2'])
-    apogee.rename_columns(['RAJ2000_1', 'DEJ2000_1'], ['RAJ2000', 'DEJ2000'])
-    for key, unit in zip(apogee_keys, apogee_units):
-        apogee[key].unit = unit
-    for key in ['Jmag', 'Hmag', 'Kmag', 'e_Jmag', 'e_Hmag', 'e_Kmag']:
-        apogee[key].unit = u.mag
-    
-    # Rename
-    hc2000.rename_columns(['__HC2000_'], ['HC2000'])
-    
-    nirspao_old.rename_columns(
-        ['__HC2000_',   'm__HC2000_',   'Veiling'],
-        ['HC2000',      'm_HC2000',     'veiling_param_O33']
-    )
-    # Convert empty string to masked element in nirspao_old
-    nirspao_old['m_HC2000'] = MaskedColumn(nirspao_old['m_HC2000'], mask=[True if _=='' else False for _ in nirspao_old['m_HC2000']], dtype=nirspao['m_HC2000'].dtype)
-
-    # nirspao.add_columns([None, None], indexes=[8, 8], names=['Teff', 'e_Teff'])
-        
-    apogee.rename_columns(
-        ['RV',          'e_RV',         'Teff',         'e_Teff',           'vsini',        'e_vsini',          'Veiling'],
-        ['RV_apogee',   'e_RV_apogee',  'Teff_apogee',  'e_Teff_apogee',    'vsini_apogee', 'e_vsini_apogee',   'veiling_param_apogee']
-    )
-    
-    kounkel.rename_columns(
-        ['_2MASS',  'Gaia',     'Teff',         'e_Teff',           'logg',         'e_logg',           'RVmean',       'e_RVmean'],
-        ['2MASS',   'Gaia DR2', 'Teff_kounkel', 'e_Teff_kounkel',   'logg_kounkel', 'e_logg_kounkel',   'RV_kounkel',   'e_RV_kounkel']
-    )
-    
-    kim.rename_columns(
-        ['ID',      'pmRA',     'e_pmRA',       'pmDE',     'e_pmDE'],
-        ['ID_kim',  'pmRA_kim', 'e_pmRA_kim',   'pmDE_kim', 'e_pmDE_kim']
-    )
-    
-    gaia.rename_columns(
-        ['source_id',   'ra',       'dec',      'parallax', 'parallax_error',   'parallax_over_error',  'pmra',         'pmra_error',   'pmdec',        'pmdec_error', 'phot_g_mean_mag'],
-        ['Gaia DR3',    'RAJ2000',  'DEJ2000',  'plx',      'e_plx',            'plx_over_e',           'pmRA_gaia',    'e_pmRA_gaia',  'pmDE_gaia',    'e_pmDE_gaia', 'Gmag']
-    )
-    
-    hillenbrand.rename_columns(
-        ['ID', 'M'],
-        ['ID_hillenbrand', 'mass_hillenbrand']
-    )
-    
-    tobin.rename_columns(
-        ['_2MASS',      'HRV',      'e_HRV',        'Vmag',         'V-I'], 
-        ['2MASS_tobin', 'RV_tobin', 'e_RV_tobin',   'Vmag_tobin',   'V-I_tobin']
-    )
+    nirspec     = pd.read_csv(nirspec_path)
+    chris_table = pd.read_csv(chris_table_path)
+    apogee      = pd.read_csv(apogee_path)
+    kounkel     = pd.read_csv(kounkel_path)
+    pm          = pd.read_csv(pm_path, dtype={'ID': str})
+    gaia        = pd.read_csv(gaia_path, dtype={'source_id': str})
+    hillenbrand = pd.read_csv(hillenbrand_path)
+    tobin       = pd.read_csv(tobin_path)
     
     
     # Add & Replace Trapezium Stars
     trapezium_stars = {}
 
     # A1-A3, B1-B5, C1-C2, D, EA-EB
-    trapezium_stars['HC2000'] = [336, 354, 309, 330, 344]
+    trapezium_stars['HC2000'] = ['336', '354', '309', '330', '344']
     trapezium_stars['theta_orionis'] = ['A', 'B', 'C', 'D', 'E']
     trapezium_stars['mass_literature'] = [26.6, 16.3, 44, 25, 5.604]
     trapezium_stars['mass_e_literature'] = [26.6*0.05, 16.3*0.05, 5*2**0.5, 25*0.05, 0.048*2**0.5]
     
-    trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'mass_e_literature': u.solMass})
-    trapezium_stars.add_columns([None, None], indexes=[2, 2], names=['RAJ2000', 'DEJ2000'])
+    trapezium_stars = pd.DataFrame.from_dict(trapezium_stars)
     
-    # Get RA DEC from HC2000 catalog
-    coords = SkyCoord([f'{ra} {dec}' for ra, dec in zip(hc2000['RAJ2000'], hc2000['DEJ2000'])], unit=(u.hourangle, u.deg))
+    trapezium_stars.insert(1, 'RAJ2000', np.nan)
+    trapezium_stars.insert(2, 'DEJ2000', np.nan)
+    
+    # Get RA DEC from nirspec catalog
+    hc2000 = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/HC2000.csv', dtype={'[HC2000]': str})
     for i in range(len(trapezium_stars)):
-        idx = list(hc2000['HC2000']).index(trapezium_stars['HC2000'][i])
-        trapezium_stars['RAJ2000'][i] = coords[idx].ra.degree
-        trapezium_stars['DEJ2000'][i] = coords[idx].dec.degree
+        index = list(hc2000['[HC2000]']).index(trapezium_stars.loc[i, 'HC2000'])
+        coord = SkyCoord(' '.join((hc2000['RAJ2000'][index], hc2000['DEJ2000'][index])), unit=(u.hourangle, u.deg))
+        trapezium_stars.loc[i, 'RAJ2000'] = coord.ra.degree
+        trapezium_stars.loc[i, 'DEJ2000'] = coord.dec.degree
     
-    if save_path is not None:
-        trapezium_stars.write(f'{save_path}/trapezium_stars.ecsv', overwrite=True)
-    # Remove trapezium stars from nirspao? No!
-    # nirspao.remove_rows([index for index, element in enumerate(nirspao['HC2000']) if element in trapezium_stars['HC2000']])
-        
-    # Remove multiplicty index with only A or B
-    for i in np.where(~nirspao_old['m_HC2000'].mask)[0]:
-        if not all([_ in nirspao_old['m_HC2000'][nirspao_old['HC2000']==nirspao_old['HC2000'][i]] for _ in ['A', 'B']]):
-            nirspao_old['m_HC2000'][i] = np.ma.masked    
+    # Remove trapezium stars from nirspec
+    nirspec_hc2000 = [_.split('_')[0] for _ in nirspec.HC2000]
+    remove_list = []
+    for i in range(len(trapezium_stars)):
+        if trapezium_stars.loc[i, 'HC2000'] in nirspec_hc2000:
+            remove_list.extend([index for index, element in enumerate(nirspec_hc2000) if element == trapezium_stars.loc[i, 'HC2000']])
+    
+    nirspec = nirspec.drop(remove_list).reset_index(drop=True)
+            
+    # Merge nirspec and trapezium stars
+    nirspec = pd.concat([nirspec, trapezium_stars], ignore_index=True, sort=False)
+    
+    theta_orionis = nirspec.theta_orionis
+    nirspec = nirspec.drop(columns='theta_orionis')
+    nirspec.insert(1, 'theta_orionis', theta_orionis)
+    
+    nirspec = nirspec.rename(columns={
+        'teff':     'teff_nirspec',
+        'teff_e':   'teff_e_nirspec',
+        'rv':       'rv_nirspec',
+        'rv_e':     'rv_e_nirspec'
+    })
+    
+    nirspec.insert(12, 'teff', np.nan)
+    nirspec.insert(13, 'teff_e', np.nan)
+    
+    chris_table = chris_table.rename(columns={
+        'teff': 'teff_chris',
+        'teff_e': 'teff_e_chris',
+        'rv': 'rv_chris',
+        'rv_e': 'rv_e_chris',
+        'vsini': 'vsini_chris',
+        'vsini_e': 'vsini_e_chris',
+        'veiling_param_O33': 'veiling_param_O33_chris'
+    })
+    
+    # merge with chris table
+    chris_table_binary_idx = np.where([_.endswith(('A', 'B')) for _ in chris_table.HC2000])[0]
+    chris_table_binary_hc2000 = set(_.strip('A|B') for _ in chris_table.HC2000[chris_table_binary_idx])
+    for hc2000 in chris_table_binary_hc2000:
+        # if a target has both A and B, change both suffix to _A and _B.
+        if ((hc2000 + 'A') in list(chris_table.HC2000)) and ((hc2000 + 'B') in list(chris_table.HC2000)):
+            chris_table.loc[chris_table.HC2000==hc2000 + 'A', 'HC2000'] = hc2000 + '_A'
+            chris_table.loc[chris_table.HC2000==hc2000 + 'B', 'HC2000'] = hc2000 + '_B'
+        # else: remove the suffix
+        else:
+            chris_table.loc[chris_table.HC2000==hc2000 + 'A', 'HC2000'] = hc2000
+            chris_table.loc[chris_table.HC2000==hc2000 + 'B', 'HC2000'] = hc2000
+    
+    nirspec = nirspec.merge(chris_table[[
+        'HC2000', 
+        'teff_chris', 'teff_e_chris', 
+        'rv_chris', 'rv_e_chris', 
+        'vsini_chris', 'vsini_e_chris', 
+        'veiling_param_O33_chris'
+    ]], how='left', on='HC2000')
+    
+    apogee = apogee.rename(columns={
+        'APOGEE_ID': 'ID_apogee',
+        '_RAJ2000': 'RAJ2000',
+        '_DEJ2000': 'DEJ2000',
+        'rv':   'rv_apogee',
+        'rv_e': 'rv_e_apogee'
+    })
+    
+    kounkel = kounkel.rename(columns={
+        '_2MASS':   'ID_2MASS',
+        'Gaia':     'ID_gaia_dr2',
+        'Teff':     'teff_kounkel',
+        'e_Teff':   'teff_e_kounkel',
+        'logg':     'logg_kounkel',
+        'e_logg':   'logg_e_kounkel',
+        'RVmean':   'rv_mean_kounkel',
+        'e_RVmean': 'rv_mean_e_kounkel'
+    })
+    
+    pm = pm.rename(columns={
+        'ID':       'ID_kim',
+        '_RAJ2000': 'RAJ2000',
+        '_DEJ2000': 'DEJ2000',
+        'pmRA':     'pmRA_kim',
+        'e_pmRA':   'pmRA_e_kim',
+        'pmDE':     'pmDE_kim',
+        'e_pmDE':   'pmDE_e_kim'
+    })
+    
+    gaia = gaia.rename(columns={
+        'source_id':        'ID_gaia',
+        'ra':               'RAJ2000',
+        'dec':              'DEJ2000',
+        'parallax':         'plx',
+        'parallax_error':   'plx_e',
+        'parallax_over_error': 'plx_over_e',
+        'pmra':             'pmRA_gaia',
+        'pmra_error':       'pmRA_e_gaia',
+        'pmdec':            'pmDE_gaia',
+        'pmdec_error':      'pmDE_e_gaia',
+        'phot_g_mean_mag':  'Gmag'
+    })
     
     # Add Gmag uncertainty.
     # magnitude = -2.5*log10(flux) + zero point. (https://en.wikipedia.org/wiki/Apparent_magnitude#Calculations)
     # zero point: 25.6874 ± 0.0028. (https://gea.esac.esa.int/archive/documentation/GDR3/Data_processing/chap_cu5pho/cu5pho_sec_photProc/cu5pho_ssec_photCal.html#SSS3.P2)
-    gaia.add_column(
-        ((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2) * u.mag,
-        index=gaia.colnames.index('Gmag') + 1,
-        name='Gmag_e'
+    gaia.insert(
+        loc=gaia.columns.get_loc('Gmag') + 1, 
+        column='Gmag_e', 
+        value=((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2)
     )
     
+    hillenbrand = hillenbrand.rename(columns={'ID': 'ID_hillenbrand', 'M': 'mass_Hillenbrand'})
     # Offset specified in https://iopscience.iop.org/article/10.1086/309309/pdf, Section 4.5.
-    hillenbrand_coord = SkyCoord([f'{ra} {dec}' for ra, dec in zip(hillenbrand['RAJ2000'], hillenbrand['DEJ2000'])], unit=(u.hourangle, u.deg))
-    hillenbrand['RAJ2000'] = hillenbrand_coord.ra + 1.5*u.arcsec
-    hillenbrand['DEJ2000'] = hillenbrand_coord.dec - 0.3*u.arcsec
-    hillenbrand_coord = SkyCoord(ra=hillenbrand['RAJ2000'], dec=hillenbrand['DEJ2000'])
-    hillenbrand = hillenbrand[hillenbrand_coord.separation(trapezium) <= 4*u.arcmin]
+    hillenbrand_coord = SkyCoord(ra=(hillenbrand.RAJ2000 + 1.5/3600)*u.deg, dec=(hillenbrand.DEJ2000 - 0.3/3600)*u.deg)
+    hillenbrand.RAJ2000 = hillenbrand_coord.ra.deg
+    hillenbrand.DEJ2000 = hillenbrand_coord.dec.deg
+    hillenbrand = hillenbrand.loc[hillenbrand_coord.separation(trapezium) <= 4*u.arcmin].reset_index(drop=True)
+    hillenbrand = hillenbrand.replace(r' ', np.nan)
     
-    tobin_coord = SkyCoord([f'{ra} {dec}' for ra, dec in zip(tobin['RAJ2000'], tobin['DEJ2000'])], unit=(u.hourangle, u.deg))
-    tobin['RAJ2000'] = tobin_coord.ra
-    tobin['DEJ2000'] = tobin_coord.dec
+    tobin = tobin.rename(columns={
+        '_2MASS':   'ID_2MASS_tobin',
+        '_RAJ2000': 'RAJ2000',
+        '_DEJ2000': 'DEJ2000',
+        'HRV':      'rv_tobin',
+        'e_HRV':    'rv_e_tobin',
+        'Vmag':     'Vmag_tobin',
+        'V-I':      'V-I_tobin'
+    })
     
     ###############################################
     ################# Cross Match #################
     ###############################################
     
-    # match nirspao_old    
-    sources = merge_on_keys(nirspao, nirspao_old[[
-        'HC2000', 'm_HC2000', 
-        'Teff', 'e_Teff', 
-        'RV', 'e_RV', 
-        'vsini', 'e_vsini', 
-        'veiling_param_O33'
-    ]], join_type='left', keys=['HC2000', 'm_HC2000'], table_names=['nirspao', 'chris'])
-    sources.rename_columns(['HC2000_nirspao', 'm_HC2000_nirspao'], ['HC2000', 'm_HC2000'])
-    sources.remove_columns(['HC2000_chris', 'm_HC2000_chris'])
-
     # cross match apogee
     print('length of apogee: {}'.format(len(apogee)))
-    sources = merge_on_coords(sources, apogee[[
-        'APOGEE',
-        'RAJ2000', 'DEJ2000', 
-        'RV_apogee', 'e_RV_apogee', 
-        'Teff_apogee', 'e_Teff_apogee', 
-        'vsini_apogee', 'e_vsini_apogee', 
-        'veiling_param_apogee'
-    ]], join_type='outer', table_names=['nirspao', 'apogee'])
+    sources = match_and_merge(nirspec, apogee, mode='or', plot=False, suffix='_apogee', columns=[
+        'ID_apogee', 
+        'rv_apogee',       'rv_e_apogee', 
+        'teff',     'teff_e', 
+        'vsini',    'vsini_e', 
+        'veiling', 
+        'Kmag',     'Kmag_e',
+        'Hmag', 'Hmag_e'
+    ])
     
     # cross match kounkel
-    sources = merge_on_coords(sources, kounkel[[
-        '2MASS', 'Gaia DR2', 
-        'RAJ2000', 'DEJ2000', 
-        'Teff_kounkel', 'e_Teff_kounkel', 
-        'logg_kounkel', 'e_logg_kounkel', 
-        'RV_kounkel', 'e_RV_kounkel'
-    ]], join_type='left', table_names=['nirspao+apogee', 'kounkel'])
-
+    sources = match_and_merge(sources, kounkel, mode='and', plot=False, suffix='_kounkel', columns=[
+        'ID_2MASS', 'ID_gaia_dr2',
+        'teff_kounkel', 'teff_e_kounkel',
+        'logg_kounkel', 'logg_e_kounkel',
+        'rv_mean_kounkel', 'rv_mean_e_kounkel'
+    ])
+    
     # cross match proper motion
-    sources = merge_on_coords(sources, kim[[
-        'ID_kim', 
-        'RAJ2000', 'DEJ2000', 
-        'pmRA_kim', 'e_pmRA_kim', 
-        'pmDE_kim', 'e_pmDE_kim'
-    ]], join_type='left', table_names=['nirspao+apogee', 'kim'])
+    sources = match_and_merge(sources, pm, mode='and', plot=False, suffix='_kim', columns=[
+        'ID_kim',
+        'pmRA_kim', 'pmRA_e_kim',
+        'pmDE_kim', 'pmDE_e_kim'
+    ])
     
-    sources_coord = SkyCoord(ra=sources['RAJ2000'], dec=sources['DEJ2000'])
-    gaia_coord = SkyCoord(ra=gaia['RAJ2000'], dec=gaia['DEJ2000'])
-    
+    sources_coord = SkyCoord(ra=sources.RAJ2000*u.degree, dec=sources.DEJ2000*u.degree)
+    gaia_coord = SkyCoord(ra=gaia.RAJ2000*u.degree, dec=gaia.DEJ2000*u.degree)
+        
     max_sep = 1 * u.arcsec
-    matches = cross_match_gaia(sources_coord, gaia_coord, gaia['plx'], max_sep=max_sep)
+    matches = cross_match_gaia(sources_coord, gaia_coord, gaia.plx, max_sep=max_sep)
     
     # cross match gaia
-    sources = merge_on_coords(sources, gaia[[
-        'Gaia DR3',
-        'RAJ2000', 'DEJ2000', 
-        'plx', 'e_plx', 'plx_over_e',
-        'pmRA_gaia', 'e_pmRA_gaia', 
-        'pmDE_gaia', 'e_pmDE_gaia', 
-        'Gmag', 'Gmag_e', 'bp_rp', 
+    sources = match_and_merge(sources, gaia, mode='and', plot=False, suffix='_gaia', matches=matches, columns=[
+        'ID_gaia',
+        'plx', 'plx_e',
+        'plx_over_e',
+        'pmRA_gaia', 'pmRA_e_gaia',
+        'pmDE_gaia', 'pmDE_e_gaia',
+        'Gmag', 'Gmag_e', 'bp_rp',
         'astrometric_n_good_obs_al', 'astrometric_gof_al', 'astrometric_excess_noise', 'ruwe'
-    ]], matches=matches, table_names=['nirspao+apogee', 'gaia'])
+    ])
     
     # cross match hillenbrand
-    sources = merge_on_coords(sources, hillenbrand[[
-        'ID_hillenbrand', 'RAJ2000', 'DEJ2000','mass_hillenbrand'
-    ]], max_sep=2*u.arcsec, table_names=['nirspao+apogee', 'hillenbrand'])
+    sources = match_and_merge(sources, hillenbrand, mode='and', plot=True, suffix='_hillenbrand', max_sep=2*u.arcsec, label1='NIRSPEC+APOGEE', label2='Hillenbrand')
     
     # cross match tobin
-    sources = merge_on_coords(sources, tobin[[
-        'RAJ2000', 'DEJ2000', 'RV_tobin', 'e_RV_tobin'
-    ]], table_names=['nirspao+apogee', 'tobin'])
+    sources = match_and_merge(sources, tobin, mode='and', plot=False, suffix='_tobin', columns=[
+        'ID_2MASS_tobin',
+        'rv_tobin', 'rv_e_tobin', 'Vmag_tobin', 'V-I_tobin'
+    ])
     
 
     ###############################################
@@ -908,7 +835,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     # rvs = weighted_avrg_and_merge(
     #     sources_epoch_combined.rv_helio,
     #     sources_epoch_combined.rv_apogee,
-    #     sources_epoch_combined.rv_e_nirspao,
+    #     sources_epoch_combined.rv_e_nirspec,
     #     sources_epoch_combined.rv_e_apogee
     # )[0]
     
@@ -916,7 +843,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     # with open(save_path + 'median rv.txt', 'w') as file:
     #     file.write(str(median_rv))
         
-    # sources['rv_corrected_nirspao'] = sources.rv_helio - median_rv
+    # sources['rv_corrected_nirspec'] = sources.rv_helio - median_rv
     # sources['rv_corrected_apogee'] = sources.rv_apogee - median_rv
     
     
@@ -924,10 +851,9 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     ########### Merge Duplicate Columns ###########
     ###############################################
     
-    sources.add_column(sources['Teff_nirspao'], index=9, name='Teff')
-    sources['Teff'][sources['Teff'].mask] = sources['Teff_apogee'][sources['Teff_nirspao'].mask]
-    sources.add_column(sources['e_Teff_nirspao'], index=10, name='e_Teff')
-    sources['e_Teff'][sources['e_Teff'].mask] = sources['e_Teff_apogee'][sources['e_Teff_nirspao'].mask]
+    
+    sources.teff = sources.teff_nirspec.fillna(sources.teff_apogee)
+    sources.teff_e = sources.teff_e_nirspec.fillna(sources.teff_e_apogee)
     
     sources.Kmag, sources.Kmag_e = weighted_avrg_and_merge(sources.Kmag, sources.Kmag_apogee, error1=sources.Kmag_e, error2=sources.Kmag_e_apogee)
     for key in ['Kmag_apogee', 'Kmag_e_apogee']:
@@ -964,7 +890,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     ##################### Plot ####################
     ###############################################
     
-    plot_four_catalogs([sources_epoch_combined, apogee, kim, gaia], save_path=save_path)
+    plot_four_catalogs([sources_epoch_combined, apogee, pm, gaia], save_path=save_path)
     return sources, sources_epoch_combined
 
 
@@ -972,7 +898,14 @@ def construct_synthetic_catalog(nirspao_path, save_path):
 
 
 if __name__=='__main__':
-    nirspao_path        = f'{user_path}/ONC/starrynight/catalogs/nirspao sources.ecsv'
-    save_path           = f'{user_path}/ONC/starrynight/catalogs'
+    nirspec_path        = f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv'
+    chris_table_path    = f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv'
+    apogee_path         = f'{user_path}/ONC/starrynight/catalogs/apogee x 2mass.csv'
+    kounkel_path        = f'{user_path}/ONC/starrynight/catalogs/kounkel 2018.csv'
+    pm_path             = f'{user_path}/ONC/starrynight/catalogs/proper motion.csv'
+    gaia_path           = f'{user_path}/ONC/starrynight/catalogs/gaia dr3.csv'
+    hillenbrand_path    = f'{user_path}/ONC/starrynight/catalogs/hillenbrand mass.csv'
+    tobin_path          = f'{user_path}/ONC/starrynight/catalogs/tobin 2009.csv'
+    save_path           = f'{user_path}/ONC/starrynight/catalogs/'
 
-    sources, sources_epoch_combined = construct_synthetic_catalog(nirspao_path, save_path)
+    sources, sources_epoch_combined = construct_synthetic_catalog(nirspec_path, chris_table_path, apogee_path, kounkel_path, pm_path, gaia_path, hillenbrand_path, tobin_path, save_path)

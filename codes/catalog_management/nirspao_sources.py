@@ -51,34 +51,35 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
     
     result = {
         'HC2000':               [],
+        'm_HC2000':             [],
         'RAJ2000':              [],
         'DEJ2000':              [],
         '_RAJ2000':             [],
         '_DEJ2000':             [],
-        'date':                 [],
+        'obs_date':             [],
         'itime':                [],
         'sci_frames':           [],
         'tel_frames':           [],
-        'teff':                 [],
-        'teff_e':               [],
+        'Teff':                 [],
+        'e_Teff':               [],
         'vsini':                [],
-        'vsini_e':              [],
-        'rv':                   [],
-        'rv_helio':             [],
-        'rv_e':                 [],
+        'e_vsini':              [],
+        'RV':                   [],
+        'RVhelio':              [],
+        'e_RV':                 [],
         'airmass':              [],
-        'airmass_e':            [],
+        'e_airmass':            [],
         'pwv':                  [],
-        'pwv_e':                [],
+        'e_pwv':                [],
         'veiling':              [],
-        'veiling_e':            [],
+        'e_veiling':            [],
         'veiling_param_O32':    [],
         'veiling_param_O33':    [],
         'veiling_param_O35':    [],
         'lsf':                  [],
         'lsf_e':                [],
         'noise':                [],
-        'noise_e':              [],
+        'e_noise':              [],
         'model_dip_O32':        [],
         'model_std_O32':        [],
         'model_dip_O33':        [],
@@ -86,18 +87,18 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         'model_dip_O35':        [],
         'model_std_O35':        [],
         'wave_offset_O32':      [],
-        'wave_offset_O32_e':    [],
+        'e_wave_offset_O32':    [],
         'wave_offset_O33':      [],
-        'wave_offset_O33_e':    [],
+        'e_wave_offset_O33':    [],
         'wave_offset_O35':      [],
-        'wave_offset_O35_e':    [],
+        'e_wave_offset_O35':    [],
         'snr_O32':              [],
         'snr_O33':              [],
         'snr_O35':              [],
         'Kmag':                 [],
-        'Kmag_e':               [],
+        'e_Kmag':               [],
         'Hmag':                 [],
-        'Hmag_e':               []
+        'e_Hmag':               []
     }
     
     names = [str(_) for _ in names]
@@ -125,24 +126,28 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         
         index = list(hc2000['__HC2000_']).index(int(name.split('_')[0]))
         
-        result['HC2000'].append(name)
+        result['HC2000'].append(int(name.split('_')[0]))
+        if any(_.isalpha() for _ in name):
+            result['m_HC2000'].append(name.split('_')[1])
+        else:
+            result['m_HC2000'].append('')
         result['RAJ2000'].append(coords[index].ra.degree)
         result['DEJ2000'].append(coords[index].dec.degree)
         result['_RAJ2000'].append(hc2000['RAJ2000'][index])
         result['_DEJ2000'].append(hc2000['DEJ2000'][index])
         if hc2000['Kmag'].mask[index]:
             result['Kmag'].append(None)
-            result['Kmag_e'].append(None)
+            result['e_Kmag'].append(None)
         else:
             result['Kmag'].append(hc2000['Kmag'][index])
-            result['Kmag_e'].append(hc2000['e_Kmag'][index])
+            result['e_Kmag'].append(hc2000['e_Kmag'][index])
         if hc2000['Hmag'].mask[index]:
             result['Hmag'].append(None)
-            result['Hmag_e'].append(None)
+            result['e_Hmag'].append(None)
         else:
             result['Hmag'].append(hc2000['Hmag'][index])
-            result['Hmag_e'].append(hc2000['e_Hmag'][index])
-        result['date'].append(date.value)
+            result['e_Hmag'].append(hc2000['e_Hmag'][index])
+        result['obs_date'].append(date.value)
         
         for line in lines:
             if line.startswith('itime:'):
@@ -156,36 +161,36 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             
             elif line.startswith('teff:'):
                 value, error = read_text(line)
-                result['teff'].append(value)
-                result['teff_e'].append(error)
+                result['Teff'].append(value)
+                result['e_Teff'].append(error)
             
             elif line.startswith('vsini:'):
                 value, error = read_text(line)
                 result['vsini'].append(value)
-                result['vsini_e'].append(error)
+                result['e_vsini'].append(error)
             
             elif line.startswith('rv:'):
                 value, error = read_text(line)
-                result['rv'].append(value)
-                result['rv_e'].append(error)
+                result['RV'].append(value)
+                result['e_RV'].append(error)
             
             elif line.startswith('rv_helio:'):
-                result['rv_helio'].append(read_text(line))
+                result['RVhelio'].append(read_text(line))
             
             elif line.startswith('airmass:'):
                 value, error = read_text(line)
                 result['airmass'].append(value)
-                result['airmass_e'].append(error)
+                result['e_airmass'].append(error)
             
             elif line.startswith('pwv:'):
                 value, error = read_text(line)
                 result['pwv'].append(value)
-                result['pwv_e'].append(error)
+                result['e_pwv'].append(error)
             
             elif line.startswith('veiling:'):
                 value, error = read_text(line)
                 result['veiling'].append(value)
-                result['veiling_e'].append(error)
+                result['e_veiling'].append(error)
             
             elif line.startswith('veiling_param_O32:'):
                 result['veiling_param_O32'].append(read_text(line))
@@ -201,7 +206,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             elif line.startswith('noise:'):
                 value, error = read_text(line)
                 result['noise'].append(value)
-                result['noise_e'].append(error)
+                result['e_noise'].append(error)
             
             elif line.startswith('model_dip_O32:'):
                 result['model_dip_O32'].append(read_text(line))
@@ -218,12 +223,12 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             elif line.startswith('wave_offset_O32:'):
                 value, error = read_text(line)
                 result['wave_offset_O32'].append(value)
-                result['wave_offset_O32_e'].append(error)
+                result['e_wave_offset_O32'].append(error)
             
             elif line.startswith('wave_offset_O33:'):
                 value, error = read_text(line)
                 result['wave_offset_O33'].append(value)
-                result['wave_offset_O33_e'].append(error)
+                result['e_wave_offset_O33'].append(error)
             
             elif line.startswith('snr_O32:'):
                 result['snr_O32'].append(read_text(line))
@@ -277,36 +282,36 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
                 for line in lines:
                     if line.startswith('teff:'):
                         value, error = read_text(line)
-                        result['teff'][-1] = value
-                        result['teff_e'][-1] = error
+                        result['Teff'][-1] = value
+                        result['e_Teff'][-1] = error
                     
                     elif line.startswith('vsini:'):
                         value, error = read_text(line)
                         result['vsini'][-1] = value
-                        result['vsini_e'][-1] = error
+                        result['e_vsini'][-1] = error
                     
                     elif line.startswith('rv:'):
                         value, error = read_text(line)
-                        result['rv'][-1] = value
-                        result['rv_e'][-1] = error
+                        result['RV'][-1] = value
+                        result['e_RV'][-1] = error
                     
                     elif line.startswith('rv_helio:'):
-                        result['rv_helio'][-1] = read_text(line)
+                        result['RVhelio'][-1] = read_text(line)
                     
                     elif line.startswith('airmass:'):
                         value, error = read_text(line)
                         result['airmass'][-1] = value
-                        result['airmass_e'][-1] = error
+                        result['e_airmass'][-1] = error
                     
                     elif line.startswith('pwv:'):
                         value, error = read_text(line)
                         result['pwv'][-1] = value
-                        result['pwv_e'][-1] = error
+                        result['e_pwv'][-1] = error
                     
                     elif line.startswith('veiling:'):
                         value, error = read_text(line)
                         result['veiling'][-1] = value
-                        result['veiling_e'][-1] = error
+                        result['e_veiling'][-1] = error
                     
                     elif line.startswith('veiling_param_O35:'):
                         result['veiling_param_O35'].append(read_text(line))
@@ -319,7 +324,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
                     elif line.startswith('noise:'):
                         value, error = read_text(line)
                         result['noise'][-1] = value
-                        result['noise_e'][-1] = error
+                        result['e_noise'][-1] = error
                     
                     elif line.startswith('model_dip_O35:'):
                         result['model_dip_O35'].append(read_text(line))
@@ -330,7 +335,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
                     elif line.startswith('wave_offset_O35:'):
                         value, error = read_text(line)
                         result['wave_offset_O35'].append(value)
-                        result['wave_offset_O35_e'].append(error)
+                        result['e_wave_offset_O35'].append(error)
                     
                     elif line.startswith('snr_O35:'):
                         result['snr_O35'].append(read_text(line))
@@ -341,7 +346,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             result['model_dip_O35'].append(None)
             result['model_std_O35'].append(None)
             result['wave_offset_O35'].append(None)
-            result['wave_offset_O35_e'].append(None)
+            result['e_wave_offset_O35'].append(None)
             result['snr_O35'].append(None)
     
     result = pd.DataFrame.from_dict(result)
@@ -349,10 +354,10 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         'RAJ2000': u.deg,
         'DEJ2000': u.deg,
         'itime': u.s,
-        'teff': u.K, 'teff_e': u.K,
-        'vsini': u.km/u.s, 'vsini_e': u.km/u.s,
-        'rv': u.km/u.s, 'rv_helio': u.km/u.s, 'rv_e': u.km/u.s, 
-        'Kmag': u.mag, 'Kmag_e': u.mag, 'Hmag': u.mag, 'Hmag_e': u.mag
+        'Teff': u.K, 'e_Teff': u.K,
+        'vsini': u.km/u.s, 'e_vsini': u.km/u.s,
+        'RV': u.km/u.s, 'RVhelio': u.km/u.s, 'e_RV': u.km/u.s, 
+        'Kmag': u.mag, 'e_Kmag': u.mag, 'Hmag': u.mag, 'e_Hmag': u.mag
     })
     
     # write result

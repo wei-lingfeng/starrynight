@@ -1,0 +1,16 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: HC2000, datatype: int64}
+# - {name: theta_orionis, datatype: string}
+# - {name: RAJ2000, datatype: string, subtype: json}
+# - {name: DEJ2000, datatype: string, subtype: json}
+# - {name: mass_literature, unit: solMass, datatype: float64}
+# - {name: mass_e_literature, unit: solMass, datatype: float64}
+# schema: astropy-2.0
+HC2000 theta_orionis RAJ2000 DEJ2000 mass_literature mass_e_literature
+336 A 83.81587499999999 -5.387305555555556 26.6 1.33
+354 B 83.81712499999999 -5.385222222222223 16.3 0.8150000000000001
+309 C 83.81858333333332 -5.389722222222223 44.0 7.0710678118654755
+330 D 83.82183333333332 -5.387944444444445 25.0 1.25
+344 E 83.81570833333332 -5.386083333333334 5.604 0.06788225099390857
