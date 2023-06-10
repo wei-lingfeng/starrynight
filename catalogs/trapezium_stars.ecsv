@@ -3,12 +3,30 @@
 # datatype:
 # - {name: HC2000, datatype: int64}
 # - {name: theta_orionis, datatype: string}
-# - {name: RAJ2000, datatype: string, subtype: json}
-# - {name: DEJ2000, datatype: string, subtype: json}
+# - {name: RAJ2000, unit: deg, datatype: float64}
+# - {name: DEJ2000, unit: deg, datatype: float64}
 # - {name: mass_literature, unit: solMass, datatype: float64}
-# - {name: mass_e_literature, unit: solMass, datatype: float64}
+# - {name: e_mass_literature, unit: solMass, datatype: float64}
+# meta: !!omap
+# - __serialized_columns__:
+#     DEJ2000:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: &id001 !astropy.units.Unit {unit: deg}
+#       value: !astropy.table.SerializedColumn {name: DEJ2000}
+#     RAJ2000:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: RAJ2000}
+#     e_mass_literature:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: &id002 !astropy.units.Unit {unit: solMass}
+#       value: !astropy.table.SerializedColumn {name: e_mass_literature}
+#     mass_literature:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id002
+#       value: !astropy.table.SerializedColumn {name: mass_literature}
 # schema: astropy-2.0
-HC2000 theta_orionis RAJ2000 DEJ2000 mass_literature mass_e_literature
+HC2000 theta_orionis RAJ2000 DEJ2000 mass_literature e_mass_literature
 336 A 83.81587499999999 -5.387305555555556 26.6 1.33
 354 B 83.81712499999999 -5.385222222222223 16.3 0.8150000000000001
 309 C 83.81858333333332 -5.389722222222223 44.0 7.0710678118654755

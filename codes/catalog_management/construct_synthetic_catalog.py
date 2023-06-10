@@ -2,11 +2,12 @@ import os
 import copy
 import collections
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 import plotly.graph_objects as go
 import astropy.units as u
 from astropy.io import ascii
-from astropy.table import Table, QTable, MaskedColumn, vstack, join
+from astropy.table import Table, QTable, MaskedColumn, hstack, vstack
 from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astroquery.vizier import Vizier
@@ -36,16 +37,23 @@ def weighted_avrg(array, error=None):
         - result: 1-D array of weighted average
         - result_e: 1-D array of uncertainty. Not returned if errors are not provided.
     '''
-    array = np.array([array]).flatten()
-    if not (error is None):
-        error = np.array([error]).flatten()
-        idx = np.logical_and(~np.isnan(array), ~np.isnan(error))   # value in both
-        if sum(idx)==0: 
+    unit = None
+    if 'astropy' in str(type(array)):
+        unit = array.unit
+        array = ma.MaskedArray(array.value)
+        if error is not None:
+            error = ma.MaskedArray(error.value)
+    else:
+        array = np.array([array]).flatten()
+    
+    if error is not None:
+        if all(np.isnan(array)) and all(np.isnan(error)):
             return np.nan, np.nan
         else:
-            avrg = np.average(array[idx], weights=1/error[idx]**2)
-            avrg_e = 1/sum(1/error[idx]**2) * np.sqrt(sum(1/error[idx]**2))
+            avrg = ma.average(array, weights=1/error**2)
+            avrg_e = ma.sqrt(ma.sum(error**2))/ma.sum(~np.isnan(error))
             return avrg, avrg_e
+        
     else:
         avrg = np.nanmean(array)
         return avrg
@@ -64,52 +72,45 @@ def weighted_avrg_and_merge(array1, array2, error1=None, error2=None):
         - result: 1-D array of weighted average
         - result_e: 1-D array of uncertainty. Not returned if errors are not provided.
     '''
-    array1 = np.array([array1]).flatten()
-    array2 = np.array([array2]).flatten()
-    error1 = np.array([error1]).flatten()
-    error2 = np.array([error2]).flatten()
-    
-    N_stars = len(array1)
-    avrg = np.empty(N_stars)
-    avrg_e = np.empty(N_stars)
-    value_in_1 = np.logical_and(~np.isnan(array1),  np.isnan(array2))   # value in 1 ONLY
-    value_in_2 = np.logical_and( np.isnan(array1), ~np.isnan(array2))   # value in 2 ONLY
-    value_both = np.logical_and(~np.isnan(array1), ~np.isnan(array2))   # value in both
-    value_none = np.logical_and( np.isnan(array1),  np.isnan(array2))   # value in none
+    unit = None
+    if 'astropy' in str(type(array1)):
+        unit = array1.unit
+        array1 = ma.MaskedArray(array1.value)
+        array2 = ma.MaskedArray(array2.value)
+        if error1 is not None and error2 is not None:
+            error1 = ma.MaskedArray(error1.value).filled(np.nan)
+            error2 = ma.MaskedArray(error2.value).filled(np.nan)
+    else:
+        array1 = np.array([array1]).flatten()
+        array2 = np.array([array2]).flatten()
+        error1 = np.array([error1]).flatten()
+        error2 = np.array([error2]).flatten()
 
-    avrg[value_in_1] = array1[value_in_1]
-    avrg[value_in_2] = array2[value_in_2]
-    avrg[value_none] = np.nan
     
-    if not ((error1 is None) or (error2 is None)):
-        avrg[value_both] = np.average(
-            [array1[value_both], array2[value_both]], 
-            axis=0, 
-            weights=[1 / error1[value_both]**2, 1 / error2[value_both]**2]
-        )
+    if error1 is not None and error2 is not None:
+        N_stars = len(array1)
+        avrg_e = ma.empty(N_stars)
+        value_in_1 = np.logical_and(~array1.mask,  array2.mask)   # value in 1 ONLY
+        value_in_2 = np.logical_and( array1.mask, ~array2.mask)   # value in 2 ONLY
+        value_both = np.logical_and(~array1.mask, ~array2.mask)   # value in both
+        value_none = np.logical_and( array1.mask,  array2.mask)   # value in none
         
+        avrg = ma.average([array1, array2], axis=0, weights=[1/error1**2, 1/error2**2])
         avrg_e[value_in_1] = error1[value_in_1]
         avrg_e[value_in_2] = error2[value_in_2]
-        avrg_e[value_both] = 1 / np.sqrt(
-            1 / error1[value_both]**2 + 1 / error2[value_both]**2
-        )
+        avrg_e[value_both] = 1 / np.sqrt(1/error1[value_both]**2 + 1/error2[value_both]**2)
         avrg_e[value_none] = np.nan
         
-        if N_stars==1:
-            return avrg[0], avrg_e[0]
-        else:
-            return avrg, avrg_e
-        
+        if unit is not None:
+            avrg = MaskedColumn(avrg, mask=value_none, unit=unit)
+            avrg_e = MaskedColumn(avrg_e, mask=value_none, unit=unit)
+        return avrg, avrg_e
+    
     else:
-        avrg[value_both] = np.average(
-            [array1[value_both], array2[value_both]], 
-            axis=0
-        )
-        
-        if N_stars==1:
-            return avrg[0]
-        else:
-            return avrg
+        avrg = ma.average([array1, array2], axis=0)
+        if unit is not None:
+            avrg = MaskedColumn(avrg, unit=unit)
+        return avrg
 
 
 def cross_match(coord1, coord2, max_sep=1*u.arcsec, plot=True, label_names = ['1', '2']):
@@ -250,7 +251,7 @@ def merge_on_coords(catalog1, catalog2, join_type='left', max_sep=1.*u.arcsec, c
     catalog1_coord = SkyCoord(ra=catalog1[left_coord_cols[0]], dec=catalog1[left_coord_cols[1]])
     catalog2_coord = SkyCoord(ra=catalog2[right_coord_cols[0]], dec=catalog2[right_coord_cols[1]])
     idx, sep_constraint = cross_match(catalog1_coord, catalog2_coord, max_sep, plot, label_names=table_names)
-    matches = np.array([np.nan if valid_match else i for i, valid_match in zip(idx, sep_constraint)])
+    matches = np.array([i if valid_match else np.nan for i, valid_match in zip(idx, sep_constraint)])
     
     result = merge(catalog1, catalog2, matches, join_type, table_names, uniq_col_name)
     
@@ -375,6 +376,11 @@ def merge(catalog1, catalog2, matches, join_type='left', table_names=['1', '2'],
     return result
 
 
+def fillna(column1, column2):
+    result = column1
+    result[result.mask] = column2[result.mask]
+    return result
+
 def cross_match_gaia(coord, gaia_coord, plx, max_sep=1*u.arcsec):
     """On-sky cross match for ALL candidates within a certain radius.
     User can configure the matches with the help of the printed information for multiple candidates within the maximum allowed separation.
@@ -442,57 +448,78 @@ def cross_match_gaia(coord, gaia_coord, plx, max_sep=1*u.arcsec):
     return matches
 
 
-def merge_multiepoch(sources, **kwargs):
+def merge_multiepoch(sources, column_pairs=None):
     '''Merge multiepoch observation data. The latest row is kept.
-    --------------------
-    - Parameters:
-        - sources: pandas dataframe containing column 'HC2000' and mcmc fitting results.
-        - kwargs: column_pairs: dictionary of the form value --> error. e.g. {'teff': 'teff_e'}.
-            If not provided, search for all keyword pairs of the form 'KEYWORDS' --> 'KEYWORDS_e' by default.
-    - Returns:
-        - sources_epoch_combined: combined pandas dataframe. Each object is unique.
+    
+    Parameters
+    ----------
+        sources : pandas dataframe or astropy table
+            Table containing column 'HC2000' and mcmc fitting results.
+        column_pairs : dictionary 
+            Column pairs of the form value --> error. e.g. {'Teff': 'e_Teff'}. If not provided, search for all keyword pairs of the form 'KEYWORDS' --> 'e_KEYWORDS' by default.
+    
+    Returns
+    -------
+        sources_epoch_combined: combined pandas dataframe. Each object is unique.
     '''
-    if 'column_pairs' not in kwargs.keys():
+    units = None
+    if 'astropy.table' in str(type(sources)):
+        units = [sources[key].unit for key in sources.keys()]
+    sources = sources.to_pandas()
+    
+    if column_pairs is None:
         column_pairs = {}
-        keywords = [keyword for keyword in sources.keys() if '{}_e'.format(keyword) in sources.keys()]
+        keywords = [keyword for keyword in sources.keys() if 'e_{}'.format(keyword) in sources.keys()]
         for keyword in keywords:
-            column_pairs[keyword] = '{}_e'.format(keyword)
+            column_pairs[keyword] = 'e_{}'.format(keyword)
     
-    column_pairs = kwargs.get('column_pairs', column_pairs)
-    
-    counts = collections.Counter(sources.HC2000)
+    ID_HC2000 = [str(l) + '_' + str(r) if str(r)!='nan' else str(l) for l, r in zip(sources.HC2000[~sources.HC2000.isna()], sources.m_HC2000[~sources.HC2000.isna()])]
+    counts = collections.Counter(ID_HC2000)
     multiepoch = {k: v for k, v in counts.items() if ((v > 1) & (str(k).lower()!='nan'))}   # multi epoch objects
     sources_epoch_combined = copy.deepcopy(sources)
     for object in multiepoch.keys():
-        indices = sources.index[sources.HC2000 == object].tolist()
+        if '_' in object:
+            indices = sources.index[sources.HC2000==int(object.split('_')[0]) & sources.m_HC2000==object.split('_')[1]].tolist()
+        else:
+            indices = sources.index[sources.HC2000==int(object)].tolist()
         for value_column, error_column in column_pairs.items():
             sources_epoch_combined.loc[indices[-1], value_column], sources_epoch_combined.loc[indices[-1], error_column] = weighted_avrg(
                 sources.loc[indices, value_column], error=sources.loc[indices, error_column]
             )
-        sources_epoch_combined.loc[indices[-1], 'rv_helio'] = weighted_avrg(
-            sources.loc[indices, 'rv_helio'], error=sources.loc[indices, 'rv_e_nirspao']
+        sources_epoch_combined.loc[indices[-1], 'RVhelio'] = weighted_avrg(
+            sources.loc[indices, 'RVhelio'], error=sources.loc[indices, 'e_RV_nirspao']
         )[0]
         sources_epoch_combined = sources_epoch_combined.drop(indices[:-1])
     sources_epoch_combined = sources_epoch_combined.reset_index(drop=True)
+    
+    if units is not None:
+        mapping = {k:u for k, u in zip(sources.keys(), units)}
+        sources_epoch_combined = QTable.from_pandas(sources_epoch_combined, units=mapping)
     return sources_epoch_combined
 
 
 def configurable_cross_match(a_coord, b_coord, max_sep=1.0*u.arcsec):
-    '''On sky cross match for ALL candidates within a certain radius.
+    """On sky cross match for ALL candidates within a certain radius.
     User can configure the matches with the help of the printed information for multiple candidates within the maximum separation.
     The closest is chosen by default.
-    --------------------
-    - Parameters: 
-        - a_coord: astropy Skycoord.
-        - b_coord: astropy Skycoord.
-        - max_sep: maximum separation. Default is 1.0 arcsec.
-    - Returns: 
-        - matches: list of closest index in b_coord or np.nan. e.g.: a_coord[i] --> b_coord[matches[i]].
-        If there's no match: np.nan.
-    - Prints:
+    
+    Parameters
+    ----------
+        a_coord: astropy Skycoord
+        b_coord: astropy Skycoord
+        max_sep: maximum separation, by default 1.0*arcsec.
+    
+    Returns
+    -------
+        matches: list
+            List of closest index in b_coord from a_coord[i] or np.nan if there is no match. e.g.: a_coord[i] --> b_coord[matches[i]].
+    
+    Outputs
+    -------
         When there are multiple matches within max_sep, print out their distances and parallax.
         The closest match is chosen by defaut. However, users can easily change the match with the help of printed information.
-    '''
+    """
+    
     print('Multiple Cross Match Results:')
     
     b_idx = np.arange(len(b_coord))
@@ -515,25 +542,31 @@ def configurable_cross_match(a_coord, b_coord, max_sep=1.0*u.arcsec):
     return matches
 
 
-def fit_mass(teff, teff_e):
+def fit_mass(Teff, e_Teff):
     '''Fit mass, logg, etc. assuming a 2-Myr age.
-    --------------------
-    - Parameters:
-        - teff: array-like effective temperature in K.
-        - teff_e: array-like effective temperature error in K.
+    
+    Parameter
+    ---------
+        teff: array-like
+            Effective temperature in K
+        teff_e: array-like effective temperature error in K.
     - Returns:
         - result: pandas dataframe.
     '''
-    teff = np.vstack((teff, teff_e)).transpose()
+    Teff = Teff.value
+    e_Teff = e_Teff.value
+    Teff = np.vstack((Teff, e_Teff)).transpose()
     
     result = pd.DataFrame.from_dict({
-        **BHAC15_Fit.fit(teff),
-        **MIST_Fit.fit(teff),
-        **Feiden_Fit.fit(teff),
-        **Palla_Fit.fit(teff),
-        **DAntona_Fit.fit(teff)
+        **BHAC15_Fit.fit(Teff),
+        **MIST_Fit.fit(Teff),
+        **Feiden_Fit.fit(Teff),
+        **Palla_Fit.fit(Teff),
+        **DAntona_Fit.fit(Teff)
     })
     
+    mapping = {key: u.solMass for key in result.keys()}
+    result = QTable.from_pandas(result, units=mapping)
     return result
 
 
@@ -566,9 +599,9 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
     
     sources_epoch_combined, apogee, pm, gaia = catalogs
     
-    pm_coord = SkyCoord(ra=pm.RAJ2000*u.degree, dec=pm.DEJ2000*u.degree)
+    pm_coord = SkyCoord(ra=pm['RAJ2000'], dec=pm['DEJ2000'])
     
-    matched_circles_idx = np.arange(len(sources_epoch_combined))[~sources_epoch_combined.ID_gaia.isna() | ~sources_epoch_combined.ID_kim.isna()]
+    matched_circles_idx = np.arange(len(sources_epoch_combined))[~sources_epoch_combined['Gaia DR3'].mask | ~sources_epoch_combined['ID_kim'].mask]
     
     ply_shapes = dict()
     
@@ -576,10 +609,10 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         ply_shapes['shape_' + str(i)] = go.layout.Shape(
             type='circle',
             xref='x', yref='y',
-            x0=sources_epoch_combined.RAJ2000[i] - (max_sep.to(u.degree)).value / np.cos(sources_epoch_combined.DEJ2000[i]*np.pi/180),
-            y0=sources_epoch_combined.DEJ2000[i] - (max_sep.to(u.degree)).value,
-            x1=sources_epoch_combined.RAJ2000[i] + (max_sep.to(u.degree)).value / np.cos(sources_epoch_combined.DEJ2000[i]*np.pi/180),
-            y1=sources_epoch_combined.DEJ2000[i] + (max_sep.to(u.degree)).value,
+            x0=(sources_epoch_combined['RAJ2000'][i] - max_sep / np.cos(sources_epoch_combined['DEJ2000'][i])).to(u.deg).value,
+            y0=(sources_epoch_combined['DEJ2000'][i] - max_sep).to(u.deg).value,
+            x1=(sources_epoch_combined['RAJ2000'][i] + max_sep / np.cos(sources_epoch_combined['DEJ2000'][i])).to(u.deg).value,
+            y1=(sources_epoch_combined['DEJ2000'][i] + max_sep).to(u.deg).value,
             line_color='#2f2f2f',
             line_width=1,
             opacity=opacity,
@@ -588,7 +621,7 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
        
     trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
     
-    apogee_index = [apogee.index[apogee.ID_apogee == _][0] for _ in sources_epoch_combined.ID_apogee[~sources_epoch_combined.ID_apogee.isna()]]
+    apogee_index = [list(apogee['APOGEE']).index(_) for _ in sources_epoch_combined['APOGEE'][~sources_epoch_combined['APOGEE'].mask]]
     
     fig_data = [
         # Plot Trapezium
@@ -609,8 +642,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='Gaia Sources',
-            x=gaia.RAJ2000, 
-            y=gaia.DEJ2000, 
+            x=gaia['RAJ2000'].to(u.deg).value, 
+            y=gaia['DEJ2000'].to(u.deg).value, 
             opacity=opacity,
             marker=dict(
                 size=marker_size,
@@ -623,8 +656,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='Proper Motion Sources',
-            x=pm.RAJ2000[pm_coord.separation(trapezium) < 4*u.arcmin], 
-            y=pm.DEJ2000[pm_coord.separation(trapezium) < 4*u.arcmin], 
+            x=(pm['RAJ2000'][pm_coord.separation(trapezium) < 4*u.arcmin]).to(u.deg).value, 
+            y=(pm['DEJ2000'][pm_coord.separation(trapezium) < 4*u.arcmin]).to(u.deg).value, 
             opacity=opacity/2,
             marker=dict(
                 size=marker_size,
@@ -637,8 +670,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='APOGEE Sources',
-            x=apogee.RAJ2000[apogee_index], 
-            y=apogee.DEJ2000[apogee_index], 
+            x=(apogee['RAJ2000'][apogee_index]).to(u.deg).value, 
+            y=(apogee['DEJ2000'][apogee_index]).to(u.deg).value, 
             opacity=1,
             marker=dict(
                 size=marker_size,
@@ -651,8 +684,8 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
         go.Scatter(
             mode='markers',
             name='NIRSPAO Sources',
-            x=sources_epoch_combined.RAJ2000[~sources_epoch_combined.HC2000.isna()], 
-            y=sources_epoch_combined.DEJ2000[~sources_epoch_combined.HC2000.isna()], 
+            x=sources_epoch_combined['RAJ2000'][~sources_epoch_combined['HC2000'].mask], 
+            y=sources_epoch_combined['DEJ2000'][~sources_epoch_combined['HC2000'].mask], 
             opacity=1,
             marker=dict(
                 size=marker_size,
@@ -746,12 +779,10 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     )
     # Convert empty string to masked element in nirspao_old
     nirspao_old['m_HC2000'] = MaskedColumn(nirspao_old['m_HC2000'], mask=[True if _=='' else False for _ in nirspao_old['m_HC2000']], dtype=nirspao['m_HC2000'].dtype)
-
-    # nirspao.add_columns([None, None], indexes=[8, 8], names=['Teff', 'e_Teff'])
         
     apogee.rename_columns(
-        ['RV',          'e_RV',         'Teff',         'e_Teff',           'vsini',        'e_vsini',          'Veiling'],
-        ['RV_apogee',   'e_RV_apogee',  'Teff_apogee',  'e_Teff_apogee',    'vsini_apogee', 'e_vsini_apogee',   'veiling_param_apogee']
+        ['RV',          'e_RV',         'Teff',         'e_Teff',           'vsini',        'e_vsini',          'Veiling',              'Kmag',         'e_Kmag',           'Hmag',         'e_Hmag'],
+        ['RV_apogee',   'e_RV_apogee',  'Teff_apogee',  'e_Teff_apogee',    'vsini_apogee', 'e_vsini_apogee',   'veiling_param_apogee', 'Kmag_apogee',  'e_Kmag_apogee',    'Hmag_apogee',  'e_Hmag_apogee']
     )
     
     kounkel.rename_columns(
@@ -781,33 +812,36 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     
     # Add & Replace Trapezium Stars
-    trapezium_stars = {}
+    trapezium_stars = QTable()
 
     # A1-A3, B1-B5, C1-C2, D, EA-EB
     trapezium_stars['HC2000'] = [336, 354, 309, 330, 344]
     trapezium_stars['theta_orionis'] = ['A', 'B', 'C', 'D', 'E']
-    trapezium_stars['mass_literature'] = [26.6, 16.3, 44, 25, 5.604]
-    trapezium_stars['mass_e_literature'] = [26.6*0.05, 16.3*0.05, 5*2**0.5, 25*0.05, 0.048*2**0.5]
+    trapezium_stars['mass_literature'] = np.array([26.6, 16.3, 44, 25, 5.604]) * u.solMass
+    trapezium_stars['e_mass_literature'] = np.array([26.6*0.05, 16.3*0.05, 5*2**0.5, 25*0.05, 0.048*2**0.5]) * u.solMass
     
-    trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'mass_e_literature': u.solMass})
-    trapezium_stars.add_columns([None, None], indexes=[2, 2], names=['RAJ2000', 'DEJ2000'])
+    # trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'mass_e_literature': u.solMass})
+    trapezium_stars.add_columns([np.empty(5)*u.deg, np.empty(5)*u.deg], indexes=[2, 2], names=['RAJ2000', 'DEJ2000'])
     
     # Get RA DEC from HC2000 catalog
     coords = SkyCoord([f'{ra} {dec}' for ra, dec in zip(hc2000['RAJ2000'], hc2000['DEJ2000'])], unit=(u.hourangle, u.deg))
     for i in range(len(trapezium_stars)):
         idx = list(hc2000['HC2000']).index(trapezium_stars['HC2000'][i])
-        trapezium_stars['RAJ2000'][i] = coords[idx].ra.degree
-        trapezium_stars['DEJ2000'][i] = coords[idx].dec.degree
+        trapezium_stars['RAJ2000'][i] = coords[idx].ra.deg * u.deg
+        trapezium_stars['DEJ2000'][i] = coords[idx].dec.deg * u.deg
     
     if save_path is not None:
         trapezium_stars.write(f'{save_path}/trapezium_stars.ecsv', overwrite=True)
     # Remove trapezium stars from nirspao? No!
     # nirspao.remove_rows([index for index, element in enumerate(nirspao['HC2000']) if element in trapezium_stars['HC2000']])
-        
+    
+    # Merge nirspec and trapezium stars
+    nirspao = vstack((nirspao, trapezium_stars))
+    
     # Remove multiplicty index with only A or B
     for i in np.where(~nirspao_old['m_HC2000'].mask)[0]:
         if not all([_ in nirspao_old['m_HC2000'][nirspao_old['HC2000']==nirspao_old['HC2000'][i]] for _ in ['A', 'B']]):
-            nirspao_old['m_HC2000'][i] = np.ma.masked    
+            nirspao_old['m_HC2000'][i] = ma.masked    
     
     # Add Gmag uncertainty.
     # magnitude = -2.5*log10(flux) + zero point. (https://en.wikipedia.org/wiki/Apparent_magnitude#Calculations)
@@ -852,7 +886,9 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         'RV_apogee', 'e_RV_apogee', 
         'Teff_apogee', 'e_Teff_apogee', 
         'vsini_apogee', 'e_vsini_apogee', 
-        'veiling_param_apogee'
+        'veiling_param_apogee',
+        'Kmag_apogee', 'e_Kmag_apogee', 
+        'Hmag_apogee', 'e_Hmag_apogee'
     ]], join_type='outer', table_names=['nirspao', 'apogee'])
     
     # cross match kounkel
@@ -899,66 +935,51 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         'RAJ2000', 'DEJ2000', 'RV_tobin', 'e_RV_tobin'
     ]], table_names=['nirspao+apogee', 'tobin'])
     
-
-    ###############################################
-    ############# Calculate Median RV #############
-    ###############################################
-    # sources_epoch_combined = merge_multiepoch(sources)
-    
-    # rvs = weighted_avrg_and_merge(
-    #     sources_epoch_combined.rv_helio,
-    #     sources_epoch_combined.rv_apogee,
-    #     sources_epoch_combined.rv_e_nirspao,
-    #     sources_epoch_combined.rv_e_apogee
-    # )[0]
-    
-    # median_rv = np.nanmedian(rvs)
-    # with open(save_path + 'median rv.txt', 'w') as file:
-    #     file.write(str(median_rv))
-        
-    # sources['rv_corrected_nirspao'] = sources.rv_helio - median_rv
-    # sources['rv_corrected_apogee'] = sources.rv_apogee - median_rv
-    
     
     ###############################################
     ########### Merge Duplicate Columns ###########
     ###############################################
     
-    sources.add_column(sources['Teff_nirspao'], index=9, name='Teff')
-    sources['Teff'][sources['Teff'].mask] = sources['Teff_apogee'][sources['Teff_nirspao'].mask]
-    sources.add_column(sources['e_Teff_nirspao'], index=10, name='e_Teff')
-    sources['e_Teff'][sources['e_Teff'].mask] = sources['e_Teff_apogee'][sources['e_Teff_nirspao'].mask]
+    sources.add_column(fillna(sources['Teff_nirspao'], sources['Teff_apogee']), index=10, name='Teff')
+    sources.add_column(fillna(sources['e_Teff_nirspao'], sources['e_Teff_apogee']), index=11, name='e_Teff')
     
-    sources.Kmag, sources.Kmag_e = weighted_avrg_and_merge(sources.Kmag, sources.Kmag_apogee, error1=sources.Kmag_e, error2=sources.Kmag_e_apogee)
-    for key in ['Kmag_apogee', 'Kmag_e_apogee']:
-        sources.pop(key)
+    sources['Kmag'], sources['e_Kmag'] = weighted_avrg_and_merge(
+        sources['Kmag'], 
+        sources['Kmag_apogee'], 
+        error1=sources['e_Kmag'], 
+        error2=sources['e_Kmag_apogee']
+    )
+    sources.remove_columns(['Kmag_apogee', 'e_Kmag_apogee'])
     
-    apogee_id = sources.ID_apogee
-    sources.pop('ID_apogee')
-    sources.insert(1, 'ID_apogee', apogee_id)
+    sources.rename_column('APOGEE', 'APOGEE-temp')
+    sources.add_column(sources['APOGEE-temp'], index=2, name='APOGEE')
+    sources.remove_column('APOGEE-temp')
     
     sources_epoch_combined = merge_multiepoch(sources)
+    
     
     ###############################################
     ################### Fit Mass ##################
     ###############################################
-    sources = pd.concat([sources, fit_mass(sources.teff, sources.teff_e)], axis=1)
-    sources_epoch_combined = pd.concat([sources_epoch_combined, fit_mass(sources_epoch_combined.teff, sources_epoch_combined.teff_e)], axis=1)
+    sources = hstack((sources, fit_mass(sources['Teff'], sources['e_Teff'])))
+    sources_epoch_combined = hstack((sources_epoch_combined, fit_mass(sources_epoch_combined['Teff'], sources_epoch_combined['e_Teff'])))
     
     # Delete Fitting results for trapezium stars
-    columns = fit_mass(sources.teff, sources.teff_e).keys()
-    indices = ~sources.theta_orionis.isna()
-    sources.loc[indices, columns] = np.nan
+    columns = fit_mass(sources['Teff'], sources['e_Teff']).keys()
+    indices = ~sources['theta_orionis'].mask
+    sources[columns][indices] = np.nan
     
-    indices = ~sources_epoch_combined.theta_orionis.isna()
-    sources_epoch_combined.loc[indices, columns] = np.nan
+    indices = ~sources_epoch_combined['theta_orionis'].mask
+    sources_epoch_combined[columns][indices] = np.nan
     
     
     ###############################################
     ################# Write to csv ################
     ###############################################
-    sources.to_csv(save_path + 'synthetic catalog.csv', index=False)
-    sources_epoch_combined.to_csv(save_path + 'synthetic catalog - epoch combined.csv', index=False)
+    sources.write(f'{save_path}/synthetic catalog.ecsv', overwrite=True)
+    sources.write(f'{save_path}/synthetic catalog - new.csv', overwrite=True)
+    sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined.ecsv', overwrite=True)
+    sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined - new.csv', overwrite=True)
     
     ###############################################
     ##################### Plot ####################
