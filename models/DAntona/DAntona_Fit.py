@@ -17,7 +17,7 @@ def fit(teff):
     
     warnings.filterwarnings(action='ignore', message='All-NaN slice encountered')
     model_name = 'DAntona'
-    model_path = f'{user_path}/ONC/starrynight/models/' + model_name + '/' + model_name + '_Model.csv'
+    model_path = f'{user_path}/ONC/starrynight/models/{model_name}/{model_name}_Model.csv'
     
     if np.shape(teff)[1] == 2:
         teff = np.array([teff[:, 0], teff[:, 0] - teff[:, 1], teff[:, 0] + teff[:, 1]]).transpose()
@@ -38,11 +38,11 @@ def fit(teff):
     
     points = np.hstack((func_1(teff), func_2(teff), func_3(teff)))
     
-    result['mass_'   + model_name] = func_2(teff[:, 0])
-    result['mass_e_' + model_name] = (np.nanmax(points, axis=1) - np.nanmin(points, axis=1)) / 2
+    result[f'mass_{model_name}']    = func_2(teff[:, 0])
+    result[f'e_mass_{model_name}']  = (np.nanmax(points, axis=1) - np.nanmin(points, axis=1)) / 2
     
     # if truth = nan, then lo & hi = nan
-    result['mass_e_' + model_name][np.where( np.isnan(result['mass_' + model_name]) )] = np.nan
+    result[f'e_mass_{model_name}'][np.where( np.isnan(result[f'mass_{model_name}']) )] = np.nan
     
     
     # interpolate logL
@@ -52,11 +52,11 @@ def fit(teff):
     
     points = np.hstack((func_1(teff), func_2(teff), func_3(teff)))
     
-    result['logL_'   + model_name] = func_2(teff[:, 0])
-    result['logL_e_' + model_name] = (np.nanmax(points, axis=1) - np.nanmin(points, axis=1)) / 2
+    result[f'logL_{model_name}']    = func_2(teff[:, 0])
+    result[f'e_logL_{model_name}']  = (np.nanmax(points, axis=1) - np.nanmin(points, axis=1)) / 2
     
     # if truth = nan, then lo & hi = nan
-    result['logL_e_' + model_name][np.where( np.isnan(result['logL_' + model_name]) )] = np.nan
+    result[f'e_logL_{model_name}'][np.where( np.isnan(result[f'logL_{model_name}']) )] = np.nan
     
     return result
 

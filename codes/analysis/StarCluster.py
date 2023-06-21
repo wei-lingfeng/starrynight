@@ -6,7 +6,7 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.table import QTable
+from astropy.table import Table, QTable
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astropy.visualization.wcsaxes import SphericalCircle
@@ -16,29 +16,27 @@ user_path = os.path.expanduser('~')
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
 
 class StarCluster:
-    def __init__(self, pandas_df) -> None:
+    def __init__(self, path) -> None:
         """Initialize StarCluster with attribute: data
 
         Parameters
         ----------
-        pandas_df : pandas dataframe
-            Dataframe containing information about the star cluster
+        path : str
+            Path of astropy table in ecsv format
         """
-        self.data = pandas_df.copy()
+        self.data = QTable.read(path)
 
     @property
     def len(self):
         return len(self.data)
 
-    def _string_or_quantity(self, value, unit=1):
+    def _string_or_quantity(self, value):
         """Access data for setting attributes.
 
         Parameters
         ----------
         value : str | astropy quantity
-            The value to be accessed, either a str of column name of self.data or array.
-        unit : int | astropy unit, optional
-            Unit of value if value is str, by default 1
+            The value to be accessed, either a str of column name of self.data or array
 
         Returns
         -------
@@ -54,7 +52,7 @@ class StarCluster:
         """
         if isinstance(value, str):
             try:
-                return self.data[value].values * unit
+                return self.data[value]
             except KeyError:
                 raise KeyError(f'{value} is not a key in self.data!') from None
         elif isinstance(value, np.ndarray) or isinstance(value, int) or isinstance(value, float):
@@ -73,8 +71,8 @@ class StarCluster:
         dec : str | astropy quantity
             Column name or astropy quantity of dec
         """
-        self.ra  = self._string_or_quantity(ra, unit=u.degree)
-        self.dec = self._string_or_quantity(dec, unit=u.degree)
+        self.ra  = self._string_or_quantity(ra)
+        self.dec = self._string_or_quantity(dec)
     
     
     def set_pm(self, pmRA, pmRA_e, pmDE, pmDE_e):
@@ -91,10 +89,10 @@ class StarCluster:
         pmDE_e : str | astropy quantity
             Column name or astropy quantity of proper motion in DE uncertainty
         """
-        self.pmRA   = self._string_or_quantity(pmRA,   unit=u.mas/u.yr)
-        self.pmRA_e = self._string_or_quantity(pmRA_e, unit=u.mas/u.yr)
-        self.pmDE   = self._string_or_quantity(pmDE,   unit=u.mas/u.yr)
-        self.pmDE_e = self._string_or_quantity(pmDE_e, unit=u.mas/u.yr)
+        self.pmRA   = self._string_or_quantity(pmRA)
+        self.pmRA_e = self._string_or_quantity(pmRA_e)
+        self.pmDE   = self._string_or_quantity(pmDE)
+        self.pmDE_e = self._string_or_quantity(pmDE_e)
     
     
     def set_rv(self, rv, rv_e):
@@ -107,8 +105,8 @@ class StarCluster:
         rv_e : str | astropy quantity
             Column name or astropy quantity of radial velocity uncertainty
         """
-        self.rv   = self._string_or_quantity(rv,   unit=u.km/u.s)
-        self.rv_e = self._string_or_quantity(rv_e, unit=u.km/u.s)
+        self.rv   = self._string_or_quantity(rv)
+        self.rv_e = self._string_or_quantity(rv_e)
     
     
     def set_coord(self, distance=None, distance_e=None):
@@ -154,8 +152,8 @@ class StarCluster:
         teff_e : str | astropy quantity
             Column name or astropy quantity of effective temperature uncertainty
         """
-        self.teff   = self._string_or_quantity(teff,   unit=u.K)
-        self.teff_e = self._string_or_quantity(teff_e, unit=u.K)
+        self.teff   = self._string_or_quantity(teff)
+        self.teff_e = self._string_or_quantity(teff_e)
     
         
     def set_mass(self, mass, mass_e):
@@ -168,8 +166,8 @@ class StarCluster:
         mass_e : str | astropy quantity
             Column name or astropy quantity of mass uncertainty.
         """
-        self.mass = self._string_or_quantity(mass, unit=u.solMass)
-        self.mass_e = self._string_or_quantity(mass_e, unit=u.solMass)
+        self.mass = self._string_or_quantity(mass)
+        self.mass_e = self._string_or_quantity(mass_e)
     
         
     def apply_constraint(self, constraint, return_copy=False):
@@ -231,13 +229,13 @@ class StarCluster:
 
 
 class ONC(StarCluster):
-    def __init__(self, pandas_df) -> None:
-        super().__init__(pandas_df)
+    def __init__(self, path) -> None:
+        super().__init__(path)
         super().set_ra_dec('RAJ2000', 'DEJ2000')
-        super().set_pm('pmRA', 'pmRA_e', 'pmDE', 'pmDE_e')
-        super().set_rv('rv', 'rv_e')
-        super().set_coord(distance=389*u.pc, distance_e=3*u.pc)
-        super().set_teff('teff', 'teff_e')
+        # super().set_pm('pmRA', 'pmRA_e', 'pmDE', 'pmDE_e')
+        # super().set_rv('rv', 'rv_e')
+        # super().set_coord(distance=389*u.pc, distance_e=3*u.pc)
+        # super().set_teff('teff', 'teff_e')
     
     def plot_skymap(self, circle=4.*u.arcmin, zoom=False, background_path=None, show_figure=True, **kwargs):
         color=kwargs.get('color', 'C6')
@@ -276,16 +274,33 @@ class ONC(StarCluster):
     
     def preprocessing(self):
         trapezium_names = ['A', 'B', 'C', 'D', 'E']
-            # Replace Trapezium stars fitting results with literature values.
+        
+        # Replace Trapezium stars fitting results with literature values.
         for i in range(len(trapezium_names)):
-            trapezium_index = self.data.loc[self.data.theta_orionis == trapezium_names[i]].index[-1]
+            trapezium_index = self.data['theta_orionis'] == trapezium_names[i]
             for model_name in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
-                self.data.loc[trapezium_index, [f'mass_{model_name}', f'mass_e_{model_name}']] = [self.data.loc[trapezium_index, 'mass_literature'], self.data.loc[trapezium_index, 'mass_e_literature']]
+                self.data[f'mass_{model_name}'][trapezium_index]    = self.data['mass_literature'][trapezium_index]
+                self.data[f'e_mass_{model_name}'][trapezium_index]  = self.data['e_mass_literature'][trapezium_index]
+        
+        max_rv_e = 5*u.km/u.s
+        rv_constraint = ((
+            (self.data['e_RV_nirspao']   <= max_rv_e).filled(False) |
+            (self.data['e_RV_apogee']    <= max_rv_e).filled(False)
+        ) | (
+            ~self.data['theta_orionis'].mask
+        ))
+        print(f"Maximum RV error of {max_rv_e} constraint: {sum(rv_constraint) - sum(~self.data['theta_orionis'].mask)} out of {len(rv_constraint) - sum(~self.data['theta_orionis'].mask)} remaining.")
+        self.data = self.data[rv_constraint]
+        
+        rv_use_apogee = (self.data['e_RV_nirspao'] > max_rv_e).filled(False) & (self.data['e_RV_apogee'] <= max_rv_e).filled(False)
+        self.data['RV_nirspao'][rv_use_apogee]      = self.data['RV_apogee'][rv_use_apogee]
+        self.data['e_RV_nirspao'][rv_use_apogee]    = self.data['e_RV_apogee'][rv_use_apogee]
+
 
 # Main function
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', dtype={'ID_gaia': str, 'ID_kim': str})
-orion = ONC(sources)
+orion = ONC(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv')
+orion.preprocessing()
 
-orion.plot_skymap()
-orion.plot_skymap(background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
-orion.plot_skymap(zoom=True, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
+# orion.plot_skymap()
+# orion.plot_skymap(background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
+# orion.plot_skymap(zoom=True, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
