@@ -385,7 +385,7 @@ class ONC(StarCluster):
             sum((self.data['theta_orionis'].mask))
         ))
 
-        self.data.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', index=False)
+        self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources 2d.ecsv', overwrite=True)
 
         
 # Main function
