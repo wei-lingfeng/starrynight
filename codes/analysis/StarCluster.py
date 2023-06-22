@@ -11,7 +11,12 @@ from astropy.table import QTable, MaskedColumn
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
 from astropy.visualization.wcsaxes import SphericalCircle
+from astroquery.vizier import Vizier
+from astroquery.gaia import Gaia
 from itertools import compress
+Vizier.ROW_LIMIT = -1
+Gaia.ROW_LIMIT = -1
+Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
 
 user_path = os.path.expanduser('~')
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
@@ -29,9 +34,9 @@ def merge(array1, array2):
     return merge
 
 
-def distance_cut(dist, dist_e, min_dist=300*u.pc, max_dist=500*u.pc, min_plx_over_e=5):
+def distance_cut(dist, e_dist, min_dist=300*u.pc, max_dist=500*u.pc, min_plx_over_e=5):
     plx = 1000/dist.to(u.pc).value * u.mas
-    plx_e = dist_e / dist * plx
+    plx_e = e_dist / dist * plx
     dist_constraint = (dist >= min_dist) & (dist <= max_dist) & (plx/plx_e >= min_plx_over_e) | np.isnan(dist)
     print(f'{min_dist}~{max_dist} distance range constraint: {sum(dist_constraint) - 5} sources out of {len(dist_constraint) - 5} remains.')
     return dist_constraint
@@ -97,7 +102,7 @@ class StarCluster:
         self.dec = self._string_or_quantity(dec)
     
     
-    def set_pm(self, pmRA, pmRA_e, pmDE, pmDE_e):
+    def set_pm(self, pmRA, e_pmRA, pmDE, e_pmDE):
         """Set proper motion with attributes: pmRA, pmRA_e, pmDE, pmDE_e
 
         Parameters
@@ -112,39 +117,48 @@ class StarCluster:
             Column name or astropy quantity of proper motion in DE uncertainty
         """
         self.pmRA   = self._string_or_quantity(pmRA)
-        self.pmRA_e = self._string_or_quantity(pmRA_e)
+        self.e_pmRA = self._string_or_quantity(e_pmRA)
         self.pmDE   = self._string_or_quantity(pmDE)
-        self.pmDE_e = self._string_or_quantity(pmDE_e)
+        self.e_pmDE = self._string_or_quantity(e_pmDE)
     
     
-    def set_rv(self, rv, rv_e):
+    def set_rv(self, rv, e_rv):
         """Set radial velocity with attributes: rv, rv_e
 
         Parameters
         ----------
         rv : str | astropy quantity
             Column name or astropy quantity of radial velocity
-        rv_e : str | astropy quantity
+        e_rv : str | astropy quantity
             Column name or astropy quantity of radial velocity uncertainty
         """
         self.rv   = self._string_or_quantity(rv)
-        self.rv_e = self._string_or_quantity(rv_e)
+        self.rv_e = self._string_or_quantity(e_rv)
     
     
-    def set_coord(self, distance=None, distance_e=None):
+    def set_coord(self, ra=None, dec=None, distance=None, e_distance=None):
         """Set astropy SkyCoord with attributes: coord (and velocity, if distance is not None)
 
         Parameters
         ----------
+        ra : str | astropy quantity, optional
+            Column name or astropy quantity of ra, by default None
+        dec : str | astropy quantity, optional
+            Column name or astropy quantity of dec, by default None
         distance : str | astropy quantity, optional
             Column name or astropy quantity of distance, by default None
-        distance_e : str | astropy quantity, optional
+        e_distance : str | astropy quantity, optional
             Column name or astropy quantity of distance uncertainty, by default None
         """
+        if hasattr(self, 'ra') and hasattr(self, 'dec'):
+            pass
+        else:
+            self.ra  = self._string_or_quantity(ra)
+            self.dec = self._string_or_quantity(dec)
         if distance is not None:
-            self.distance = self._string_or_quantity(distance, unit=u.pc)
-            if distance_e is not None:
-                self.distance_e = self._string_or_quantity(distance_e, unit=u.pc)
+            self.distance = self._string_or_quantity(distance)
+            if e_distance is not None:
+                self.e_distance = self._string_or_quantity(e_distance)
             self.coord = SkyCoord(
                 ra=self.ra,
                 dec=self.dec,
@@ -164,7 +178,7 @@ class StarCluster:
             )
     
     
-    def set_teff(self, teff, teff_e):
+    def set_teff(self, teff, e_teff):
         """Set effective temperature with attributes: teff, teff_e
 
         Parameters
@@ -175,52 +189,50 @@ class StarCluster:
             Column name or astropy quantity of effective temperature uncertainty
         """
         self.teff   = self._string_or_quantity(teff)
-        self.teff_e = self._string_or_quantity(teff_e)
+        self.e_teff = self._string_or_quantity(e_teff)
     
         
-    def set_mass(self, mass, mass_e):
-        """Set mass with attributes: mass, mass_e
+    def set_mass(self, mass, e_mass):
+        """Set mass with attributes: mass, e_mass
 
         Parameters
         ----------
         mass : str | astropy quantity
             Column name or astropy quantity of mass.
-        mass_e : str | astropy quantity
+        e_mass : str | astropy quantity
             Column name or astropy quantity of mass uncertainty.
         """
         self.mass = self._string_or_quantity(mass)
-        self.mass_e = self._string_or_quantity(mass_e)
+        self.e_mass = self._string_or_quantity(e_mass)
     
         
-    def apply_constraint(self, constraint, return_copy=False):
-        """Apply constraint to the star cluster.
+    # def apply_constraint(self, constraint, return_copy=False):
+    #     """Apply constraint to the star cluster.
 
-        Parameters
-        ----------
-        constraint : array-like
-            boolean or index of the constraint.
-        return_copy : bool, optional
-            whether to return a copied version of self, by default False
+    #     Parameters
+    #     ----------
+    #     constraint : array-like
+    #         Boolean or index of the constraint.
+    #     return_copy : bool, optional
+    #         Whether to return a copied version of self, by default False
 
-        Returns
-        -------
-        instance of class StarCluster
-        """
-        if return_copy:
-            return StarCluster(self.data.loc[constraint].reset_index(drop=True))
-        else:
-            self.__init__(self.data.loc[constraint].reset_index(drop=True))
+    #     Returns
+    #     -------
+    #     instance of class StarCluster
+    #     """
+    #     if return_copy:
+    #         return StarCluster(self.data.loc[constraint].reset_index(drop=True))
+    #     else:
+    #         self.__init__(self.data.loc[constraint].reset_index(drop=True))
     
     
-    def plot_skymap(self, background_path=None, show_figure=True, save_path=None, **kwargs):
-        color = kwargs.get('color', 'C6')
-        linewidth = kwargs.get('linewidth', 1)
-        ra_offset = kwargs.get('ra_offset', 0)
-        dec_offset = kwargs.get('dec_offset', 0)
+    def plot_skymap(self, background_path=None, show_figure=True, save_path=None, ra_offset=0, dec_offset=0, label='Sources', color='C6', lw=1, zorder=1, constraint=None):
+        if not (hasattr(self, 'ra') and hasattr(self, 'dec')):
+            raise KeyError("'ra' and 'dec' are required attributes for plotting skymap. Please run self.set_ra_dec() first.")
         
         if background_path is None:
             fig, ax = plt.subplots(figsize=(6, 6))
-            ax.scatter(self.ra.value, self.dec.value, s=10, edgecolor=color, linewidths=linewidth, facecolor='none')
+            ax.scatter(self.ra.value, self.dec.value, s=10, edgecolor=color, linewidths=lw, facecolor='none', zorder=zorder)
             ax.set_xlabel('Right Ascension (degree)', fontsize=12)
             ax.set_ylabel('Declination (degree)', fontsize=12)
             
@@ -235,64 +247,41 @@ class StarCluster:
             fig = plt.figure(figsize=(6, 6))
             ax  = fig.add_subplot(1, 1, 1, projection=wcs)
             ax.imshow(hdu.data, cmap='gray')
-            ax.scatter(ra, dec, s=10, edgecolor=color, linewidths=linewidth, facecolor='none', zorder=1)
+            if constraint is None:
+                ax.scatter(ra, dec, s=10, label=label, edgecolor=color, linewidths=lw, facecolor='none', zorder=zorder)
+            else:
+                ax.scatter(ra[constraint], dec[constraint], s=10, label=label, edgecolor=color, linewidths=lw, facecolor='none', zorder=zorder)
             ax.set_xlim([0, image_size - 1])
             ax.set_ylim([0, image_size - 1])
             ax.set_xlabel('Right Ascension', fontsize=12)
             ax.set_ylabel('Declination', fontsize=12)
-            ax.legend(loc='upper right')
         
         if save_path:
             plt.savefig(save_path, bbox_inches='tight')
         if show_figure:
+            ax.legend(loc='upper right')
             plt.show()
-        return fig, ax
+        return fig, ax, wcs
 
 
 
 class ONC(StarCluster):
     def __init__(self, path) -> None:
         super().__init__(path)
+        self.preprocessing()
         super().set_ra_dec('RAJ2000', 'DEJ2000')
-        # super().set_pm('pmRA', 'pmRA_e', 'pmDE', 'pmDE_e')
-        # super().set_rv('rv', 'rv_e')
-        # super().set_coord(distance=389*u.pc, distance_e=3*u.pc)
-        # super().set_teff('teff', 'teff_e')
-    
-    def plot_skymap(self, circle=4.*u.arcmin, zoom=False, background_path=None, show_figure=True, **kwargs):
-        color=kwargs.get('color', 'C6')
-        if zoom:
-            linewidth=kwargs.get('linewidth', 1.25)
-            hdu = fits.open(background_path)[0]
-            wcs = WCS(background_path)
-            box_size=5000
-            cutout = Cutout2D(hdu.data, position=trapezium, size=(box_size, box_size), wcs=wcs)
-            # Power Scale. See Page 3 of http://aspbooks.org/publications/442/633.pdf.
-            a = 100
-            image_data = ((np.power(a, cutout.data/255) - 1)/a)*255
-            image_wcs = cutout.wcs
-            ra, dec = image_wcs.wcs_world2pix(self.ra.value, self.dec.value, 0)
-            ra -= 8
-            dec -= 12
-            fig = plt.figure(figsize=(6, 6))
-            ax = fig.add_subplot(1, 1, 1, projection=image_wcs)
-            ax.imshow(image_data, cmap='gray')
-            ax.scatter(ra, dec, s=15, edgecolor=color, linewidths=linewidth, facecolor='none')
-            ax.set_xlabel('Right Ascension', fontsize=12)
-            ax.set_ylabel('Declination', fontsize=12)
-        
-        else:
-            fig, ax = super().plot_skymap(background_path, show_figure=False, ra_offset=-8, dec_offset=-12, **kwargs)
-            if (circle is not None) and (background_path is not None):
-                r = SphericalCircle((trapezium.ra, trapezium.dec), circle,
-                    linestyle='dashed', linewidth=1.5, 
-                    edgecolor='w', facecolor='none', alpha=0.8, zorder=4, 
-                    transform=ax.get_transform('icrs'))
-                ax.add_patch(r)
-
-        if show_figure:
-            plt.show()
-        return fig, ax
+        super().set_pm('pmRA', 'e_pmRA', 'pmDE', 'e_pmDE')
+        super().set_rv('RV', 'e_RV')
+        super().set_coord(distance=389*u.pc, e_distance=3*u.pc)
+        super().set_teff('Teff', 'e_Teff')
+        self.mass_MIST = self.data['mass_MIST']
+        self.e_mass_MIST = self.data['e_mass_MIST']
+        self.mass_BHAC15 = self.data['mass_MIST']
+        self.e_mass_BHAC15 = self.data['e_mass_MIST']
+        self.mass_Feiden = self.data['mass_Feiden']
+        self.e_mass_Feiden = self.data['e_mass_Feiden']
+        self.mass_Palla = self.data['mass_Palla']
+        self.e_mass_Palla = self.data['e_mass_Palla']
     
     def preprocessing(self):
         trapezium_names = ['A', 'B', 'C', 'D', 'E']
@@ -328,11 +317,12 @@ class ONC(StarCluster):
         with open(f'{user_path}/ONC/starrynight/codes/analysis/pm_offset.txt', 'w') as file:
             file.write(f'pmRA_gaia - pmRA_kim = {offset_RA}\npmDE_gaia - pmDE_kim = {offset_DE}')
         
+        # Plot pm comparison
+        # Remove binaries
         unique, count = np.unique(self.data['HC2000'], return_counts=True)
         dup_idx = [list(self.data['HC2000']).index(_) for _ in list(unique[(count > 1) & (count < 10)])]
         not_dup = np.ones(len(self.data), dtype=bool)
         not_dup[dup_idx] = False
-        # Plot pm comparison
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.errorbar(
             (self.data['pmRA_gaia'] - self.data['pmRA_kim'] - offset_RA).value[not_dup],
@@ -359,23 +349,20 @@ class ONC(StarCluster):
         # merge proper motion and rv
         # prioritize kim
         self.data['pmRA']   = merge(self.data['pmRA_kim'],      self.data['pmRA_gaia'])
-        self.data['pmRA_e'] = merge(self.data['e_pmRA_kim'],    self.data['e_pmRA_gaia'])
+        self.data['e_pmRA'] = merge(self.data['e_pmRA_kim'],    self.data['e_pmRA_gaia'])
         self.data['pmDE']   = merge(self.data['pmDE_kim'],      self.data['pmDE_gaia'])
-        self.data['pmDE_e'] = merge(self.data['e_pmDE_kim'],    self.data['e_pmDE_gaia'])
+        self.data['e_pmDE'] = merge(self.data['e_pmDE_kim'],    self.data['e_pmDE_gaia'])
         
         # choose one from the two options: weighted avrg or prioritize nirspec.
         # # weighted average
-        # self.data['rv'], self.data['rv_e'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_nirspec, error2=self.datarv_e_apogee)
+        # self.data['RV'], self.data['e_RV'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_nirspec, error2=self.datarv_e_apogee)
         # prioritize nirspec values
         self.data['RV'] = merge(self.data['RVhelio'], self.data['RV_apogee'])
         self.data['e_RV'] = merge(self.data['e_RV_nirspao'], self.data['e_RV_apogee'])
         self.data['dist'] = (1000/self.data['plx'].to(u.mas).value) * u.pc
-        self.data['dist_e'] = self.data['e_plx'] / self.data['plx'] * self.data['dist']
-        self.rv = self.data['RV']
-        self.e_rv = self.data['e_RV']
+        self.data['e_dist'] = self.data['e_plx'] / self.data['plx'] * self.data['dist']
         
-        dist_constraint = distance_cut(self.data['dist'], self.data['dist_e'])
-        print(len(dist_constraint))
+        dist_constraint = distance_cut(self.data['dist'], self.data['e_dist'])
         self.data.remove_rows(~dist_constraint)
         
         print('After all constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
@@ -386,12 +373,86 @@ class ONC(StarCluster):
         ))
 
         self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources 2d.ecsv', overwrite=True)
-
+    
+    
+    def plot_skymap(self, circle=4.*u.arcmin, zoom=False, background_path=None, show_figure=True, label='Sources', color='C6', lw=1.25, zorder=1, constraint=None):
+        if zoom:
+            hdu = fits.open(background_path)[0]
+            wcs = WCS(background_path)
+            box_size=5000
+            cutout = Cutout2D(hdu.data, position=trapezium, size=(box_size, box_size), wcs=wcs)
+            # Power Scale. See Page 3 of http://aspbooks.org/publications/442/633.pdf.
+            a = 100
+            image_data = ((np.power(a, cutout.data/255) - 1)/a)*255
+            wcs = cutout.wcs
+            ra, dec = wcs.wcs_world2pix(self.ra.value, self.dec.value, 0)
+            ra -= 8
+            dec -= 12
+            fig = plt.figure(figsize=(6, 6))
+            ax = fig.add_subplot(1, 1, 1, projection=wcs)
+            ax.imshow(image_data, cmap='gray')
+            if constraint is None:
+                ax.scatter(ra, dec, s=15, edgecolor=color, linewidths=lw, facecolor='none', zorder=zorder, label=label)
+            else:
+                ax.scatter(ra[constraint], dec[constraint], s=15, edgecolor=color, linewidths=lw, facecolor='none', zorder=zorder, label=label)
+            ax.set_xlim([0, box_size - 1])
+            ax.set_ylim([0, box_size - 1])
+            ax.set_xlabel('Right Ascension', fontsize=12)
+            ax.set_ylabel('Declination', fontsize=12)
         
+        else:
+            fig, ax, wcs = super().plot_skymap(background_path, show_figure=False, ra_offset=-8, dec_offset=-12, label=label, zorder=zorder, constraint=constraint)
+            if (circle is not None) and (background_path is not None):
+                r = SphericalCircle((trapezium.ra, trapezium.dec), circle,
+                    linestyle='dashed', linewidth=1.5, 
+                    edgecolor='w', facecolor='none', alpha=0.8, zorder=4, 
+                    transform=ax.get_transform('icrs'))
+                ax.add_patch(r)
+
+        if show_figure:
+            ax.legend(loc='upper right')
+            plt.show()
+        return fig, ax, wcs
+
+
+
+def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits', ra_offset=-8, dec_offset=-12):
+    tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
+    tobin_coord = SkyCoord([ra + dec for ra, dec in zip(tobin['RAJ2000'], tobin['DEJ2000'])], unit=(u.hourangle, u.deg))
+    gaia = Gaia.cone_search_async(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
+    apogee = Vizier.query_region(trapezium, radius=0.4*u.deg, catalog='III/284/allstars')[0]
+
+    # Wide field view figure
+    fig, ax, wcs = orion.plot_skymap(background_path=background_path, show_figure=False, label='NIRSPAO', constraint=~orion.data['HC2000'].mask, zorder=3)
+    tobin_ra, tobin_dec = wcs.wcs_world2pix(tobin_coord.ra.value, tobin_coord.dec.value, 0)
+    apogee_ra, apogee_dec = wcs.wcs_world2pix(apogee['RAJ2000'].value, apogee['DEJ2000'].value, 0)
+    tobin_ra    += ra_offset
+    tobin_dec   += dec_offset
+    apogee_ra   += ra_offset
+    apogee_dec  += dec_offset
+
+    ax.scatter(apogee_ra, apogee_dec, s=10, marker='s', edgecolor='C9', linewidths=1, facecolor='none', label='APOGEE', zorder=2)
+    ax.scatter(tobin_ra, tobin_dec, s=10, marker='^', edgecolor='C1', linewidths=1, facecolor='none', label='Tobin et al. 2009', zorder=1)
+    ax.legend(loc='upper right')
+    plt.show()
+
+    # Zoom-in figure
+    Parenago_idx = list(orion.data['HC2000']).index(546)
+    fig, ax, wcs = orion.plot_skymap(background_path=background_path, show_figure=False, label='NIRSPAO', zoom=True, constraint=~orion.data['HC2000'].mask, zorder=3)
+    apogee_ra, apogee_dec = wcs.wcs_world2pix(apogee['RAJ2000'].value, apogee['DEJ2000'].value, 0)
+    Parenago_ra, Parenago_dec = wcs.wcs_world2pix(orion.ra[Parenago_idx].value, orion.dec[Parenago_idx].value, 0)
+    apogee_ra       += ra_offset
+    apogee_dec      += dec_offset
+    Parenago_ra     += ra_offset
+    Parenago_dec    += dec_offset
+    ax.scatter(apogee_ra, apogee_dec, s=15, marker='s', edgecolor='C9', linewidths=1.25, facecolor='none', label='APOGEE', zorder=2)
+    ax.scatter(Parenago_ra, Parenago_dec, s=100, marker='*', edgecolor='yellow', linewidth=1, facecolor='none', label='Parenago 1837', zorder=4)
+    ax.legend(loc='upper right')
+    plt.show()
+
+
+
 # Main function
 orion = ONC(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv')
-orion.preprocessing()
+# plot_skymaps(orion)
 
-# orion.plot_skymap()
-# orion.plot_skymap(background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
-# orion.plot_skymap(zoom=True, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits')
