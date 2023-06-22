@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import astropy.units as u
 from astropy.io import ascii
-from astropy.table import Table, QTable, MaskedColumn, hstack, vstack
+from astropy.table import QTable, MaskedColumn, hstack, vstack
 from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astroquery.vizier import Vizier
@@ -361,7 +361,7 @@ def merge(catalog1, catalog2, matches, join_type='left', table_names=['1', '2'],
     for col in uniq_columns_catalog2:
         # add empty column
         if np.issubdtype(catalog2[col].dtype, np.integer):
-            result[col] = MaskedColumn([None]*len(result), dtype=float, mask=[True]*len(result))
+            result[col] = MaskedColumn([0]*len(result), dtype=catalog2[col].dtype, mask=[True]*len(result))
         else:
             result[col] = MaskedColumn([None]*len(result), dtype=catalog2[col].dtype, mask=[True]*len(result))
         # fill empty column with catalog2
@@ -373,6 +373,10 @@ def merge(catalog1, catalog2, matches, join_type='left', table_names=['1', '2'],
     # vstack unmatched
     if join_type=='outer':
         result = vstack((result, catalog2[list(set(range(len(catalog2))) - set(matches[valid_match]))]))
+    
+    for col in uniq_columns_catalog2:
+        result[col] = MaskedColumn(result[col], unit=catalog2[col].unit)
+    
     return result
 
 
@@ -799,6 +803,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         ['source_id',   'ra',       'dec',      'parallax', 'parallax_error',   'parallax_over_error',  'pmra',         'pmra_error',   'pmdec',        'pmdec_error', 'phot_g_mean_mag'],
         ['Gaia DR3',    'RAJ2000',  'DEJ2000',  'plx',      'e_plx',            'plx_over_e',           'pmRA_gaia',    'e_pmRA_gaia',  'pmDE_gaia',    'e_pmDE_gaia', 'Gmag']
     )
+    gaia['Gaia DR3'] = MaskedColumn([str(_) for _ in gaia['Gaia DR3']])
     
     hillenbrand.rename_columns(
         ['ID', 'M'],
@@ -847,7 +852,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     # magnitude = -2.5*log10(flux) + zero point. (https://en.wikipedia.org/wiki/Apparent_magnitude#Calculations)
     # zero point: 25.6874 ± 0.0028. (https://gea.esac.esa.int/archive/documentation/GDR3/Data_processing/chap_cu5pho/cu5pho_sec_photProc/cu5pho_ssec_photCal.html#SSS3.P2)
     gaia.add_column(
-        ((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2) * u.mag,
+        MaskedColumn(((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2), unit=u.mag),
         index=gaia.colnames.index('Gmag') + 1,
         name='Gmag_e'
     )
@@ -956,8 +961,16 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources.remove_column('APOGEE-temp')
     
     sources_epoch_combined = merge_multiepoch(sources)
-    
-    
+        
+    # fill with nan
+    for key in sources.keys():
+        if str(sources[key].dtype).startswith('<U') or str(sources[key].dtype).startswith('int'):
+            continue
+        try:
+            sources[key] = sources[key].filled(np.nan)
+            sources_epoch_combined[key] = sources_epoch_combined[key].filled(np.nan)
+        except:
+            pass
     ###############################################
     ################### Fit Mass ##################
     ###############################################
@@ -972,7 +985,9 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     indices = ~sources_epoch_combined['theta_orionis'].mask
     sources_epoch_combined[columns][indices] = np.nan
     
-    
+    # plot
+    plot_four_catalogs([sources_epoch_combined, apogee, kim, gaia], save_path=save_path)
+
     ###############################################
     ################# Write to csv ################
     ###############################################
@@ -981,11 +996,6 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined.ecsv', overwrite=True)
     sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined - new.csv', overwrite=True)
     
-    ###############################################
-    ##################### Plot ####################
-    ###############################################
-    
-    plot_four_catalogs([sources_epoch_combined, apogee, kim, gaia], save_path=save_path)
     return sources, sources_epoch_combined
 
 

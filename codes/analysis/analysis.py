@@ -3,7 +3,6 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import copy
 import numpy as np
 import pandas as pd
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import plotly.graph_objects as go
@@ -1946,7 +1945,7 @@ def preprocessing(sources):
     offset_RA = np.nanmedian(sources.pmRA_gaia - sources.pmRA_kim)
     offset_DE = np.nanmedian(sources.pmDE_gaia - sources.pmDE_kim)
     print(f'offset in RA and DEC is {(offset_RA, offset_DE)} mas/yr.')
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/pm_offset.txt', 'w') as file:
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/pm_offset.txt', 'w') as file:
         file.write(f'pmRA_gaia - pmRA_kim = {offset_RA}\npmDE_gaia - pmDE_kim = {offset_DE}')
 
     # Plot pm comparison
@@ -2055,9 +2054,7 @@ C7 = '#7f7f7f'
 C9 = '#17becf'
 
 sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str, 'ID_kim': str})
-save_path = f'{user_path}/ONC/starrynight/codes/data_processing'
-
-chris_table = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv')
+save_path = f'{user_path}/ONC/starrynight/codes/analysis'
 
 # LV 3 / HC2000 322 / Gaia DR3 3017364063323188864 / 
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
@@ -2166,9 +2163,9 @@ ks = np.empty((2, len(radii)))
 ks_mean_offset = np.empty((2, len(radii)))
 
 for i, radius in enumerate(radii):
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
         raw = file.readlines()
-    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
         raw_mean_offset = file.readlines()
     
     for line, line_mean_offset in zip(raw, raw_mean_offset):
@@ -2204,10 +2201,10 @@ rv_constraint = ((
 print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(~sources_2d.theta_orionis.isna())} out of {len(rv_constraint) - sum(~sources_2d.theta_orionis.isna())} remains.')
 print(f'Accepted radial velocity range: {np.nanmean(sources.rv):.3f} ± {3*np.nanstd(sources.rv):.3f} km/s.')
 
-if not os.path.exists(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results'):
-    os.mkdir(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results')
+if not os.path.exists(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results'):
+    os.mkdir(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results')
 
-with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean_rv.txt', 'w') as file:
+with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'w') as file:
     file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'rv'])))
 
 fig, ax = plt.subplots(figsize=(6, 4))
