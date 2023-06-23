@@ -962,15 +962,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     sources_epoch_combined = merge_multiepoch(sources)
         
-    # fill with nan
-    for key in sources.keys():
-        if str(sources[key].dtype).startswith('<U') or str(sources[key].dtype).startswith('int'):
-            continue
-        try:
-            sources[key] = sources[key].filled(np.nan)
-            sources_epoch_combined[key] = sources_epoch_combined[key].filled(np.nan)
-        except:
-            pass
+
     ###############################################
     ################### Fit Mass ##################
     ###############################################

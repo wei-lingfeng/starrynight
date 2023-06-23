@@ -52,6 +52,14 @@ class StarCluster:
             Path of astropy table in ecsv format
         """
         self.data = QTable.read(path)
+        # fill with nan
+        for key in self.data.keys():
+            if self.data[key].dtype.name.startswith('str') or self.data[key].dtype.name.startswith('int'):
+                continue
+            try:
+                self.data[key] = self.data[key].filled(np.nan)
+            except:
+                pass
 
     @property
     def len(self):
@@ -304,13 +312,14 @@ class ONC(StarCluster):
         self.data = self.data[rv_constraint]
         
         rv_use_apogee = (self.data['e_RV_nirspao'] > max_rv_e) & (self.data['e_RV_apogee'] <= max_rv_e)
-        self.data['RV_nirspao', 'e_RV_nirspao'][rv_use_apogee]      = self.data['RV_apogee', 'e_RV_apogee'][rv_use_apogee]
+        self.data['RV_nirspao', 'e_RV_nirspao'][rv_use_apogee] = self.data['RV_apogee', 'e_RV_apogee'][rv_use_apogee]
         
         # Apply gaia constraint
         gaia_columns = [key for key in self.data.keys() if (key.endswith('gaia') | key.startswith('plx') | key.startswith('Gmag') | key.startswith('astrometric') | (key=='ruwe') | (key=='bp_rp'))]
         gaia_filter = (self.data['astrometric_gof_al'] < 16) & (self.data['Gmag'] < 16*u.mag)
         self.data['astrometric_n_good_obs_al'] = MaskedColumn([float(_) for _ in self.data['astrometric_n_good_obs_al']])
-        self.data[*gaia_columns][~gaia_filter] = np.nan
+        for col in gaia_columns:
+            self.data[col][~gaia_filter] = np.nan
         offset_RA = np.nanmedian(self.data['pmRA_gaia'] - self.data['pmRA_kim'])
         offset_DE = np.nanmedian(self.data['pmDE_gaia'] - self.data['pmDE_kim'])
         print(f'offset in RA and DEC is {offset_RA}, {offset_DE}.')
@@ -329,7 +338,7 @@ class ONC(StarCluster):
             (self.data['pmDE_gaia'] - self.data['pmDE_kim'] - offset_DE).value[not_dup],
             xerr = ((self.data['e_pmRA_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value[not_dup],
             yerr = ((self.data['e_pmDE_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value[not_dup],
-            fmt='o', color=(.2, .2, .2, .8), markersize=3, ecolor='black', alpha=0.2
+            fmt='o', color=(.2, .2, .2, .8), markersize=3, ecolor='black', alpha=0.4
         )
         xmin, xmax = ax.get_xlim()
         ymin, ymax = ax.get_ylim()
@@ -353,10 +362,10 @@ class ONC(StarCluster):
         self.data['pmDE']   = merge(self.data['pmDE_kim'],      self.data['pmDE_gaia'])
         self.data['e_pmDE'] = merge(self.data['e_pmDE_kim'],    self.data['e_pmDE_gaia'])
         
-        # choose one from the two options: weighted avrg or prioritize nirspec.
+        # choose one from the two options: weighted avrg or prioritize NIRSPAO.
         # # weighted average
-        # self.data['RV'], self.data['e_RV'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_nirspec, error2=self.datarv_e_apogee)
-        # prioritize nirspec values
+        # self.data['RV'], self.data['e_RV'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_NIRSPAO, error2=self.datarv_e_apogee)
+        # prioritize NIRSPAO values
         self.data['RV'] = merge(self.data['RVhelio'], self.data['RV_apogee'])
         self.data['e_RV'] = merge(self.data['e_RV_nirspao'], self.data['e_RV_apogee'])
         self.data['dist'] = (1000/self.data['plx'].to(u.mas).value) * u.pc
@@ -365,7 +374,7 @@ class ONC(StarCluster):
         dist_constraint = distance_cut(self.data['dist'], self.data['e_dist'])
         self.data.remove_rows(~dist_constraint)
         
-        print('After all constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
+        print('After all constraint:\nNIRSPAO:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
             sum((self.data['theta_orionis'].mask) & (~self.data['HC2000'].mask)),
             sum((self.data['theta_orionis'].mask) & (~self.data['APOGEE'].mask)),
             sum((self.data['theta_orionis'].mask) & (~self.data['HC2000'].mask) & (~self.data['APOGEE'].mask)),
@@ -418,12 +427,27 @@ class ONC(StarCluster):
 
 def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits', ra_offset=-8, dec_offset=-12):
     tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
-    tobin_coord = SkyCoord([ra + dec for ra, dec in zip(tobin['RAJ2000'], tobin['DEJ2000'])], unit=(u.hourangle, u.deg))
-    gaia = Gaia.cone_search_async(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
+    tobin.rename_columns(['RAJ2000', 'DEJ2000'], ['_RAJ2000', '_DEJ2000'])
+    tobin_coord = SkyCoord([ra + dec for ra, dec in zip(tobin['_RAJ2000'], tobin['_DEJ2000'])], unit=(u.hourangle, u.deg))
+    tobin['RAJ2000'] = tobin_coord.ra.value
+    tobin['DEJ2000'] = tobin_coord.dec.value
     apogee = Vizier.query_region(trapezium, radius=0.4*u.deg, catalog='III/284/allstars')[0]
-
+    apogee_coord = SkyCoord(ra=apogee['RAJ2000'], dec=apogee['DEJ2000'])
+    apogee['sep_to_trapezium'] = apogee_coord.separation(trapezium)
+    
     # Wide field view figure
     fig, ax, wcs = orion.plot_skymap(background_path=background_path, show_figure=False, label='NIRSPAO', constraint=~orion.data['HC2000'].mask, zorder=3)
+    image_size=18000
+    margin=0.05
+    # filter
+    ra_upper_large, dec_lower_large = wcs.wcs_pix2world(0 - image_size*margin, 0 - image_size*margin, 0)
+    ra_lower_large, dec_upper_large = wcs.wcs_pix2world(image_size*(margin + 1) - 1, image_size*(margin + 1) - 1, 0)
+    apogee = apogee[
+        (apogee['RAJ2000'].value >= ra_lower_large) & (apogee['RAJ2000'].value <= ra_upper_large) & (apogee['DEJ2000'].value >= dec_lower_large) & (apogee['DEJ2000'].value <= dec_upper_large)
+    ]
+    tobin = tobin[
+        (tobin['RAJ2000'].value >= ra_lower_large) & (tobin['RAJ2000'].value <= ra_upper_large) & (tobin['DEJ2000'].value >= dec_lower_large) & (tobin['DEJ2000'].value <= dec_upper_large)
+    ]
     tobin_ra, tobin_dec = wcs.wcs_world2pix(tobin_coord.ra.value, tobin_coord.dec.value, 0)
     apogee_ra, apogee_dec = wcs.wcs_world2pix(apogee['RAJ2000'].value, apogee['DEJ2000'].value, 0)
     tobin_ra    += ra_offset
@@ -437,6 +461,7 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     plt.show()
 
     # Zoom-in figure
+    apogee = apogee[apogee['sep_to_trapezium'] <= 4*u.arcmin]
     Parenago_idx = list(orion.data['HC2000']).index(546)
     fig, ax, wcs = orion.plot_skymap(background_path=background_path, show_figure=False, label='NIRSPAO', zoom=True, constraint=~orion.data['HC2000'].mask, zorder=3)
     apogee_ra, apogee_dec = wcs.wcs_world2pix(apogee['RAJ2000'].value, apogee['DEJ2000'].value, 0)

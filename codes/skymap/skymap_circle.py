@@ -9,6 +9,8 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.visualization.wcsaxes import SphericalCircle
+from astroquery.vizier import Vizier
+Vizier.ROW_LIMIT = -1
 
 user_path = os.path.expanduser('~')
 
@@ -17,13 +19,16 @@ de_offset = 12
 
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
 sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
-apogee = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/broader_apogee.csv')
-tobin = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/tobin 2009.csv')
+tobin       = (Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]).to_pandas()
+tobin = tobin.rename(columns={'RAJ2000':'_RAJ2000', 'DEJ2000':'_DEJ2000'})
+tobin_coord = SkyCoord([ra + dec for ra, dec in zip(tobin['_RAJ2000'], tobin['_DEJ2000'])], unit=(u.hourangle, u.deg))
+tobin['RAJ2000'] = tobin_coord.ra.value
+tobin['DEJ2000'] = tobin_coord.dec.value
+apogee = (Vizier.query_region(trapezium, radius=0.4*u.deg, catalog='III/284/allstars')[0]).to_pandas()
 Parenago_idx = sources.loc[sources.HC2000 == '546'].index[0]
 
 sources_coord = SkyCoord(ra=sources.RAJ2000.to_numpy()*u.degree, dec=sources.DEJ2000.to_numpy()*u.degree)
 apogee_coord = SkyCoord(ra=apogee.RAJ2000.to_numpy()*u.degree, dec=apogee.DEJ2000.to_numpy()*u.degree)
-tobin_coord = SkyCoord(ra=tobin.RAJ2000.to_numpy()*u.degree, dec=tobin.DEJ2000.to_numpy()*u.degree)
 
 sources['sep_to_trapezium'] = sources_coord.separation(trapezium).arcmin
 apogee['sep_to_trapezium'] = apogee_coord.separation(trapezium).arcmin
@@ -42,7 +47,7 @@ wcs = WCS(image_path)
 image_data_large = hdu.data
 image_wcs_large = wcs
 
-image_size=18000
+image_size=np.shape(hdu.data)[0]
 margin=0.05
 
 # filter
@@ -128,7 +133,7 @@ r = SphericalCircle((trapezium.ra, trapezium.dec), 4. * u.arcmin,
                     edgecolor='w', facecolor='none', alpha=0.8, zorder=4, 
                     transform=ax1.get_transform('icrs'))
 ax1.add_patch(r)
-ax1.scatter(hc2000_ra_large, hc2000_de_large, s=10, edgecolor='C6', linewidths=1, facecolor='none', label='NIRSPEC (This Study)', zorder=3)
+ax1.scatter(hc2000_ra_large, hc2000_de_large, s=10, edgecolor='C6', linewidths=1, facecolor='none', label='NIRSPAO (This Study)', zorder=3)
 ax1.scatter(apogee_ra_large, apogee_de_large, s=10, marker='s', edgecolor='C9', linewidths=1, facecolor='none', label='APOGEE', zorder=2)
 ax1.scatter(tobin_ra_large, tobin_de_large, s=15, marker='^', edgecolor='C1', linewidths=1, facecolor='none', label='Tobin et al. 2009', zorder=1)
 ax1.set_xlim([0, image_size - 1])
@@ -139,7 +144,7 @@ ax1.legend(loc='upper right')
 
 ax2 = fig.add_subplot(1, 2, 2, projection=image_wcs_zoom)
 ax2.imshow(image_data_zoom, cmap='gray')
-ax2.scatter(hc2000_ra_zoom, hc2000_de_zoom, s=15, edgecolor='C6', linewidths=1.25, facecolor='none', label='NIRSPEC (This Study)', zorder=3)
+ax2.scatter(hc2000_ra_zoom, hc2000_de_zoom, s=15, edgecolor='C6', linewidths=1.25, facecolor='none', label='NIRSPAO (This Study)', zorder=3)
 ax2.scatter(apogee_ra_zoom, apogee_de_zoom, s=15, marker='s', edgecolor='C9', linewidths=1.25, facecolor='none', label='APOGEE', zorder=2)
 ax2.scatter(hc2000_ra_zoom[Parenago_idx], hc2000_de_zoom[Parenago_idx], s=100, marker='*', edgecolor='yellow', linewidth=1, facecolor='none', label='Parenago 1837', zorder=4)
 # ax2.scatter(tobin_zoom_ra, tobin_zoom_de, s=40, marker='^', edgecolor='C1', linewidths=1.5, facecolor='none', label='Tobin et al. 2009', zorder=1)
