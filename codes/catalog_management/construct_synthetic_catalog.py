@@ -460,7 +460,7 @@ def merge_multiepoch(sources, column_pairs=None):
         sources : pandas dataframe or astropy table
             Table containing column 'HC2000' and mcmc fitting results.
         column_pairs : dictionary 
-            Column pairs of the form value --> error. e.g. {'Teff': 'e_Teff'}. If not provided, search for all keyword pairs of the form 'KEYWORDS' --> 'e_KEYWORDS' by default.
+            Column pairs of the form value --> error. e.g. {'teff': 'e_teff'}. If not provided, search for all keyword pairs of the form 'KEYWORDS' --> 'e_KEYWORDS' by default.
     
     Returns
     -------
@@ -490,8 +490,8 @@ def merge_multiepoch(sources, column_pairs=None):
             sources_epoch_combined.loc[indices[-1], value_column], sources_epoch_combined.loc[indices[-1], error_column] = weighted_avrg(
                 sources.loc[indices, value_column], error=sources.loc[indices, error_column]
             )
-        sources_epoch_combined.loc[indices[-1], 'RVhelio'] = weighted_avrg(
-            sources.loc[indices, 'RVhelio'], error=sources.loc[indices, 'e_RV_nirspao']
+        sources_epoch_combined.loc[indices[-1], 'rv_helio'] = weighted_avrg(
+            sources.loc[indices, 'rv_helio'], error=sources.loc[indices, 'e_rv_nirspao']
         )[0]
         sources_epoch_combined = sources_epoch_combined.drop(indices[:-1])
     sources_epoch_combined = sources_epoch_combined.reset_index(drop=True)
@@ -546,7 +546,7 @@ def configurable_cross_match(a_coord, b_coord, max_sep=1.0*u.arcsec):
     return matches
 
 
-def fit_mass(Teff, e_Teff):
+def fit_mass(teff, e_teff):
     '''Fit mass, logg, etc. assuming a 2-Myr age.
     
     Parameter
@@ -557,16 +557,16 @@ def fit_mass(Teff, e_Teff):
     - Returns:
         - result: pandas dataframe.
     '''
-    Teff = Teff.value
-    e_Teff = e_Teff.value
-    Teff = np.vstack((Teff, e_Teff)).transpose()
+    teff = teff.value
+    e_teff = e_teff.value
+    teff = np.vstack((teff, e_teff)).transpose()
     
     result = pd.DataFrame.from_dict({
-        **BHAC15_Fit.fit(Teff),
-        **MIST_Fit.fit(Teff),
-        **Feiden_Fit.fit(Teff),
-        **Palla_Fit.fit(Teff),
-        **DAntona_Fit.fit(Teff)
+        **BHAC15_Fit.fit(teff),
+        **MIST_Fit.fit(teff),
+        **Feiden_Fit.fit(teff),
+        **Palla_Fit.fit(teff),
+        **DAntona_Fit.fit(teff)
     })
     
     mapping = {key: u.solMass for key in result.keys()}
@@ -778,20 +778,20 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     hc2000.rename_columns(['__HC2000_'], ['HC2000'])
     
     nirspao_old.rename_columns(
-        ['__HC2000_',   'm__HC2000_',   'Veiling'],
-        ['HC2000',      'm_HC2000',     'veiling_param_O33']
+        ['__HC2000_',   'm__HC2000_',   'RV', 'e_RV', 'Teff', 'e_Teff', 'Veiling'],
+        ['HC2000',      'm_HC2000',     'rv', 'e_rv', 'teff', 'e_teff', 'veiling_param_O33']
     )
     # Convert empty string to masked element in nirspao_old
     nirspao_old['m_HC2000'] = MaskedColumn(nirspao_old['m_HC2000'], mask=[True if _=='' else False for _ in nirspao_old['m_HC2000']], dtype=nirspao['m_HC2000'].dtype)
         
     apogee.rename_columns(
         ['RV',          'e_RV',         'Teff',         'e_Teff',           'vsini',        'e_vsini',          'Veiling',              'Kmag',         'e_Kmag',           'Hmag',         'e_Hmag'],
-        ['RV_apogee',   'e_RV_apogee',  'Teff_apogee',  'e_Teff_apogee',    'vsini_apogee', 'e_vsini_apogee',   'veiling_param_apogee', 'Kmag_apogee',  'e_Kmag_apogee',    'Hmag_apogee',  'e_Hmag_apogee']
+        ['rv_apogee',   'e_rv_apogee',  'teff_apogee',  'e_teff_apogee',    'vsini_apogee', 'e_vsini_apogee',   'veiling_param_apogee', 'Kmag_apogee',  'e_Kmag_apogee',    'Hmag_apogee',  'e_Hmag_apogee']
     )
     
     kounkel.rename_columns(
         ['_2MASS',  'Gaia',     'Teff',         'e_Teff',           'logg',         'e_logg',           'RVmean',       'e_RVmean'],
-        ['2MASS',   'Gaia DR2', 'Teff_kounkel', 'e_Teff_kounkel',   'logg_kounkel', 'e_logg_kounkel',   'RV_kounkel',   'e_RV_kounkel']
+        ['2MASS',   'Gaia DR2', 'teff_kounkel', 'e_teff_kounkel',   'logg_kounkel', 'e_logg_kounkel',   'rv_kounkel',   'e_rv_kounkel']
     )
     
     kim.rename_columns(
@@ -812,7 +812,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     tobin.rename_columns(
         ['_2MASS',      'HRV',      'e_HRV',        'Vmag',         'V-I'], 
-        ['2MASS_tobin', 'RV_tobin', 'e_RV_tobin',   'Vmag_tobin',   'V-I_tobin']
+        ['2MASS_tobin', 'rv_tobin', 'e_rv_tobin',   'Vmag_tobin',   'V-I_tobin']
     )
     
     
@@ -875,8 +875,8 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     # match nirspao_old    
     sources = merge_on_keys(nirspao, nirspao_old[[
         'HC2000', 'm_HC2000', 
-        'Teff', 'e_Teff', 
-        'RV', 'e_RV', 
+        'teff', 'e_teff', 
+        'rv', 'e_rv', 
         'vsini', 'e_vsini', 
         'veiling_param_O33'
     ]], join_type='left', keys=['HC2000', 'm_HC2000'], table_names=['nirspao', 'chris'])
@@ -888,8 +888,8 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources = merge_on_coords(sources, apogee[[
         'APOGEE',
         'RAJ2000', 'DEJ2000', 
-        'RV_apogee', 'e_RV_apogee', 
-        'Teff_apogee', 'e_Teff_apogee', 
+        'rv_apogee', 'e_rv_apogee', 
+        'teff_apogee', 'e_teff_apogee', 
         'vsini_apogee', 'e_vsini_apogee', 
         'veiling_param_apogee',
         'Kmag_apogee', 'e_Kmag_apogee', 
@@ -900,9 +900,9 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources = merge_on_coords(sources, kounkel[[
         '2MASS', 'Gaia DR2', 
         'RAJ2000', 'DEJ2000', 
-        'Teff_kounkel', 'e_Teff_kounkel', 
+        'teff_kounkel', 'e_teff_kounkel', 
         'logg_kounkel', 'e_logg_kounkel', 
-        'RV_kounkel', 'e_RV_kounkel'
+        'rv_kounkel', 'e_rv_kounkel'
     ]], join_type='left', table_names=['nirspao+apogee', 'kounkel'])
 
     # cross match proper motion
@@ -937,7 +937,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     # cross match tobin
     sources = merge_on_coords(sources, tobin[[
-        'RAJ2000', 'DEJ2000', 'RV_tobin', 'e_RV_tobin'
+        'RAJ2000', 'DEJ2000', 'rv_tobin', 'e_rv_tobin'
     ]], table_names=['nirspao+apogee', 'tobin'])
     
     
@@ -945,8 +945,8 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     ########### Merge Duplicate Columns ###########
     ###############################################
     
-    sources.add_column(fillna(sources['Teff_nirspao'], sources['Teff_apogee']), index=10, name='Teff')
-    sources.add_column(fillna(sources['e_Teff_nirspao'], sources['e_Teff_apogee']), index=11, name='e_Teff')
+    sources.add_column(fillna(sources['teff_nirspao'], sources['teff_apogee']), index=10, name='teff')
+    sources.add_column(fillna(sources['e_teff_nirspao'], sources['e_teff_apogee']), index=11, name='e_teff')
     
     sources['Kmag'], sources['e_Kmag'] = weighted_avrg_and_merge(
         sources['Kmag'], 
@@ -966,11 +966,11 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     ###############################################
     ################### Fit Mass ##################
     ###############################################
-    sources = hstack((sources, fit_mass(sources['Teff'], sources['e_Teff'])))
-    sources_epoch_combined = hstack((sources_epoch_combined, fit_mass(sources_epoch_combined['Teff'], sources_epoch_combined['e_Teff'])))
+    sources = hstack((sources, fit_mass(sources['teff'], sources['e_teff'])))
+    sources_epoch_combined = hstack((sources_epoch_combined, fit_mass(sources_epoch_combined['teff'], sources_epoch_combined['e_teff'])))
     
     # Delete Fitting results for trapezium stars
-    columns = fit_mass(sources['Teff'], sources['e_Teff']).keys()
+    columns = fit_mass(sources['teff'], sources['e_teff']).keys()
     indices = ~sources['theta_orionis'].mask
     sources[columns][indices] = np.nan
     

@@ -11,13 +11,13 @@
 # - {name: itime, unit: s, datatype: float64}
 # - {name: sci_frames, datatype: string, subtype: json}
 # - {name: tel_frames, datatype: string, subtype: json}
-# - {name: Teff, unit: K, datatype: float64}
-# - {name: e_Teff, unit: K, datatype: float64}
+# - {name: teff, unit: K, datatype: float64}
+# - {name: e_teff, unit: K, datatype: float64}
 # - {name: vsini, unit: km / s, datatype: float64}
 # - {name: e_vsini, unit: km / s, datatype: float64}
-# - {name: RV, unit: km / s, datatype: float64}
-# - {name: RVhelio, unit: km / s, datatype: float64}
-# - {name: e_RV, unit: km / s, datatype: float64}
+# - {name: rv, unit: km / s, datatype: float64}
+# - {name: rv_helio, unit: km / s, datatype: float64}
+# - {name: e_rv, unit: km / s, datatype: float64}
 # - {name: airmass, datatype: float64}
 # - {name: e_airmass, datatype: float64}
 # - {name: pwv, datatype: float64}
@@ -72,18 +72,6 @@
 #       __class__: astropy.units.quantity.Quantity
 #       unit: *id002
 #       value: !astropy.table.SerializedColumn {name: RAJ2000}
-#     RV:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn {name: RV}
-#     RVhelio:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn {name: RVhelio}
-#     Teff:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: &id003 !astropy.units.Unit {unit: K}
-#       value: !astropy.table.SerializedColumn {name: Teff}
 #     e_Hmag:
 #       __class__: astropy.units.quantity.Quantity
 #       unit: *id001
@@ -96,14 +84,14 @@
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_Kmag}
-#     e_RV:
+#     e_rv:
 #       __class__: astropy.units.quantity.Quantity
 #       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn {name: e_RV}
-#     e_Teff:
+#       value: !astropy.table.SerializedColumn {name: e_rv}
+#     e_teff:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn {name: e_Teff}
+#       unit: &id003 !astropy.units.Unit {unit: K}
+#       value: !astropy.table.SerializedColumn {name: e_teff}
 #     e_vsini:
 #       __class__: astropy.units.quantity.Quantity
 #       unit: !astropy.units.Unit {unit: km / s}
@@ -112,12 +100,24 @@
 #       __class__: astropy.units.quantity.Quantity
 #       unit: !astropy.units.Unit {unit: s}
 #       value: !astropy.table.SerializedColumn {name: itime}
+#     rv:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: rv}
+#     rv_helio:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: rv_helio}
+#     teff:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id003
+#       value: !astropy.table.SerializedColumn {name: teff}
 #     vsini:
 #       __class__: astropy.units.quantity.Quantity
 #       unit: !astropy.units.Unit {unit: km / s}
 #       value: !astropy.table.SerializedColumn {name: vsini}
 # schema: astropy-2.0
-HC2000 m_HC2000 RAJ2000 DEJ2000 _RAJ2000 _DEJ2000 obs_date itime sci_frames tel_frames Teff e_Teff vsini e_vsini RV RVhelio e_RV airmass e_airmass pwv e_pwv veiling e_veiling veiling_param_O32 veiling_param_O33 veiling_param_O35 lsf lsf_e noise e_noise model_dip_O32 model_std_O32 model_dip_O33 model_std_O33 model_dip_O35 model_std_O35 wave_offset_O32 e_wave_offset_O32 wave_offset_O33 e_wave_offset_O33 wave_offset_O35 e_wave_offset_O35 snr_O32 snr_O33 snr_O35 Kmag e_Kmag Hmag e_Hmag
+HC2000 m_HC2000 RAJ2000 DEJ2000 _RAJ2000 _DEJ2000 obs_date itime sci_frames tel_frames teff e_teff vsini e_vsini rv rv_helio e_rv airmass e_airmass pwv e_pwv veiling e_veiling veiling_param_O32 veiling_param_O33 veiling_param_O35 lsf lsf_e noise e_noise model_dip_O32 model_std_O32 model_dip_O33 model_std_O33 model_dip_O35 model_std_O35 wave_offset_O32 e_wave_offset_O32 wave_offset_O33 e_wave_offset_O33 wave_offset_O35 e_wave_offset_O35 snr_O32 snr_O33 snr_O35 Kmag e_Kmag Hmag e_Hmag
 322 "" 83.81787499999999 -5.387944444444445 "05 35 16.29" "-05 23 16.6" 2015-12-23 300.0 [75,76,77,78] [79,80,80,79] 3373.5479382355206 24.762913163185658 37.4376548385155 0.79416838347462 28.744331894929886 24.940719273568504 0.5701778018650998 1.0074407180960816 0.006880361619812536 4.153927805371547 0.07955577663173274 7388.25085260933 3098.9475507044826 0.0649357663017759 0.05597236494038445 "" 4.9348199826626375 0.07265050271405915 2.371773941039386 0.03890410256485555 0.8580943410733264 0.3329657480499612 2.022058568378105 0.4473320118262824 "" "" -0.05596220461024201 0.008286105458662367 0.3867294860735065 0.009856550782017026 "" "" 47.79699736984146 72.86639338155076 "" 9.4350004196167 0.004000000189989805 9.982000350952148 0.004000000189989805
 296 "" 83.81695833333332 -5.390083333333334 "05 35 16.07" "-05 23 24.3" 2015-12-23 1200.0 [81,82,83,84] [79,80,80,79] 3982.11613272872 1473.111652601511 56.987784170885895 32.31614855883417 28.31734414959931 24.38411990475568 61.271776310929525 1.3625311400853624 0.1678834911900683 1.1520008092075031 0.6142140984755569 610673.1242954587 763155.405858801 3.568324173097166 3.117294177807316 "" 16.391313251617255 2.588895402053173 1.000924409670819 0.0009723521147030345 0.009717362630588519 0.012158235857782957 0.012931479527511072 0.004921101699836105 "" "" 0.6206342376678536 0.2745497681535163 0.5696272353276643 0.31237493684573076 "" "" 1.640101042807065 3.187211768134437 "" 12.817999839782715 0.06700000166893005 14.713000297546387 0.22200000286102295
 259 "" 83.821125 -5.392777777777778 "05 35 17.07" "-05 23 34.0" 2015-12-23 90.0 [87,88,89,90] [95,96,96,95] 3434.1717401221267 33.7325477212903 32.81568188958963 1.0283945190086925 32.1557397087425 28.02118334325917 0.6375916781050961 1.3719828018751676 0.011247830319591645 2.392993044170666 0.03676701510551017 69816.52042773225 6621.559891399567 0.5846050576140922 0.5051752879056065 "" 4.910901656899917 0.05426238790051929 1.9133196345638102 0.029814876014979785 1.549971512463939 0.6444522249910014 3.52156418833507 0.757306205024261 "" "" -0.02659413251934948 0.005050933699129142 0.47658865107423815 0.007743923308843825 "" "" 40.13639938344584 61.42808717403635 "" "" "" "" ""

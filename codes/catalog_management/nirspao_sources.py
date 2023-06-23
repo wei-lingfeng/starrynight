@@ -60,13 +60,13 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         'itime':                [],
         'sci_frames':           [],
         'tel_frames':           [],
-        'Teff':                 [],
-        'e_Teff':               [],
+        'teff':                 [],
+        'e_teff':               [],
         'vsini':                [],
         'e_vsini':              [],
-        'RV':                   [],
-        'RVhelio':              [],
-        'e_RV':                 [],
+        'rv':                   [],
+        'rv_helio':             [],
+        'e_rv':                 [],
         'airmass':              [],
         'e_airmass':            [],
         'pwv':                  [],
@@ -161,8 +161,8 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             
             elif line.startswith('teff:'):
                 value, error = read_text(line)
-                result['Teff'].append(value)
-                result['e_Teff'].append(error)
+                result['teff'].append(value)
+                result['e_teff'].append(error)
             
             elif line.startswith('vsini:'):
                 value, error = read_text(line)
@@ -171,11 +171,11 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             
             elif line.startswith('rv:'):
                 value, error = read_text(line)
-                result['RV'].append(value)
-                result['e_RV'].append(error)
+                result['rv'].append(value)
+                result['e_rv'].append(error)
             
             elif line.startswith('rv_helio:'):
-                result['RVhelio'].append(read_text(line))
+                result['rv_helio'].append(read_text(line))
             
             elif line.startswith('airmass:'):
                 value, error = read_text(line)
@@ -282,8 +282,8 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
                 for line in lines:
                     if line.startswith('teff:'):
                         value, error = read_text(line)
-                        result['Teff'][-1] = value
-                        result['e_Teff'][-1] = error
+                        result['teff'][-1] = value
+                        result['e_teff'][-1] = error
                     
                     elif line.startswith('vsini:'):
                         value, error = read_text(line)
@@ -292,11 +292,11 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
                     
                     elif line.startswith('rv:'):
                         value, error = read_text(line)
-                        result['RV'][-1] = value
-                        result['e_RV'][-1] = error
+                        result['rv'][-1] = value
+                        result['e_rv'][-1] = error
                     
                     elif line.startswith('rv_helio:'):
-                        result['RVhelio'][-1] = read_text(line)
+                        result['rv_helio'][-1] = read_text(line)
                     
                     elif line.startswith('airmass:'):
                         value, error = read_text(line)
@@ -354,9 +354,9 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         'RAJ2000': u.deg,
         'DEJ2000': u.deg,
         'itime': u.s,
-        'Teff': u.K, 'e_Teff': u.K,
+        'teff': u.K, 'e_teff': u.K,
         'vsini': u.km/u.s, 'e_vsini': u.km/u.s,
-        'RV': u.km/u.s, 'RVhelio': u.km/u.s, 'e_RV': u.km/u.s, 
+        'rv': u.km/u.s, 'rv_helio': u.km/u.s, 'e_rv': u.km/u.s, 
         'Kmag': u.mag, 'e_Kmag': u.mag, 'Hmag': u.mag, 'e_Hmag': u.mag
     })
     

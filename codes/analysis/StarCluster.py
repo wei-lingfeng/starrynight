@@ -42,6 +42,11 @@ def distance_cut(dist, e_dist, min_dist=300*u.pc, max_dist=500*u.pc, min_plx_ove
     return dist_constraint
 
 
+
+#################################################
+##################### Class #####################
+#################################################
+
 class StarCluster:
     def __init__(self, path) -> None:
         """Initialize StarCluster with attribute: data
@@ -279,9 +284,9 @@ class ONC(StarCluster):
         self.preprocessing()
         super().set_ra_dec('RAJ2000', 'DEJ2000')
         super().set_pm('pmRA', 'e_pmRA', 'pmDE', 'e_pmDE')
-        super().set_rv('RV', 'e_RV')
+        super().set_rv('rv', 'e_rv')
         super().set_coord(distance=389*u.pc, e_distance=3*u.pc)
-        super().set_teff('Teff', 'e_Teff')
+        super().set_teff('teff', 'e_teff')
         self.mass_MIST = self.data['mass_MIST']
         self.e_mass_MIST = self.data['e_mass_MIST']
         self.mass_BHAC15 = self.data['mass_MIST']
@@ -303,16 +308,16 @@ class ONC(StarCluster):
         
         max_rv_e = 5*u.km/u.s
         rv_constraint = ((
-            (self.data['e_RV_nirspao']   <= max_rv_e) |
-            (self.data['e_RV_apogee']    <= max_rv_e)
+            (self.data['e_rv_nirspao']   <= max_rv_e) |
+            (self.data['e_rv_apogee']    <= max_rv_e)
         ) | (
             ~self.data['theta_orionis'].mask
         ))
         print(f"Maximum RV error of {max_rv_e} constraint: {sum(rv_constraint) - sum(~self.data['theta_orionis'].mask)} out of {len(rv_constraint) - sum(~self.data['theta_orionis'].mask)} remaining.")
         self.data = self.data[rv_constraint]
         
-        rv_use_apogee = (self.data['e_RV_nirspao'] > max_rv_e) & (self.data['e_RV_apogee'] <= max_rv_e)
-        self.data['RV_nirspao', 'e_RV_nirspao'][rv_use_apogee] = self.data['RV_apogee', 'e_RV_apogee'][rv_use_apogee]
+        rv_use_apogee = (self.data['e_rv_nirspao'] > max_rv_e) & (self.data['e_rv_apogee'] <= max_rv_e)
+        self.data['rv_nirspao', 'e_rv_nirspao'][rv_use_apogee] = self.data['rv_apogee', 'e_rv_apogee'][rv_use_apogee]
         
         # Apply gaia constraint
         gaia_columns = [key for key in self.data.keys() if (key.endswith('gaia') | key.startswith('plx') | key.startswith('Gmag') | key.startswith('astrometric') | (key=='ruwe') | (key=='bp_rp'))]
@@ -364,10 +369,10 @@ class ONC(StarCluster):
         
         # choose one from the two options: weighted avrg or prioritize NIRSPAO.
         # # weighted average
-        # self.data['RV'], self.data['e_RV'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_NIRSPAO, error2=self.datarv_e_apogee)
+        # self.data['rv'], self.data['e_rv'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_NIRSPAO, error2=self.datarv_e_apogee)
         # prioritize NIRSPAO values
-        self.data['RV'] = merge(self.data['RVhelio'], self.data['RV_apogee'])
-        self.data['e_RV'] = merge(self.data['e_RV_nirspao'], self.data['e_RV_apogee'])
+        self.data['rv'] = merge(self.data['rv_helio'], self.data['rv_apogee'])
+        self.data['e_rv'] = merge(self.data['e_rv_nirspao'], self.data['e_rv_apogee'])
         self.data['dist'] = (1000/self.data['plx'].to(u.mas).value) * u.pc
         self.data['e_dist'] = self.data['e_plx'] / self.data['plx'] * self.data['dist']
         
@@ -425,6 +430,10 @@ class ONC(StarCluster):
 
 
 
+#################################################
+################### Functions ###################
+#################################################
+
 def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits', ra_offset=-8, dec_offset=-12):
     tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
     tobin.rename_columns(['RAJ2000', 'DEJ2000'], ['_RAJ2000', '_DEJ2000'])
@@ -476,8 +485,41 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     plt.show()
 
 
+def compare_velocity(orion, save_path=None):
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14.5, 4))
+    ax1.errorbar(orion.data['pmRA_kim'].value, orion.data['pmRA_gaia'].value, xerr=orion.data['e_pmRA_kim'].value, yerr=orion.data['e_pmRA_gaia'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax1.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    ax1.set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax1.set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax1.legend()
+    
+    ax2.errorbar(orion.data['pmDE_kim'].value, orion.data['pmDE_gaia'].value, xerr=orion.data['e_pmDE_kim'].value, yerr=orion.data['e_pmDE_gaia'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax2.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    ax2.set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax2.set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    ax2.legend()
+    
+    ax3.errorbar(orion.data['rv_helio'].value, orion.data['rv_apogee'].value, xerr=orion.data['e_rv_nirspao'].value, yerr=orion.data['e_rv_apogee'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax3.plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
+    ax3.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax3.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax3.legend()
+    
+    fig.subplots_adjust(wspace=0.28)
+    if save_path:
+        if save_path.endswith('png'):
+            plt.savefig(save_path, bbox_inches='tight', transparent=True)
+        else:
+            plt.savefig(save_path, bbox_inches='tight')
+    plt.show()
 
-# Main function
+
+
+#################################################
+################# Main Function #################
+#################################################
+
 orion = ONC(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv')
 # plot_skymaps(orion)
 
+compare_velocity(orion)

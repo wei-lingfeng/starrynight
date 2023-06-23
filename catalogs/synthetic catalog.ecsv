@@ -12,15 +12,15 @@
 # - {name: itime, unit: s, datatype: float64}
 # - {name: sci_frames, datatype: string, subtype: json}
 # - {name: tel_frames, datatype: string, subtype: json}
-# - {name: Teff, unit: K, datatype: float64}
-# - {name: e_Teff, unit: K, datatype: float64}
-# - {name: Teff_nirspao, unit: K, datatype: float64}
-# - {name: e_Teff_nirspao, unit: K, datatype: float64}
+# - {name: teff, unit: K, datatype: float64}
+# - {name: e_teff, unit: K, datatype: float64}
+# - {name: teff_nirspao, unit: K, datatype: float64}
+# - {name: e_teff_nirspao, unit: K, datatype: float64}
 # - {name: vsini_nirspao, unit: km / s, datatype: float64}
 # - {name: e_vsini_nirspao, unit: km / s, datatype: float64}
-# - {name: RV_nirspao, unit: km / s, datatype: float64}
-# - {name: RVhelio, unit: km / s, datatype: float64}
-# - {name: e_RV_nirspao, unit: km / s, datatype: float64}
+# - {name: rv_nirspao, unit: km / s, datatype: float64}
+# - {name: rv_helio, unit: km / s, datatype: float64}
+# - {name: e_rv_nirspao, unit: km / s, datatype: float64}
 # - {name: airmass, datatype: float64}
 # - {name: e_airmass, datatype: float64}
 # - {name: pwv, datatype: float64}
@@ -56,17 +56,17 @@
 # - {name: theta_orionis, datatype: string}
 # - {name: mass_literature, unit: solMass, datatype: float64}
 # - {name: e_mass_literature, unit: solMass, datatype: float64}
-# - {name: Teff_chris, unit: K, datatype: float64}
-# - {name: e_Teff_chris, unit: K, datatype: float64}
-# - {name: RV_chris, unit: km / s, datatype: float32}
-# - {name: e_RV_chris, unit: km / s, datatype: float32}
+# - {name: teff_chris, unit: K, datatype: float64}
+# - {name: e_teff_chris, unit: K, datatype: float64}
+# - {name: rv_chris, unit: km / s, datatype: float32}
+# - {name: e_rv_chris, unit: km / s, datatype: float32}
 # - {name: vsini_chris, unit: km / s, datatype: float32}
 # - {name: e_vsini_chris, unit: km / s, datatype: float32}
 # - {name: veiling_param_O33_chris, datatype: float32}
-# - {name: RV_apogee, unit: km / s, datatype: float64}
-# - {name: e_RV_apogee, unit: km / s, datatype: float64}
-# - {name: Teff_apogee, unit: K, datatype: float64}
-# - {name: e_Teff_apogee, unit: K, datatype: float64}
+# - {name: rv_apogee, unit: km / s, datatype: float64}
+# - {name: e_rv_apogee, unit: km / s, datatype: float64}
+# - {name: teff_apogee, unit: K, datatype: float64}
+# - {name: e_teff_apogee, unit: K, datatype: float64}
 # - {name: vsini_apogee, unit: km / s, datatype: float64}
 # - {name: e_vsini_apogee, unit: km / s, datatype: float64}
 # - {name: veiling_param_apogee, datatype: float64}
@@ -74,12 +74,12 @@
 # - {name: e_Hmag_apogee, unit: mag, datatype: float64}
 # - {name: 2MASS, datatype: string}
 # - {name: Gaia DR2, datatype: int64}
-# - {name: Teff_kounkel, unit: K, datatype: float64}
-# - {name: e_Teff_kounkel, unit: K, datatype: float64}
+# - {name: teff_kounkel, unit: K, datatype: float64}
+# - {name: e_teff_kounkel, unit: K, datatype: float64}
 # - {name: logg_kounkel, unit: log(cm.s**-2), datatype: float64}
 # - {name: e_logg_kounkel, unit: log(cm.s**-2), datatype: float64}
-# - {name: RV_kounkel, unit: km / s, datatype: float64}
-# - {name: e_RV_kounkel, unit: km / s, datatype: float64}
+# - {name: rv_kounkel, unit: km / s, datatype: float64}
+# - {name: e_rv_kounkel, unit: km / s, datatype: float64}
 # - {name: ID_kim, datatype: int16}
 # - {name: pmRA_kim, unit: mas / yr, datatype: float32}
 # - {name: e_pmRA_kim, unit: mas / yr, datatype: float32}
@@ -102,8 +102,8 @@
 # - {name: ruwe, datatype: float32}
 # - {name: ID_hillenbrand, datatype: int16}
 # - {name: mass_hillenbrand, unit: solMass, datatype: float32}
-# - {name: RV_tobin, unit: km / s, datatype: float32}
-# - {name: e_RV_tobin, unit: km / s, datatype: float32}
+# - {name: rv_tobin, unit: km / s, datatype: float32}
+# - {name: e_rv_tobin, unit: km / s, datatype: float32}
 # - {name: mass_BHAC15, unit: solMass, datatype: float64}
 # - {name: e_mass_BHAC15, unit: solMass, datatype: float64}
 # - {name: logL_BHAC15, unit: solMass, datatype: float64}
@@ -174,7 +174,7 @@
 #         data: !astropy.table.SerializedColumn {name: Kmag}
 #     Mk_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: &id004 !astropy.units.Unit {unit: solMass}
+#       unit: &id003 !astropy.units.Unit {unit: solMass}
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: Mk_BHAC15}
@@ -184,75 +184,9 @@
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: RAJ2000}
-#     RV_apogee:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: RV_apogee}
-#     RV_chris:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: RV_chris}
-#     RV_kounkel:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: RV_kounkel}
-#     RV_nirspao:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: RV_nirspao}
-#     RV_tobin:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: RV_tobin}
-#     RVhelio:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: RVhelio}
-#     Teff:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: &id003 !astropy.units.Unit {unit: K}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: Teff}
-#     Teff_apogee:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: Teff_apogee}
-#     Teff_chris:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: Teff_chris}
-#     Teff_kounkel:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: Teff_kounkel}
-#     Teff_nirspao:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: Teff_nirspao}
 #     astrometric_excess_noise:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: &id005 !astropy.units.Unit {unit: mas}
+#       unit: &id004 !astropy.units.Unit {unit: mas}
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: astrometric_excess_noise}
@@ -282,115 +216,55 @@
 #         data: !astropy.table.SerializedColumn {name: e_Kmag}
 #     e_Mk_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_Mk_BHAC15}
-#     e_RV_apogee:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_RV_apogee}
-#     e_RV_chris:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_RV_chris}
-#     e_RV_kounkel:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_RV_kounkel}
-#     e_RV_nirspao:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_RV_nirspao}
-#     e_RV_tobin:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: !astropy.units.Unit {unit: km / s}
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_RV_tobin}
-#     e_Teff:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_Teff}
-#     e_Teff_apogee:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_Teff_apogee}
-#     e_Teff_chris:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_Teff_chris}
-#     e_Teff_kounkel:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_Teff_kounkel}
-#     e_Teff_nirspao:
-#       __class__: astropy.units.quantity.Quantity
-#       unit: *id003
-#       value: !astropy.table.SerializedColumn
-#         __class__: astropy.utils.masked.core.MaskedNDArray
-#         data: !astropy.table.SerializedColumn {name: e_Teff_nirspao}
 #     e_logL_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logL_BHAC15}
 #     e_logL_DAntona:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logL_DAntona}
 #     e_logL_Feiden:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logL_Feiden}
 #     e_logL_MIST:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logL_MIST}
 #     e_logL_Palla:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logL_Palla}
 #     e_logg_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logg_BHAC15}
 #     e_logg_Feiden:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logg_Feiden}
 #     e_logg_MIST:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_logg_MIST}
@@ -402,49 +276,49 @@
 #         data: !astropy.table.SerializedColumn {name: e_logg_kounkel}
 #     e_mass_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mass_BHAC15}
 #     e_mass_DAntona:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mass_DAntona}
 #     e_mass_Feiden:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mass_Feiden}
 #     e_mass_MIST:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mass_MIST}
 #     e_mass_Palla:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mass_Palla}
 #     e_mass_literature:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mass_literature}
 #     e_mk_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_mk_BHAC15}
 #     e_plx:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id005
+#       unit: *id004
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_plx}
@@ -472,6 +346,66 @@
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: e_pmRA_kim}
+#     e_rv_apogee:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_rv_apogee}
+#     e_rv_chris:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_rv_chris}
+#     e_rv_kounkel:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_rv_kounkel}
+#     e_rv_nirspao:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_rv_nirspao}
+#     e_rv_tobin:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_rv_tobin}
+#     e_teff:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: &id005 !astropy.units.Unit {unit: K}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_teff}
+#     e_teff_apogee:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_teff_apogee}
+#     e_teff_chris:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_teff_chris}
+#     e_teff_kounkel:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_teff_kounkel}
+#     e_teff_nirspao:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: e_teff_nirspao}
 #     e_vsini_apogee:
 #       __class__: astropy.units.quantity.Quantity
 #       unit: !astropy.units.Unit {unit: km / s}
@@ -498,49 +432,49 @@
 #         data: !astropy.table.SerializedColumn {name: itime}
 #     logL_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logL_BHAC15}
 #     logL_DAntona:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logL_DAntona}
 #     logL_Feiden:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logL_Feiden}
 #     logL_MIST:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logL_MIST}
 #     logL_Palla:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logL_Palla}
 #     logg_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logg_BHAC15}
 #     logg_Feiden:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logg_Feiden}
 #     logg_MIST:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: logg_MIST}
@@ -552,55 +486,55 @@
 #         data: !astropy.table.SerializedColumn {name: logg_kounkel}
 #     mass_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_BHAC15}
 #     mass_DAntona:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_DAntona}
 #     mass_Feiden:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_Feiden}
 #     mass_MIST:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_MIST}
 #     mass_Palla:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_Palla}
 #     mass_hillenbrand:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_hillenbrand}
 #     mass_literature:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mass_literature}
 #     mk_BHAC15:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id004
+#       unit: *id003
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: mk_BHAC15}
 #     plx:
 #       __class__: astropy.units.quantity.Quantity
-#       unit: *id005
+#       unit: *id004
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: plx}
@@ -628,6 +562,72 @@
 #       value: !astropy.table.SerializedColumn
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: pmRA_kim}
+#     rv_apogee:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: rv_apogee}
+#     rv_chris:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: rv_chris}
+#     rv_helio:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: rv_helio}
+#     rv_kounkel:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: rv_kounkel}
+#     rv_nirspao:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: rv_nirspao}
+#     rv_tobin:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: rv_tobin}
+#     teff:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: teff}
+#     teff_apogee:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: teff_apogee}
+#     teff_chris:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: teff_chris}
+#     teff_kounkel:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: teff_kounkel}
+#     teff_nirspao:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id005
+#       value: !astropy.table.SerializedColumn
+#         __class__: astropy.utils.masked.core.MaskedNDArray
+#         data: !astropy.table.SerializedColumn {name: teff_nirspao}
 #     vsini_apogee:
 #       __class__: astropy.units.quantity.Quantity
 #       unit: !astropy.units.Unit {unit: km / s}
@@ -647,7 +647,7 @@
 #         __class__: astropy.utils.masked.core.MaskedNDArray
 #         data: !astropy.table.SerializedColumn {name: vsini_nirspao}
 # schema: astropy-2.0
-HC2000 m_HC2000 APOGEE RAJ2000 DEJ2000 _RAJ2000 _DEJ2000 obs_date itime sci_frames tel_frames Teff e_Teff Teff_nirspao e_Teff_nirspao vsini_nirspao e_vsini_nirspao RV_nirspao RVhelio e_RV_nirspao airmass e_airmass pwv e_pwv veiling e_veiling veiling_param_O32 veiling_param_O33_nirspao veiling_param_O35 lsf lsf_e noise e_noise model_dip_O32 model_std_O32 model_dip_O33 model_std_O33 model_dip_O35 model_std_O35 wave_offset_O32 e_wave_offset_O32 wave_offset_O33 e_wave_offset_O33 wave_offset_O35 e_wave_offset_O35 snr_O32 snr_O33 snr_O35 Kmag e_Kmag Hmag e_Hmag theta_orionis mass_literature e_mass_literature Teff_chris e_Teff_chris RV_chris e_RV_chris vsini_chris e_vsini_chris veiling_param_O33_chris RV_apogee e_RV_apogee Teff_apogee e_Teff_apogee vsini_apogee e_vsini_apogee veiling_param_apogee Hmag_apogee e_Hmag_apogee 2MASS "Gaia DR2" Teff_kounkel e_Teff_kounkel logg_kounkel e_logg_kounkel RV_kounkel e_RV_kounkel ID_kim pmRA_kim e_pmRA_kim pmDE_kim e_pmDE_kim "Gaia DR3" plx e_plx plx_over_e pmRA_gaia e_pmRA_gaia pmDE_gaia e_pmDE_gaia Gmag Gmag_e bp_rp astrometric_n_good_obs_al astrometric_gof_al astrometric_excess_noise ruwe ID_hillenbrand mass_hillenbrand RV_tobin e_RV_tobin mass_BHAC15 e_mass_BHAC15 logL_BHAC15 e_logL_BHAC15 logg_BHAC15 e_logg_BHAC15 Mk_BHAC15 e_Mk_BHAC15 mk_BHAC15 e_mk_BHAC15 mass_MIST e_mass_MIST logg_MIST e_logg_MIST logL_MIST e_logL_MIST mass_Feiden e_mass_Feiden logg_Feiden e_logg_Feiden logL_Feiden e_logL_Feiden mass_Palla e_mass_Palla logL_Palla e_logL_Palla mass_DAntona e_mass_DAntona logL_DAntona e_logL_DAntona
+HC2000 m_HC2000 APOGEE RAJ2000 DEJ2000 _RAJ2000 _DEJ2000 obs_date itime sci_frames tel_frames teff e_teff teff_nirspao e_teff_nirspao vsini_nirspao e_vsini_nirspao rv_nirspao rv_helio e_rv_nirspao airmass e_airmass pwv e_pwv veiling e_veiling veiling_param_O32 veiling_param_O33_nirspao veiling_param_O35 lsf lsf_e noise e_noise model_dip_O32 model_std_O32 model_dip_O33 model_std_O33 model_dip_O35 model_std_O35 wave_offset_O32 e_wave_offset_O32 wave_offset_O33 e_wave_offset_O33 wave_offset_O35 e_wave_offset_O35 snr_O32 snr_O33 snr_O35 Kmag e_Kmag Hmag e_Hmag theta_orionis mass_literature e_mass_literature teff_chris e_teff_chris rv_chris e_rv_chris vsini_chris e_vsini_chris veiling_param_O33_chris rv_apogee e_rv_apogee teff_apogee e_teff_apogee vsini_apogee e_vsini_apogee veiling_param_apogee Hmag_apogee e_Hmag_apogee 2MASS "Gaia DR2" teff_kounkel e_teff_kounkel logg_kounkel e_logg_kounkel rv_kounkel e_rv_kounkel ID_kim pmRA_kim e_pmRA_kim pmDE_kim e_pmDE_kim "Gaia DR3" plx e_plx plx_over_e pmRA_gaia e_pmRA_gaia pmDE_gaia e_pmDE_gaia Gmag Gmag_e bp_rp astrometric_n_good_obs_al astrometric_gof_al astrometric_excess_noise ruwe ID_hillenbrand mass_hillenbrand rv_tobin e_rv_tobin mass_BHAC15 e_mass_BHAC15 logL_BHAC15 e_logL_BHAC15 logg_BHAC15 e_logg_BHAC15 Mk_BHAC15 e_Mk_BHAC15 mk_BHAC15 e_mk_BHAC15 mass_MIST e_mass_MIST logg_MIST e_logg_MIST logL_MIST e_logL_MIST mass_Feiden e_mass_Feiden logg_Feiden e_logg_Feiden logL_Feiden e_logL_Feiden mass_Palla e_mass_Palla logL_Palla e_logL_Palla mass_DAntona e_mass_DAntona logL_DAntona e_logL_DAntona
 322 "" "" 83.81787499999999 -5.387944444444445 "05 35 16.29" "-05 23 16.6" 2015-12-23 300.0 [75,76,77,78] [79,80,80,79] 3373.5479382355206 24.762913163185658 3373.5479382355206 24.762913163185658 37.4376548385155 0.79416838347462 28.744331894929886 24.940719273568504 0.5701778018650998 1.0074407180960816 0.006880361619812536 4.153927805371547 0.07955577663173274 7388.25085260933 3098.9475507044826 0.0649357663017759 0.05597236494038445 "" 4.9348199826626375 0.07265050271405915 2.371773941039386 0.03890410256485555 0.8580943410733264 0.3329657480499612 2.022058568378105 0.4473320118262824 "" "" -0.05596220461024201 0.008286105458662367 0.3867294860735065 0.009856550782017026 "" "" 47.79699736984146 72.86639338155076 "" 9.4350004196167 0.004000000189989805 9.982000350952148 0.004000000189989805 "" "" "" 3414.0 18.0 24.9 0.27 37.47 0.92 0.07 "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" 3017364063323188864 2.5922633226392517 0.15427135 16.80327 2.086573681992549 0.13028783 0.013219759672145991 0.10703966 13.78664 0.009620177756192578 0.6814766 208 13.025087 0.7164344 1.7116724 512 "" "" "" 0.27590616736084983 0.01824008326291529 -0.7778251983339604 0.20862695474177412 3.71554370041651 0.2058846418682394 3.914925462779241 0.548462894397473 11.86467346940778 0.5485481101138263 0.2864254222062056 0.02117914764766679 3.7206308189094726 0.1951823574567122 -0.7599712803592051 0.20978070728335912 0.2867310083839059 0.023360661425280593 3.6264393095120795 0.28917507959432753 -0.6655235435513984 0.2884293117942126 0.2174300060958702 0.019378746746088443 0.1265585057910767 0.09352257090401495 "" "" "" ""
 296 "" "" 83.81695833333332 -5.390083333333334 "05 35 16.07" "-05 23 24.3" 2015-12-23 1200.0 [81,82,83,84] [79,80,80,79] 3982.11613272872 1473.111652601511 3982.11613272872 1473.111652601511 56.987784170885895 32.31614855883417 28.31734414959931 24.38411990475568 61.271776310929525 1.3625311400853624 0.1678834911900683 1.1520008092075031 0.6142140984755569 610673.1242954587 763155.405858801 3.568324173097166 3.117294177807316 "" 16.391313251617255 2.588895402053173 1.000924409670819 0.0009723521147030345 0.009717362630588519 0.012158235857782957 0.012931479527511072 0.004921101699836105 "" "" 0.6206342376678536 0.2745497681535163 0.5696272353276643 0.31237493684573076 "" "" 1.640101042807065 3.187211768134437 "" 12.817999839782715 0.06700000166893005 14.713000297546387 0.22200000286102295 "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" 208 0.51 0.07 -4.54 3.05 3017364063331140352 "" "" "" "" "" "" "" 15.601755 0.011843334495570998 0.64092255 60 13.6144705 1.0670905 "" "" "" "" "" 0.6599339627785197 0.33625772240455326 -0.22407264094362833 1.2906107632093307 3.835993396277852 0.18351196830460803 2.7701320744429605 2.9880938924564275 10.7198800810715 2.98810953492572 0.6746930471989878 1.1990267458954846 3.84127731919761 0.20134595842170722 -0.21929213920812668 0.7883657381993288 0.6347873114231105 1.2235529564485543 3.8281949431629125 0.18406661079468312 -0.2338183023126735 0.7792761215430799 0.7112186414154815 0.9095876164611578 0.7898473175780089 7.843247212629335 0.5783109211456099 0.9070088551846246 -0.3570998367044973 0.6642627868045369
 259 "" "" 83.821125 -5.392777777777778 "05 35 17.07" "-05 23 34.0" 2015-12-23 90.0 [87,88,89,90] [95,96,96,95] 3434.1717401221267 33.7325477212903 3434.1717401221267 33.7325477212903 32.81568188958963 1.0283945190086925 32.1557397087425 28.02118334325917 0.6375916781050961 1.3719828018751676 0.011247830319591645 2.392993044170666 0.03676701510551017 69816.52042773225 6621.559891399567 0.5846050576140922 0.5051752879056065 "" 4.910901656899917 0.05426238790051929 1.9133196345638102 0.029814876014979785 1.549971512463939 0.6444522249910014 3.52156418833507 0.757306205024261 "" "" -0.02659413251934948 0.005050933699129142 0.47658865107423815 0.007743923308843825 "" "" 40.13639938344584 61.42808717403635 "" "" "" "" "" "" "" "" 3501.0 44.0 27.53 0.08 32.49 1.95 0.54 "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" 3017364059023817600 1.9105108402878521 0.065417424 29.204922 0.7326152562785355 0.07717607 0.9579832819657591 0.06459751 12.461865 0.008146462432134825 1.3140497 334 22.843128 0.41011232 2.012305 538 1.93 "" "" 0.3034672697315319 0.024772624731646126 -0.7141056414563958 0.20755112288941802 3.7313869078926127 0.19788937308269428 3.7668243750201786 0.5427241178226054 11.716572381648717 0.5428102344695818 0.32102570705744055 0.02592643646941553 3.7296711463784167 0.19293177579909093 -0.6870727655363202 0.20687691806039762 0.3219580166359255 0.03468586471713769 3.6671298753405632 0.29770699284388735 -0.6247771761285874 0.27885164537834733 0.2623032865448755 0.027175457270324763 0.16918812221763171 0.11647094207072628 "" "" "" ""
