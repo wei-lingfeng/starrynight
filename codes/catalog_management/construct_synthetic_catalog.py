@@ -807,7 +807,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     hillenbrand.rename_columns(
         ['ID', 'M'],
-        ['ID_hillenbrand', 'mass_hillenbrand']
+        ['ID_hillenbrand', 'mass_Hillenbrand']
     )
     
     tobin.rename_columns(
@@ -825,7 +825,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     trapezium_stars['mass_literature'] = np.array([26.6, 16.3, 44, 25, 5.604]) * u.solMass
     trapezium_stars['e_mass_literature'] = np.array([26.6*0.05, 16.3*0.05, 5*2**0.5, 25*0.05, 0.048*2**0.5]) * u.solMass
     
-    # trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'mass_e_literature': u.solMass})
+    # trapezium_stars = Table(trapezium_stars, units={'mass_literature': u.solMass, 'e_mass_literature': u.solMass})
     trapezium_stars.add_columns([np.empty(5)*u.deg, np.empty(5)*u.deg], indexes=[2, 2], names=['RAJ2000', 'DEJ2000'])
     
     # Get RA DEC from HC2000 catalog
@@ -932,7 +932,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     # cross match hillenbrand
     sources = merge_on_coords(sources, hillenbrand[[
-        'ID_hillenbrand', 'RAJ2000', 'DEJ2000','mass_hillenbrand'
+        'ID_hillenbrand', 'RAJ2000', 'DEJ2000','mass_Hillenbrand'
     ]], max_sep=2*u.arcsec, table_names=['nirspao+apogee', 'hillenbrand'])
     
     # cross match tobin
