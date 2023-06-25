@@ -381,7 +381,7 @@ def merge(catalog1, catalog2, matches, join_type='left', table_names=['1', '2'],
 
 
 def fillna(column1, column2):
-    result = column1
+    result = column1.copy()
     result[result.mask] = column2[result.mask]
     return result
 
@@ -842,6 +842,16 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     # Merge nirspec and trapezium stars
     nirspao = vstack((nirspao, trapezium_stars))
+    nirspao.rename_column('theta_orionis', 'theta_orionis-temp')
+    nirspao.add_column(nirspao['theta_orionis-temp'], name='theta_orionis', index=2)
+    nirspao.remove_column('theta_orionis-temp')
+    
+    for trapezium_HC2000 in trapezium_stars['HC2000']:
+        if any(nirspao['theta_orionis'][nirspao['HC2000']==trapezium_HC2000].mask):
+            nirspao.remove_rows((nirspao['HC2000']==trapezium_HC2000) & ~nirspao['theta_orionis'].mask)
+            nirspao['theta_orionis'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['theta_orionis'][trapezium_stars['HC2000']==trapezium_HC2000]
+            nirspao['mass_literature'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['mass_literature'][trapezium_stars['HC2000']==trapezium_HC2000]
+
     
     # Remove multiplicty index with only A or B
     for i in np.where(~nirspao_old['m_HC2000'].mask)[0]:
@@ -957,7 +967,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources.remove_columns(['Kmag_apogee', 'e_Kmag_apogee'])
     
     sources.rename_column('APOGEE', 'APOGEE-temp')
-    sources.add_column(sources['APOGEE-temp'], index=2, name='APOGEE')
+    sources.add_column(sources['APOGEE-temp'], index=3, name='APOGEE')
     sources.remove_column('APOGEE-temp')
     
     sources_epoch_combined = merge_multiepoch(sources)

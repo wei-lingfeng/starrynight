@@ -7,15 +7,20 @@ import astropy.units as u
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+from scipy import stats
+from scipy.optimize import curve_fit
+from astroquery.gaia import Gaia
+from astroquery.vizier import Vizier
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.table import QTable, MaskedColumn
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
+from astropy.table import QTable, MaskedColumn
 from astropy.visualization.wcsaxes import SphericalCircle
-from astroquery.vizier import Vizier
-from astroquery.gaia import Gaia
-from itertools import compress
+from matplotlib.lines import Line2D
+from matplotlib.colors import ListedColormap
+from matplotlib.offsetbox import AnchoredText
+
 Vizier.ROW_LIMIT = -1
 Gaia.ROW_LIMIT = -1
 Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"
@@ -40,7 +45,7 @@ class StarCluster:
         self.data = table
         # fill with nan
         for key in self.data.keys():
-            if self.data[key].dtype.name.startswith('str') or self.data[key].dtype.name.startswith('int'):
+            if self.data[key].dtype.name.startswith('str') or self.data[key].dtype.name.startswith('int') or self.data[key].dtype.name.startswith('object'):
                 continue
             try:
                 self.data[key] = self.data[key].filled(np.nan)
@@ -49,157 +54,47 @@ class StarCluster:
 
     @property
     def len(self):
-        return len(self.data)
-
-    def _string_or_quantity(self, value):
-        """Access data for setting attributes.
-
-        Parameters
-        ----------
-        value : str | astropy quantity
-            The value to be accessed, either a str of column name of self.data or array
-
-        Returns
-        -------
-        data
-            Astropy quanitity from the data column or user input
-
-        Raises
-        ------
-        KeyError
-            If value is a str but not a key in self.data
-        ValueError
-            If value is neither of str, ndarray, int, or float
-        """
-        if isinstance(value, str):
-            try:
-                return self.data[value]
-            except KeyError:
-                raise KeyError(f'{value} is not a key in self.data!') from None
-        elif isinstance(value, np.ndarray) or isinstance(value, int) or isinstance(value, float):
-            return value
-        else:
-            raise ValueError(f'The parameter must be either a string of column name or a quantity, not {type(value)}.')
+        return len(self.data)    
     
     
-    def set_ra_dec(self, ra, dec):
-        """Set ra and dec with attributes: ra, dec
-        
-        Parameters
-        ----------
-        ra : str | astropy quantity
-            Column name or astropy quantity of ra
-        dec : str | astropy quantity
-            Column name or astropy quantity of dec
-        """
-        self.ra  = self._string_or_quantity(ra)
-        self.dec = self._string_or_quantity(dec)
-    
-    
-    def set_pm(self, pmRA, e_pmRA, pmDE, e_pmDE):
-        """Set proper motion with attributes: pmRA, pmRA_e, pmDE, pmDE_e
-
-        Parameters
-        ----------
-        pmRA : str | astropy quantity
-            Column name or astropy quantity of proper motion in RA
-        pmRA_e : str | astropy quantity
-            Column name or astropy quantity of proper motion in RA uncertainty
-        pmDE : str | astropy quantity
-            Column name or astropy quantity of proper motion in DE
-        pmDE_e : str | astropy quantity
-            Column name or astropy quantity of proper motion in DE uncertainty
-        """
-        self.pmRA   = self._string_or_quantity(pmRA)
-        self.e_pmRA = self._string_or_quantity(e_pmRA)
-        self.pmDE   = self._string_or_quantity(pmDE)
-        self.e_pmDE = self._string_or_quantity(e_pmDE)
-    
-    
-    def set_rv(self, rv, e_rv):
-        """Set radial velocity with attributes: rv, rv_e
-
-        Parameters
-        ----------
-        rv : str | astropy quantity
-            Column name or astropy quantity of radial velocity
-        e_rv : str | astropy quantity
-            Column name or astropy quantity of radial velocity uncertainty
-        """
-        self.rv   = self._string_or_quantity(rv)
-        self.rv_e = self._string_or_quantity(e_rv)
-    
-    
-    def set_coord(self, ra=None, dec=None, distance=None, e_distance=None):
+    def set_coord(self, ra, dec, pmRA, pmDE, rv, distance=None):
         """Set astropy SkyCoord with attributes: coord (and velocity, if distance is not None)
 
         Parameters
         ----------
-        ra : str | astropy quantity, optional
-            Column name or astropy quantity of ra, by default None
-        dec : str | astropy quantity, optional
-            Column name or astropy quantity of dec, by default None
-        distance : str | astropy quantity, optional
-            Column name or astropy quantity of distance, by default None
-        e_distance : str | astropy quantity, optional
-            Column name or astropy quantity of distance uncertainty, by default None
+        ra : astropy quantity
+            Right ascension
+        dec : astropy quantity
+            Declination
+        pmRA : astropy quantity
+            Proper motion in right ascension
+        pmDE : astropy quantity
+            Proper motion in declination
+        rv : astropy quantity
+            Radial velocity
+        distance : astropy quantity, optional
+            Distance to sources, by default None
         """
-        if hasattr(self, 'ra') and hasattr(self, 'dec'):
-            pass
-        else:
-            self.ra  = self._string_or_quantity(ra)
-            self.dec = self._string_or_quantity(dec)
         if distance is not None:
-            self.distance = self._string_or_quantity(distance)
-            if e_distance is not None:
-                self.e_distance = self._string_or_quantity(e_distance)
             self.coord = SkyCoord(
-                ra=self.ra,
-                dec=self.dec,
-                pm_ra_cosdec=self.pmRA,
-                pm_dec=self.pmDE,
-                radial_velocity=self.rv,
-                distance=self.distance
+                ra=ra,
+                dec=dec,
+                pm_ra_cosdec=pmRA,
+                pm_dec=pmDE,
+                radial_velocity=rv,
+                distance=distance
             )
-            self.velocity = self.coord.velocity.d_xyz
+            self.v_xyz = self.coord.velocity.d_xyz
         else:
             self.coord = SkyCoord(
-                ra=self.ra,
-                dec=self.dec,
-                pm_ra_cosdec=self.pmRA,
-                pm_dec=self.pmDE,
-                radial_velocity=self.rv
+                ra=ra,
+                dec=dec,
+                pm_ra_cosdec=pmRA,
+                pm_dec=pmDE,
+                radial_velocity=rv
             )
     
     
-    def set_teff(self, teff, e_teff):
-        """Set effective temperature with attributes: teff, teff_e
-
-        Parameters
-        ----------
-        teff : str | astropy quantity
-            Column name or astropy quantity of effective temperature
-        teff_e : str | astropy quantity
-            Column name or astropy quantity of effective temperature uncertainty
-        """
-        self.teff   = self._string_or_quantity(teff)
-        self.e_teff = self._string_or_quantity(e_teff)
-    
-        
-    def set_mass(self, mass, e_mass):
-        """Set mass with attributes: mass, e_mass
-
-        Parameters
-        ----------
-        mass : str | astropy quantity
-            Column name or astropy quantity of mass.
-        e_mass : str | astropy quantity
-            Column name or astropy quantity of mass uncertainty.
-        """
-        self.mass = self._string_or_quantity(mass)
-        self.e_mass = self._string_or_quantity(e_mass)
-    
-        
     # def apply_constraint(self, constraint, return_copy=False):
     #     """Apply constraint to the star cluster.
 
@@ -220,6 +115,59 @@ class StarCluster:
     #         self.__init__(self.data.loc[constraint].reset_index(drop=True))
     
     
+    def calculate_velocity(self, pmRA, e_pmRA, pmDE, e_pmDE, rv, e_rv, dist, e_dist):
+        """Calculate velocity from proper motions, radial velocity, and distance.
+        StarCluster object must have attributes pmRA, e_pmRA, pmDE, e_pmDE.
+        Add columns in data: vRA, e_vRA, vDE, e_vDE, vt, e_vt, v, e_v
+
+        Parameters
+        ----------
+        pmRA : astropy quantity
+            Proper motion in right ascension
+        e_pmRA : astropy quantity
+            Proper motion uncertainty in right ascension
+        pmDE : astropy quantity
+            Proper motion in declination
+        e_pmDE : astropy quantity
+            Proper motion uncertainty in declination
+        rv : astropy quantity
+            Radial velocity
+        e_rv : astropy quantity
+            Radial velocity uncertainty
+        dist : astropy quantity
+            Distance to sources
+        e_dist : astropy quantity
+            Distance uncertainty
+        """
+        
+        vRA = (pmRA * dist).to(u.rad * u.km/u.s).value * u.km/u.s
+        e_vRA = np.sqrt((e_pmRA * dist)**2 + (e_dist * pmRA)**2).to(u.rad * u.km/u.s).value * u.km/u.s
+        
+        vDE = (pmDE * dist).to(u.rad * u.km/u.s).value * u.km/u.s
+        e_vDE = np.sqrt((e_pmDE * dist)**2 + (e_dist * pmDE)**2).to(u.rad * u.km/u.s).value * u.km/u.s
+        
+        pm = np.sqrt(pmRA**2 + pmDE**2)
+        e_pm = 1/pm * np.sqrt((pmRA * e_pmRA)**2 + (pmDE * e_pmDE)**2)
+        
+        vt = (pm * dist).to(u.rad * u.km/u.s).value * u.km/u.s
+        e_vt = vt * np.sqrt((e_pm / pm)**2 + (e_dist / dist)**2)
+        
+        vr = rv
+        e_vr = e_rv
+        
+        v = np.sqrt(vt**2 + vr**2)
+        e_v = 1/v * np.sqrt((vt * e_vt)**2 + (vr * e_vr)**2)
+        
+        self.data['vRA'] = vRA
+        self.data['e_vRA'] = e_vRA
+        self.data['vDE'] = vDE
+        self.data['e_vDE'] = e_vDE
+        self.data['vt'] = vt
+        self.data['e_vt'] = e_vt
+        self.data['v'] = v
+        self.data['e_v'] = e_v
+
+
     def plot_skymap(self, background_path=None, show_figure=True, save_path=None, ra_offset=0, dec_offset=0, label='Sources', color='C6', lw=1, zorder=1, constraint=None):
         if not (hasattr(self, 'ra') and hasattr(self, 'dec')):
             raise AttributeError("Attributes 'ra' and 'dec' are required for plotting skymap. Please run self.set_ra_dec() first.")
@@ -368,9 +316,9 @@ class StarCluster:
         angles = -np.array([angle_between(position[:, i], pm[:, i]) for i in range(np.shape(position)[1])])
 
         nbins = 12
-        # angles[angles > np.pi - np.pi/nbins] = angles[angles > np.pi - np.pi/nbins] - 2*np.pi
-        # hist, bin_edges = np.histogram(angles, nbins, range=(-np.pi - np.pi/nbins, np.pi - np.pi/nbins))
-        hist, bin_edges = np.histogram(angles, nbins, range=(-np.pi, np.pi))
+        angles[angles > np.pi - np.pi/nbins] = angles[angles > np.pi - np.pi/nbins] - 2*np.pi
+        hist, bin_edges = np.histogram(angles, nbins, range=(-np.pi - np.pi/nbins, np.pi - np.pi/nbins))
+        # hist, bin_edges = np.histogram(angles, nbins, range=(-np.pi, np.pi))
         theta = (bin_edges[:-1] + bin_edges[1:])/2
         colors = plt.cm.viridis(hist / max(hist))
 
@@ -390,6 +338,350 @@ class StarCluster:
             else:
                 plt.savefig(save_path, bbox_inches='tight')
         plt.show()
+    
+    
+    def vrel_vs_mass(self, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, kde_percentile=84, update_sources=False, save_path=None, show_figure=True, **kwargs):
+        """Velocity relative to the neighbors of each source within a radius vs mass.
+
+        Parameters
+        ----------
+        sources : pd.DataFrame
+            sources
+        model_name : str
+            one of ['MIST', 'BHAC15', 'Feiden', 'Palla']
+        radius : astropy.Quantity, optional
+            radius within which count as neighbors, by default 0.1*u.pc
+        model_func : str, optional
+            format of model function: 'linear' or 'power'. V=k*M + b or V=A*M**k, by default 'linear'.
+        resampling : any, optional
+            whether resample or not, and number of resamples, 100000 by default. If False or None, will try to read from previous results
+        self_included : bool, optional
+            include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
+        max_rv : float, optional
+            maximum radial velocity, by default inf.
+        max_rv_error : float, optional
+            maximum radial velocity error, by default 5
+        max_mass_error : float, optional
+            maximum mass error, by default 0.5
+        update_sources : bool, optional
+            update the original sources dataframe or not, by default False
+        kde_percentile : int, optional
+            Percentile of KDE contour, 84 by default
+        show_figure : bool, optional
+            Whether to show the figure, by default True
+        save_path : str, optional
+            save path, by default None
+        kwargs:
+            bin_method: str, optional
+                binning method when calculating running average, 'equally spaced' or 'equally grouped', by default 'equally grouped'
+            nbins: int, optional
+                number of bins, by default 7 for 'equally grouped' and 5 for 'equally spaced'.
+
+        Returns
+        -------
+        mass, vrel, mass_e, vrel_e, fit_result
+            mass, vrel, mass_e, vrel_e: 1-D array.
+            fit_result: pd.DataFrame with keys 'k', 'b'.
+
+        Raises
+        ------
+        ValueError
+            bin_method must be one of 'equally spaced' or 'equally grouped'.
+        """
+        
+        bin_method = kwargs.get('bin_method', 'equally grouped')
+        
+        if save_path:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+                
+        constraint = \
+            (~np.isnan(self.pmRA)) & (~np.isnan(self.pmDE)) & \
+            (~np.isnan(self.data[f'mass_{model_name}'])) & \
+            (self.data[f'e_mass_{model_name}'] < max_mass_error) & \
+            (self.rv < max_rv) & (self.e_v < max_v_error)
+        
+        sources_coord = self.coord[constraint]
+        
+        mass = getattr(self, f'mass_{model_name}')[constraint]
+        e_mass = getattr(self, f'e_mass_{model_name}')[constraint]
+        e_v = self.e_v[constraint]
+        
+        ############# calculate vcom within radius #############
+        # v & vcom: n-by-3 velocity in cartesian coordinates
+        v = self.v_xyz.T[constraint, :]
+        vcom = np.empty((sum(constraint), 3))*u.km/u.s
+        e_vcom = np.empty(sum(constraint))*u.km/u.s
+        
+        # is_neighbor: boolean symmetric neighborhood matrix
+        is_neighbor = np.empty((len(sources_coord), len(sources_coord)), dtype=bool)
+        
+        for i, star in enumerate(sources_coord):
+            sep = star.separation_3d(sources_coord)
+            if self_included:
+                is_neighbor[i] = sep < radius
+            else:
+                is_neighbor[i] = (sep > 0*u.pc) & (sep < radius)
+            # vel_com[i]: 1-by-3 center of mass velocity
+            vcom[i] = (mass[is_neighbor[i]] @ v[is_neighbor[i]]) / sum(mass[is_neighbor[i]])
+        
+        n_neighbors = np.sum(is_neighbor, axis=1)
+        
+        # delete those without any neighbors
+        if self_included:
+            has_neighbor = n_neighbors > 1
+        else:
+            has_neighbor = n_neighbors > 0
+            
+        v = v[has_neighbor, :]
+        vcom = vcom[has_neighbor, :]
+        e_vcom = e_vcom[has_neighbor]
+        # is_neighbor = np.delete(is_neighbor, has_neighbor, axis=1)
+        is_neighbor = is_neighbor[has_neighbor, :][:, has_neighbor]
+        n_neighbors = n_neighbors[has_neighbor]
+        valid_idx = np.where(constraint)[0][has_neighbor]
+        
+        sources_coord = sources_coord[has_neighbor]
+        
+        mass = mass[has_neighbor]
+        e_mass = e_mass[has_neighbor]
+        e_v = e_v[has_neighbor]
+        
+        print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
+        
+        vrel_vector = v - vcom
+        vrel = np.linalg.norm(vrel_vector, axis=1)
+        
+        ############# Calculate vrel error #############
+        for i in range(len(sources_coord)):
+            vcom_e_j = [sum((vrel_vector[is_neighbor[i], j]/sum(mass[is_neighbor[i]]) * e_mass[is_neighbor[i]])**2 + (mass[is_neighbor[i]] / sum(mass[is_neighbor[i]]) * e_v[is_neighbor[i]])**2)**0.5 for j in range(3)]
+            e_vcom[i] = np.sqrt(sum([(vcom[i,j] / np.linalg.norm(vcom[i]) * vcom_e_j[j])**2 for j in range(3)]))
+        
+        e_vrel = np.sqrt(e_v**2 + e_vcom**2)
+        
+        
+        ############# Resampling #############
+        
+        if model_type=='linear':
+            def model_func(x, k, b):
+                return k*x + b
+        elif model_type=='power':
+            def model_func(x, k, b):
+                return b*x**k
+        else:
+            raise ValueError(f"model_func must be one of 'linear' or 'power', not {model_func}.")
+        
+        R = np.corrcoef(mass.to(u.solMass).value, vrel.to(u.km/u.s).value)[1, 0]   # Pearson's R
+        
+        # Resampling
+        if resampling is True:
+            resampling = 100000
+        if resampling:
+            ks = np.empty(resampling)
+            ebs = np.empty(resampling)
+            Rs = np.empty(resampling)
+            
+            for i in range(resampling):
+                mass_resample = np.random.normal(loc=mass, scale=e_mass)
+                vrel_resample = np.random.normal(loc=vrel, scale=e_vrel)
+                valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
+                mass_resample = mass_resample[valid_resample_idx]
+                vrel_resample = vrel_resample[valid_resample_idx]
+                popt, _ = curve_fit(model_func, mass_resample, vrel_resample)
+                ks[i] = popt[0]
+                ebs[i] = popt[1]        
+                Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
+            
+            k_resample = np.median(ks)
+            k_e = np.diff(np.percentile(ks, [16, 84]))[0]/2
+            b_resample = np.median(ebs)
+            b_e = np.diff(np.percentile(ebs, [16, 84]))[0]/2
+            R_resample = np.median(Rs)
+            R_e = np.diff(np.percentile(Rs, [16, 84]))[0]/2
+        
+        else:
+            with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+                raw = file.readlines()
+            for line in raw:
+                if line.startswith('k_resample:'):
+                    k_resample, k_e = eval(', '.join(line.strip('k_resample:\t\n').split('± ')))
+                elif line.startswith('b_resample:'):
+                    b_resample, b_e = eval(', '.join(line.strip('b_resample:\t\n').split('± ')))
+                elif line.startswith('R_resample:'):
+                    R_resample, R_e = eval(', '.join(line.strip('R_resample:\t\n').split('± ')))
+        
+        print(f'k_resample = {k_resample:.2f} ± {k_e:.2f}')
+        print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
+        
+        
+        ############# Running average #############
+        # equally grouped
+        if bin_method == 'equally grouped':
+            nbins = kwargs.get('nbins', 7)
+            sources_in_bins = [len(mass) // nbins + (1 if x < len(valid_idx) % nbins else 0) for x in range (nbins)]
+            division_idx = np.cumsum(sources_in_bins)[:-1] - 1
+            mass_sorted = np.sort(mass)
+            mass_borders = np.array([np.nanmin(mass).to(u.solMass).value - 1e-3, *(mass_sorted[division_idx] + mass_sorted[division_idx + 1]).to(u.solMass).value/2, np.nanmax(mass).to(u.solMass).value])
+        
+        # equally spaced
+        elif bin_method == 'equally spaced':
+            nbins = kwargs.get('nbins', 5)
+            mass_borders = np.linspace(np.nanmin(mass).to(u.solMass).value - 1e-3, np.nanmax(mass).to(u.solMass).value, nbins + 1)
+        
+        else:
+            raise ValueError("bin_method must be one of the following: ['equally grouped', 'equally spaced']")
+        
+        mass_value      = mass.to(u.solMass).value
+        e_mass_value    = e_mass.to(u.solMass).value
+        vrel_value      = vrel.to(u.km/u.s).value
+        e_vrel_value    = e_vrel.to(u.km/u.s).value
+        mass_binned_avrg    = np.empty(nbins)
+        e_mass_binned       = np.empty(nbins)
+        mass_weight = 1 / e_mass_value**2
+        avrg_vrel_binned    = np.empty(nbins)
+        e_vrel_binned       = np.empty(nbins)
+        vrel_weight = 1 / e_vrel_value**2
+        
+        for i, min_mass, max_mass in zip(range(nbins), mass_borders[:-1]*u.solMass, mass_borders[1:]*u.solMass):
+            idx = (mass > min_mass) & (mass <= max_mass)
+            mass_weight_sum = sum(mass_weight[idx])
+            mass_binned_avrg[i] = np.average(mass_value[idx], weights=mass_weight[idx])
+            e_mass_binned[i] = 1/mass_weight_sum * sum(mass_weight[idx] * e_mass_value[idx])
+            
+            vrel_weight_sum = sum(vrel_weight[idx])
+            avrg_vrel_binned[i] = np.average(vrel_value[idx], weights=vrel_weight[idx])
+            e_vrel_binned[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * e_vrel_value[idx])
+        
+        # write params
+        if save_path:
+            with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
+                file.write(f'Median of neighbors in a group:\t{np.median(n_neighbors):.0f}\n')
+                file.write(f'k_resample:\t{k_resample} ± {k_e}\n')
+                file.write(f'b_resample:\t{b_resample} ± {b_e}\n')
+                file.write(f'R_resample:\t{R_resample} ± {R_e}\n')
+                file.write(f'R:\t{R}\n')
+        
+        
+        ########## Kernel Density Estimation in Linear Space ##########
+        # see https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+        resolution = 200
+        X, Y = np.meshgrid(np.linspace(0, mass_value.max(), resolution), np.linspace(0, vrel_value.max(), resolution))
+        positions = np.vstack([X.T.ravel(), Y.T.ravel()])
+        values = np.vstack([mass_value, vrel_value])
+        kernel = stats.gaussian_kde(values)
+        Z = np.rot90(np.reshape(kernel(positions).T, X.shape))
+        
+        
+        ########## Linear Fit Plot - Original Error ##########
+        xs = np.linspace(mass_value.min(), mass_value.max(), 100)
+        
+        fig, ax = plt.subplots(figsize=(6, 4.5), dpi=300)
+        
+        # Errorbar with uniform transparency
+        h1 = ax.errorbar(
+            mass_value, vrel_value, xerr=e_mass_value, yerr=e_vrel_value,
+            fmt='.',
+            markersize=6, markeredgecolor='none', markerfacecolor='C0', 
+            elinewidth=1, ecolor='C0', alpha=0.5,
+            zorder=2
+        )
+        
+        # Running Average
+        h2 = ax.errorbar(
+            mass_binned_avrg, avrg_vrel_binned, 
+            xerr=e_mass_binned, 
+            yerr=e_vrel_binned, 
+            fmt='.', 
+            elinewidth=1.2, ecolor='C3', 
+            markersize=8, markeredgecolor='none', markerfacecolor='C3', 
+            alpha=0.8,
+            zorder=4
+        )
+        
+        # Running Average Fill
+        f2 = ax.fill_between(mass_binned_avrg, avrg_vrel_binned - e_vrel_binned, avrg_vrel_binned + e_vrel_binned, color='C3', edgecolor='none', alpha=0.5)
+            
+        h4, = ax.plot(xs, model_func(xs, k_resample, b_resample), color='k', label='Best Fit', zorder=3)
+        
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        
+        # Plot KDE and contours
+        # see https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_demo.html
+        
+        # Choose colormap
+        cmap = plt.cm.Blues
+
+        # set from white to half-blue
+        my_cmap = cmap(np.linspace(0, 0.5, cmap.N))
+
+        # Create new colormap
+        my_cmap = ListedColormap(my_cmap)
+        
+        ax.set_facecolor(cmap(0))
+        im = ax.imshow(Z, cmap=my_cmap, alpha=0.8, extent=[0, mass_value.max(), 0, vrel_value.max()], zorder=0, aspect='auto')
+        cs = ax.contour(X, Y, np.flipud(Z), levels=np.percentile(Z, [kde_percentile]), alpha=0.5, zorder=1)
+        
+        # contour label
+        fmt = {cs.levels[0]: f'{kde_percentile}%'}
+        ax.clabel(cs, cs.levels, inline=True, fmt=fmt, fontsize=10)
+        h3 = Line2D([0], [0], color=cs.collections[0].get_edgecolor()[0])
+        
+        cax = fig.colorbar(im, fraction=0.1, shrink=1, pad=0.03)
+        cax.set_label(label='KDE', size=12, labelpad=10)
+        
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        
+        handles, labels = ax.get_legend_handles_labels()
+        handles = [h1, (h2, f2), h3, h4]
+        labels = [
+            f'Sources - {model_name} Model',
+            'Running Average',
+            f"KDE's {kde_percentile}-th Percentile"
+        ]
+        
+        if model_type=='linear':
+            labels.append(f'Best Linear Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$b={b_resample:.2f}\pm{b_e:.2f}$')
+        elif model_type=='power':
+            labels.append(f'Best Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$A={b_resample:.2f}\pm{b_e:.2f}$')
+        
+        ax.legend(handles, labels)
+        
+        
+        at = AnchoredText(
+            f'$R={R_resample:.2f}\pm{R_e:.2f}$', 
+            prop=dict(size=10), frameon=True, loc='lower right'
+        )
+        at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+        at.patch.set_alpha(0.8)
+        at.patch.set_edgecolor((0.8, 0.8, 0.8))
+        ax.add_artist(at)
+
+        ax.set_xlabel('Mass $(M_\odot)$', fontsize=12)
+        ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
+
+        if save_path:
+            if save_path.endswith('png'):
+                plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight', transparent=True)
+            else:
+                plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight')
+        
+        if show_figure:
+            plt.show()
+        else:
+            plt.close()
+        
+        ########## Updating the original DataFrame ##########
+        if update_sources:
+            print('Changing sources...')
+            self.loc[valid_idx, f'vrel_{model_name}'] = vrel
+            self.loc[valid_idx, f'vrel_e_{model_name}'] = e_vrel
+        else:
+            pass
+        
+        return mass, vrel, e_mass, e_vrel
+
 
 
 
@@ -401,11 +693,24 @@ class ONC(StarCluster):
     def set_attr(self) -> None:
         """Set attributes of ra, dec, pmRA, pmDE rv, coord, teff, teff, mass of MIST, BHAC15, Feiden, Palla, and corresponding errors.
         """
-        super().set_ra_dec('RAJ2000', 'DEJ2000')
-        super().set_pm('pmRA', 'e_pmRA', 'pmDE', 'e_pmDE')
-        super().set_rv('rv', 'e_rv')
-        super().set_coord(distance=389*u.pc, e_distance=3*u.pc)
-        super().set_teff('teff', 'e_teff')
+        self.ra = self.data['RAJ2000']
+        self.dec = self.data['DEJ2000']
+        self.pmRA = self.data['pmRA']
+        self.e_pmRA = self.data['e_pmRA']
+        self.pmDE = self.data['pmDE']
+        self.e_pmDE = self.data['e_pmDE']
+        self.rv = self.data['rv']
+        self.e_rv = self.data['e_rv']
+        self.teff = self.data['teff']
+        self.e_teff = self.data['e_teff']
+        self.vRA    = self.data['vRA']
+        self.e_vRA  = self.data['e_vRA']
+        self.vDE    = self.data['vDE']
+        self.e_vDE  = self.data['e_vDE']
+        self.vt     = self.data['vt']
+        self.e_vt   = self.data['e_vt']
+        self.v      = self.data['v']
+        self.e_v    = self.data['e_v']
         self.mass_MIST = self.data['mass_MIST']
         self.e_mass_MIST = self.data['e_mass_MIST']
         self.mass_BHAC15 = self.data['mass_MIST']
@@ -416,22 +721,15 @@ class ONC(StarCluster):
         self.e_mass_Palla = self.data['e_mass_Palla']
         self.mass_Hillenbrand = self.data['mass_Hillenbrand']
     
+    
     def preprocessing(self):
-        trapezium_names = ['A', 'B', 'C', 'D', 'E']
-        
-        # Replace Trapezium stars fitting results with literature values.
-        for i in range(len(trapezium_names)):
-            trapezium_index = self.data['theta_orionis'] == trapezium_names[i]
-            for model_name in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
-                self.data[f'mass_{model_name}'][trapezium_index]    = self.data['mass_literature'][trapezium_index]
-                self.data[f'e_mass_{model_name}'][trapezium_index]  = self.data['e_mass_literature'][trapezium_index]
-        
+        trapezium_only = (self.data['sci_frames'].mask) & (self.data['APOGEE'].mask)
         max_rv_e = 5*u.km/u.s
         rv_constraint = ((
             (self.data['e_rv_nirspao']   <= max_rv_e) |
             (self.data['e_rv_apogee']    <= max_rv_e)
         ) | (
-            ~self.data['theta_orionis'].mask
+            trapezium_only
         ))
         print(f"Maximum RV error of {max_rv_e} constraint: {sum(rv_constraint) - sum(~self.data['theta_orionis'].mask)} out of {len(rv_constraint) - sum(~self.data['theta_orionis'].mask)} remaining.")
         self.data = self.data[rv_constraint]
@@ -453,16 +751,12 @@ class ONC(StarCluster):
         
         # Plot pm comparison
         # Remove binaries
-        unique, count = np.unique(self.data['HC2000'], return_counts=True)
-        dup_idx = [list(self.data['HC2000']).index(_) for _ in list(unique[(count > 1) & (count < 10)])]
-        not_dup = np.ones(len(self.data), dtype=bool)
-        not_dup[dup_idx] = False
         fig, ax = plt.subplots(figsize=(6, 6))
         ax.errorbar(
-            (self.data['pmRA_gaia'] - self.data['pmRA_kim'] - offset_RA).value[not_dup],
-            (self.data['pmDE_gaia'] - self.data['pmDE_kim'] - offset_DE).value[not_dup],
-            xerr = ((self.data['e_pmRA_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value[not_dup],
-            yerr = ((self.data['e_pmDE_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value[not_dup],
+            (self.data['pmRA_gaia'] - self.data['pmRA_kim'] - offset_RA).value,
+            (self.data['pmDE_gaia'] - self.data['pmDE_kim'] - offset_DE).value,
+            xerr = ((self.data['e_pmRA_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value,
+            yerr = ((self.data['e_pmDE_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value,
             fmt='o', color=(.2, .2, .2, .8), markersize=3, ecolor='black', alpha=0.4
         )
         xmin, xmax = ax.get_xlim()
@@ -491,19 +785,25 @@ class ONC(StarCluster):
         # # weighted average
         # self.data['rv'], self.data['e_rv'] = weighted_avrg_and_merge(self.datarv_helio, self.datarv_apogee, error1=self.datarv_e_NIRSPAO, error2=self.datarv_e_apogee)
         # prioritize NIRSPAO values
-        self.data['rv'] = merge(self.data['rv_helio'], self.data['rv_apogee'])
-        self.data['e_rv'] = merge(self.data['e_rv_nirspao'], self.data['e_rv_apogee'])
-        self.data['dist'] = (1000/self.data['plx'].to(u.mas).value) * u.pc
+        self.data['rv']     = merge(self.data['rv_helio'], self.data['rv_apogee'])
+        self.data['e_rv']   = merge(self.data['e_rv_nirspao'], self.data['e_rv_apogee'])
+        self.data['dist']   = (1000/self.data['plx'].to(u.mas).value) * u.pc
         self.data['e_dist'] = self.data['e_plx'] / self.data['plx'] * self.data['dist']
         
         dist_constraint = distance_cut(self.data['dist'], self.data['e_dist'])
         self.data.remove_rows(~dist_constraint)
         
+        # Calculate velocity
+        self.calculate_velocity(self.data['pmRA'], self.data['e_pmRA'], self.data['pmDE'], self.data['e_pmDE'], self.data['rv'], self.data['e_rv'], dist=389*u.pc, e_dist=3*u.pc)
+        
+        super().set_coord(ra=self.data['RAJ2000'], dec=self.data['DEJ2000'], pmRA=self.data['pmRA'], pmDE=self.data['pmDE'], rv=self.data['rv'], distance=389*u.pc)
+        self.data['sep_to_trapezium'] = self.coord.separation(trapezium)
+        
         print('After all constraint:\nNIRSPAO:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
-            sum((self.data['theta_orionis'].mask) & (~self.data['HC2000'].mask)),
-            sum((self.data['theta_orionis'].mask) & (~self.data['APOGEE'].mask)),
-            sum((self.data['theta_orionis'].mask) & (~self.data['HC2000'].mask) & (~self.data['APOGEE'].mask)),
-            sum((self.data['theta_orionis'].mask))
+            sum(~self.data['sci_frames'].mask),
+            sum(~self.data['APOGEE'].mask),
+            sum((~self.data['sci_frames'].mask) & (~self.data['APOGEE'].mask)),
+            self.len - sum((self.data['sci_frames'].mask) & (self.data['APOGEE'].mask))
         ))
 
         self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources 2d.ecsv', overwrite=True)
@@ -675,7 +975,7 @@ class ONC(StarCluster):
     def plot_3d(self, scale=3, show_figure=True, label='Sources'):
         marker_size = 3
         opacity = 0.7
-        fig = super().plot_3d(scale, show_figure, label)
+        fig = super().plot_3d(scale, show_figure=False, label=label)
         fig.add_trace(
             go.Scatter3d(
                 mode='markers',
@@ -733,7 +1033,7 @@ class ONC(StarCluster):
             width=0.006,
             scale=25
         )
-        im.set_clim(vmax=36)
+        im.set_clim(vmin=19, vmax=35)
         
         ax.quiverkey(im, X=0.15, Y=0.95, U=1, color='w',
                     label=r'$1~\mathrm{mas}\cdot\mathrm{yr}^{-1}$'
@@ -783,13 +1083,116 @@ class ONC(StarCluster):
             limit=limit,
             save_path=save_path
         )
+    
+    
+    def compare_chris(self, save_path=None):
+        idx_binary = list(self.data['HC2000']).index(546)
+        idx_other = np.delete(np.array(range(self.len)), np.array(idx_binary))
+
+        teff_diff = self.teff - self.data['teff_chris']
+        rv_diff = self.rv[idx_other] - self.data['rv_chris'][idx_other]
+        print(f'Median absolute Teff difference: {np.nanmedian(abs(teff_diff)):.2f}.')
+        print(f'Max. absolute Teff difference: {np.nanmax(abs(teff_diff)):.2f}.')
+        print(f'Standard deviation of Teff difference: {np.nanstd(teff_diff):.2f}.')
+        print(f'Median absolute RV difference: {np.nanmedian(abs(rv_diff)):.2f}.')
+        print(f'Standard deviation RV difference: {np.nanstd(teff_diff):.2f}.')
+        
+        # compare veiling parameter of order 33    
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 3))
+        
+        # compare teff
+        ax1.plot([3000, 5000], [3000, 5000], linestyle='--', color='C3', label='Equal Line')
+        ax1.errorbar(
+            self.data['teff'][idx_other].value, 
+            self.data['teff_chris'][idx_other].value, 
+            xerr=self.data['e_teff'][idx_other].value, 
+            yerr=self.data['e_teff_chris'][idx_other].value, 
+            color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
+        )
+        ax1.errorbar(
+            self.data['teff'][idx_binary].value, 
+            self.data['teff_chris'][idx_binary].value, 
+            xerr=self.data['e_teff'][idx_binary].value, 
+            yerr=self.data['e_teff_chris'][idx_binary].value, 
+            color='C0', label='Parenago 1837', 
+            fmt='o', alpha=0.5, markersize=3
+        )
+        ax1.legend()
+        ax1.set_xlabel(r'$T_\mathrm{eff, This\ Work}$ (K)', fontsize=12)
+        ax1.set_ylabel(r'$T_\mathrm{eff, T22}$ (K)', fontsize=12)
+        
+        # compare rv
+        ax2.plot([21, 34], [21, 34], linestyle='--', color='C3', label='Equal Line')
+        ax2.errorbar(
+            self.data['rv'][idx_other].value, 
+            self.data['rv_chris'][idx_other].value, 
+            xerr=self.data['e_rv'][idx_other].value, 
+            yerr=self.data['e_rv_chris'][idx_other].value,  
+            color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
+        )
+        ax2.errorbar(
+            self.data['rv'][idx_binary].value, 
+            self.data['rv_chris'][idx_binary].value, 
+            xerr=self.data['e_rv'][idx_binary].value, 
+            yerr=self.data['e_rv_chris'][idx_binary].value, 
+            color='C0', label='Parenago 1837', 
+            fmt='o', alpha=0.5, markersize=3
+        )
+        ax2.legend()
+        ax2.set_xlabel(r'$\mathrm{RV}_\mathrm{This\ Work}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+        ax2.set_ylabel(r'$\mathrm{RV}_\mathrm{T22}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+        
+        # compare veiling param    
+        ax3.hist(self.data['veiling_param_O33_chris'], bins=20, range=(0, 1), histtype='step', color='C0', label='T22', lw=2)
+        ax3.hist(self.data['veiling_param_O33_nirspao'], bins=20, range=(0, 1), histtype='step', color='C3', label='This work', lw=1.2)
+        ax3.legend()
+        ax3.set_xlabel('Veiling Param O33', fontsize=12)
+        ax3.set_ylabel('Counts', fontsize=12)
+        
+        plt.subplots_adjust(wspace=0.3)
+        if save_path:
+            if save_path.endswith('png'):
+                plt.savefig(f'{save_path}/compare Chris.pdf', bbox_inches='tight', transparent=True)
+            else:
+                plt.savefig(f'{save_path}/compare Chris.pdf', bbox_inches='tight')
+        plt.show()
 
 
+    def compare_teff_with_apogee(self, constraint=None, save_path=None):
+        if constraint is None: constraint=np.ones(self.len, dtype=bool)
+        diffs = (self.data['teff_apogee'] - self.data['teff_nirspao'])[constraint]
+        valid_idx = ~np.isnan(diffs)
+        diffs = diffs[valid_idx]
+        weights = 1/(self.data['e_teff_nirspao'].value[constraint]**2 + self.data['e_teff_apogee'].value[constraint]**2)[valid_idx]
+        mean_diff = np.average(diffs, weights=weights)
+        max_diff = max(diffs)
+        
+        fig, ax = plt.subplots(figsize=(5, 4))
+        ax.errorbar(self.data['teff_nirspao'].value, self.data['teff_apogee'].value, xerr=self.data['e_teff_nirspao'].value, yerr=self.data['e_teff_apogee'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
+        ranges = np.array([3600, 4800]) 
+        ax.plot(ranges, ranges, linestyle='--', color='C3', label='Equal Line')
+        ax.plot(ranges - mean_diff.value/2, ranges + mean_diff.value/2, linestyle=':', color='C0', label=f'Median Difference: {mean_diff:.1f}')
+        ax.legend()
+        ax.set_xlabel('NIRSPAO Teff (K)')
+        ax.set_ylabel('APOGEE Teff (K)')
+        if save_path:
+            if save_path.endswith('.png'):
+                plt.savefig(save_path, bbox_inches='tight', transparent=True)
+            else:
+                plt.savefig(save_path, bbox_inches='tight')
+        plt.show()
+        
+        return mean_diff, max_diff
 
 
 #################################################
 ################### Functions ###################
 #################################################
+
+def fillna(column1, column2):
+    result = column1.copy()
+    result[np.isnan(result)] = column2[np.isnan(result)]
+    return result
 
 def merge(array1, array2):
     '''
@@ -959,10 +1362,8 @@ C9 = '#17becf'
 orion = ONC(QTable.read(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv'))
 orion.preprocessing()
 orion.set_attr()
-unique, count = np.unique(orion.data['HC2000'], return_counts=True)
-dup_idx = [list(orion.data['HC2000']).index(_) for _ in list(unique[(count > 1) & (count < 10)])]
-not_dup = np.ones(orion.len, dtype=bool)
-not_dup[dup_idx] = False
+
+trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
 # plot_skymaps(orion)
 
@@ -981,6 +1382,36 @@ not_dup[dup_idx] = False
 # fig.write_html(f'{user_path}/ONC/figures/sky 3d.html')
 
 # compare_velocity(orion)
-# orion.plot_pm_rv(constraint=orion.data['theta_orionis'].mask)
-# orion.pm_angle_distribution(constraint=(orion.data['theta_orionis'].mask) & not_dup)
-orion.compare_mass()
+# orion.plot_pm_rv(constraint=~trapezium_only)
+# orion.pm_angle_distribution()
+# orion.compare_mass()
+# orion.compare_chris()
+
+
+#################################################
+########### Relative Velocity vs Mass ###########
+#################################################
+model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
+radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
+base_path = 'linear'
+base_path_mean_offset = 'linear-mean-offset'
+
+# Remove the high relative velocity sources.
+rv_threshold = 40*u.km/u.s
+print(f'Removed {sum(orion.rv > rv_threshold)} sources with radial velocity exceeding {rv_threshold}.')
+mean_diff, maximum_diff = orion.compare_teff_with_apogee(constraint= orion.rv <= rv_threshold)
+print(f'Mean difference in teff: {mean_diff:.2f}.')
+print(f'Maximum difference in teff: {maximum_diff:.2f}.')
+
+# teff offset simulation
+orion_mean_offset = copy.deepcopy(orion)
+orion_mean_offset.data['teff_nirspao'] += mean_diff
+orion_mean_offset.teff = fillna(orion_mean_offset.data['teff_nirspao'], orion_mean_offset.data['teff_apogee'])
+
+from starrynight import fit_mass
+mean_offset_masses = fit_mass(orion_mean_offset.teff, orion_mean_offset.e_teff).filled(np.nan)
+columns = mean_offset_masses.keys()
+for column in columns:
+    orion_mean_offset.data[column] = mean_offset_masses[column]
+
+mass, vrel, e_mass, e_vrel = orion.vrel_vs_mass(model_name='MIST', resampling=100, max_rv=40*u.km/u.s)

@@ -1868,7 +1868,8 @@ def compare_teff_with_apogee(sources, save_path=None):
     valid_idx = ~diffs.isna()
     diffs = diffs[valid_idx]
     weights = 1/(sources.teff_e_nirspec**2 + sources.teff_e_apogee**2)[valid_idx]
-    
+    print(diffs)
+    print(weights)
     mean_diff = np.average(diffs, weights=weights)
     max_diff = max(diffs)
     
