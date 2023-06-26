@@ -20,6 +20,7 @@ from astropy.visualization.wcsaxes import SphericalCircle
 from matplotlib.lines import Line2D
 from matplotlib.colors import ListedColormap
 from matplotlib.offsetbox import AnchoredText
+from fit_vdisp import fit_vdisp
 
 Vizier.ROW_LIMIT = -1
 Gaia.ROW_LIMIT = -1
@@ -340,42 +341,42 @@ class StarCluster:
         plt.show()
     
     
-    def vrel_vs_mass(self, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, kde_percentile=84, update_sources=False, save_path=None, show_figure=True, **kwargs):
+    def vrel_vs_mass(self, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, min_rv=-np.inf*u.km/u.s, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, kde_percentile=84, update_self=False, save_path=None, show_figure=True, bin_method='equally grouped', **kwargs):
         """Velocity relative to the neighbors of each source within a radius vs mass.
 
         Parameters
         ----------
-        sources : pd.DataFrame
-            sources
         model_name : str
-            one of ['MIST', 'BHAC15', 'Feiden', 'Palla']
+            One of ['MIST', 'BHAC15', 'Feiden', 'Palla']
         radius : astropy.Quantity, optional
-            radius within which count as neighbors, by default 0.1*u.pc
+            Radius within which count as neighbors, by default 0.1*u.pc
         model_func : str, optional
-            format of model function: 'linear' or 'power'. V=k*M + b or V=A*M**k, by default 'linear'.
+            Format of model function: 'linear' or 'power'. V=k*M + b or V=A*M**k, by default 'linear'.
         resampling : any, optional
-            whether resample or not, and number of resamples, 100000 by default. If False or None, will try to read from previous results
+            Whether resample or not, and number of resamples, 100000 by default. If False or None, will try to read from previous results
         self_included : bool, optional
-            include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
-        max_rv : float, optional
-            maximum radial velocity, by default inf.
-        max_rv_error : float, optional
-            maximum radial velocity error, by default 5
-        max_mass_error : float, optional
-            maximum mass error, by default 0.5
-        update_sources : bool, optional
-            update the original sources dataframe or not, by default False
+            Include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
+        min_rv : astropy quantity, optional
+            Maximum radial velocity, by default inf.
+        max_rv : astropy quantity, optional
+            Maximum radial velocity, by default inf.
+        max_rv_error : astropy quantity, optional
+            Maximum radial velocity error, by default 5
+        max_mass_error : astropy quantity, optional
+            Maximum mass error, by default 0.5
+        update_self : bool, optional
+            Update the original sources dataframe or not, by default False
         kde_percentile : int, optional
             Percentile of KDE contour, 84 by default
         show_figure : bool, optional
             Whether to show the figure, by default True
         save_path : str, optional
-            save path, by default None
+            Save path, by default None
+        bin_method: str, optional
+            Binning method when calculating running average, 'equally spaced' or 'equally grouped', by default 'equally grouped'
         kwargs:
-            bin_method: str, optional
-                binning method when calculating running average, 'equally spaced' or 'equally grouped', by default 'equally grouped'
             nbins: int, optional
-                number of bins, by default 7 for 'equally grouped' and 5 for 'equally spaced'.
+                Number of bins, by default 7 for 'equally grouped' and 5 for 'equally spaced'.
 
         Returns
         -------
@@ -389,22 +390,24 @@ class StarCluster:
             bin_method must be one of 'equally spaced' or 'equally grouped'.
         """
         
-        bin_method = kwargs.get('bin_method', 'equally grouped')
-        
         if save_path:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-                
+        
+        mass = getattr(self, f'mass_{model_name}')
+        e_mass = getattr(self, f'e_mass_{model_name}')
+        
         constraint = \
             (~np.isnan(self.pmRA)) & (~np.isnan(self.pmDE)) & \
-            (~np.isnan(self.data[f'mass_{model_name}'])) & \
-            (self.data[f'e_mass_{model_name}'] < max_mass_error) & \
-            (self.rv < max_rv) & (self.e_v < max_v_error)
+            (~np.isnan(mass)) & \
+            (e_mass <= max_mass_error) & \
+            (self.rv >= min_rv) & (self.rv <= max_rv) & \
+            (self.e_v <= max_v_error)
         
         sources_coord = self.coord[constraint]
         
-        mass = getattr(self, f'mass_{model_name}')[constraint]
-        e_mass = getattr(self, f'e_mass_{model_name}')[constraint]
+        mass = mass[constraint]
+        e_mass = e_mass[constraint]
         e_v = self.e_v[constraint]
         
         ############# calculate vcom within radius #############
@@ -673,10 +676,14 @@ class StarCluster:
             plt.close()
         
         ########## Updating the original DataFrame ##########
-        if update_sources:
-            print('Changing sources...')
-            self.loc[valid_idx, f'vrel_{model_name}'] = vrel
-            self.loc[valid_idx, f'vrel_e_{model_name}'] = e_vrel
+        if update_self:
+            print('Updating self...')
+            self.data[f'vrel_{model_name}'] = np.nan*vrel.unit
+            self.data[f'vrel_{model_name}'][valid_idx] = vrel
+            self.data[f'e_vrel_{model_name}'] = np.nan*e_vrel.unit
+            self.data[f'e_vrel_{model_name}'][valid_idx] = e_vrel
+            self.vrel = self.data[f'vrel_{model_name}']
+            self.e_vrel = self.data[f'e_vrel_{model_name}']
         else:
             pass
         
@@ -1183,6 +1190,64 @@ class ONC(StarCluster):
         plt.show()
         
         return mean_diff, max_diff
+    
+    
+    def vdisp_all(self, save_path, MCMC=True):
+        '''Fit velocity dispersion for all sources, kim, and gaia respectively.
+
+        Parameters
+        ----------
+        sources: pd.DataFrame
+            sources dataframe with keys: vRA, vRA_e, vDE, vDE_e, rv, rv_e.
+        save_path: str
+            Folder under which to save.
+        MCMC: bool
+            Run MCMC or read from existing fitting results (default True).
+        
+        Returns
+        -------
+        vdisps_all: dict
+            velocity dispersion for all sources.
+            vdisps_all[key] = [value, error].
+            keys: mu_RA, mu_DE, mu_rv, sigma_RA, sigma_DE, sigma_rv, rho_RA, rho_DE, rho_rv.
+        '''
+        # all velocity dispersions
+        print('Fitting for all velocity dispersion...')
+        vdisps_all = fit_vdisp(
+            self,
+            save_path=f'{save_path}/all/', 
+            MCMC=MCMC
+        )
+        
+        vdisp_1d = [0, 0]
+        
+        vdisp_1d[0] = ((vdisps_all.sigma_RA[0]**2 + vdisps_all.sigma_DE[0]**2 + vdisps_all.sigma_rv[0]**2)/3)**(1/2)
+        vdisp_1d[1] = np.sqrt(1 / (3*vdisp_1d[0])**2 * ((vdisps_all.sigma_RA[0] * vdisps_all.sigma_RA[1])**2 + (vdisps_all.sigma_DE[0] * vdisps_all.sigma_DE[1])**2 + (vdisps_all.sigma_rv[0] * vdisps_all.sigma_rv[1])**2))
+        
+        with open(f'{save_path}/all/mcmc_params.txt', 'r') as file:
+            raw = file.readlines()
+        if not any([line.startswith('σ_1D:') for line in raw]):
+            raw.insert(6, f'σ_1D:\t{vdisp_1d[0]}, {vdisp_1d[1]}\n')
+            with open(f'{save_path}/all/mcmc_params.txt', 'w') as file:
+                file.writelines(raw)
+        
+        # kim velocity dispersions
+        print('Fitting for Kim velocity dispersion...')
+        fit_vdisp(
+            self.loc[~self.ID_kim.isna()].reset_index(drop=True),
+            save_path=f'{save_path}/kim', 
+            MCMC=MCMC
+        )
+
+        # gaia velocity dispersions
+        print('Fitting for Gaia velocity dispersion...')
+        fit_vdisp(
+            self.loc[~self.ID_gaia.isna()].reset_index(drop=True),
+            save_path=f'{save_path}/gaia',
+            MCMC=MCMC
+        )
+        
+        return vdisps_all
 
 
 #################################################
@@ -1359,6 +1424,8 @@ C6 = '#e377c2'
 C7 = '#7f7f7f'
 C9 = '#17becf'
 
+save_path = f'{user_path}/ONC/starrynight/codes/analysis'
+
 orion = ONC(QTable.read(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv'))
 orion.preprocessing()
 orion.set_attr()
@@ -1391,15 +1458,12 @@ trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 #################################################
 ########### Relative Velocity vs Mass ###########
 #################################################
-model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
-radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
-base_path = 'linear'
-base_path_mean_offset = 'linear-mean-offset'
 
 # Remove the high relative velocity sources.
-rv_threshold = 40*u.km/u.s
-print(f'Removed {sum(orion.rv > rv_threshold)} sources with radial velocity exceeding {rv_threshold}.')
-mean_diff, maximum_diff = orion.compare_teff_with_apogee(constraint= orion.rv <= rv_threshold)
+max_rv = 40*u.km/u.s
+min_rv = 0*u.km/u.s
+print(f'Removed {sum((orion.rv < min_rv) | (orion.rv > max_rv))} sources with radial velocity outside {min_rv} ~ {max_rv}.')
+mean_diff, maximum_diff = orion.compare_teff_with_apogee(constraint= orion.rv <= max_rv)
 print(f'Mean difference in teff: {mean_diff:.2f}.')
 print(f'Maximum difference in teff: {maximum_diff:.2f}.')
 
@@ -1413,5 +1477,104 @@ mean_offset_masses = fit_mass(orion_mean_offset.teff, orion_mean_offset.e_teff).
 columns = mean_offset_masses.keys()
 for column in columns:
     orion_mean_offset.data[column] = mean_offset_masses[column]
+orion_mean_offset.set_attr()
 
-mass, vrel, e_mass, e_vrel = orion.vrel_vs_mass(model_name='MIST', resampling=100, max_rv=40*u.km/u.s)
+model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
+radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
+base_path = 'linear'
+base_path_mean_offset = 'linear-mean-offset'
+
+for radius in radii:
+    for model_name in model_names:
+        
+        if (radius == 0.1*u.pc) and (model_name == 'MIST'):
+            update_self = True
+        else:
+            update_self = False
+        
+        mass, vrel, e_mass, e_vrel = orion.vrel_vs_mass(
+            model_name=model_name,
+            model_type='linear',
+            radius=radius,
+            resampling=False,
+            min_rv=min_rv,
+            max_rv=max_rv,
+            update_self=update_self,
+            kde_percentile=84,
+            show_figure=False,
+            save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc'
+        )
+        
+        mass, vrel, e_mass, e_vrel = orion_mean_offset.vrel_vs_mass(
+            model_name=model_name,
+            model_type='linear',
+            radius=radius,
+            resampling=False,
+            min_rv=min_rv,
+            max_rv=max_rv,
+            update_self=False,
+            kde_percentile=84,
+            show_figure=False,
+            save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc'
+        )
+
+orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
+
+
+model_name = 'MIST'
+ks = np.empty((2, len(radii)))
+ks_mean_offset = np.empty((2, len(radii)))
+
+for i, radius in enumerate(radii):
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw = file.readlines()
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw_mean_offset = file.readlines()
+    
+    for line, line_mean_offset in zip(raw, raw_mean_offset):
+        if line.startswith('k_resample:\t'):
+            ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
+        if line_mean_offset.startswith('k_resample:\t'):
+            ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
+
+
+colors = ['C0', 'C3']
+fig, ax = plt.subplots()
+blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
+red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
+blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
+red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
+
+hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
+ax.set_xlabel('Separation Limits of Neighbors (pc)')
+ax.set_ylabel('Slope of Linear Fit (k)')
+plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
+plt.show()
+
+
+#################################################
+############## Velocity Dispersion ##############
+#################################################
+# Apply rv constraint
+rv_constraint = ((
+    abs(orion.rv - np.nanmean(orion.rv)) <= 3*np.nanstd(orion.rv)
+    ) | (
+        trapezium_only
+))
+print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(trapezium_only)} out of {len(rv_constraint) - sum(trapezium_only)} remains.')
+print(f'Accepted radial velocity range: {np.nanmean(orion.rv):.3f} ± {3*np.nanstd(orion.rv):.3f} km/s.')
+
+if not os.path.exists(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results'):
+    os.mkdir(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results')
+
+with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'w') as file:
+    file.write(str(np.nanmean(orion.rv[rv_constraint])))
+
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.errorbar(orion.data['sep_to_trapezium'].value, orion.rv.value, yerr=orion.e_rv.value, fmt='.', label='Measurements')
+ax.hlines([np.nanmean(orion.rv.value) - 3*np.nanstd(orion.rv.value), np.nanmean(orion.rv.value) + 3*np.nanstd(orion.rv.value)], xmin=min(orion.data['sep_to_trapezium'].value), xmax=max(orion.data['sep_to_trapezium'].value), linestyles='--', colors='C1', label='3σ range')
+ax.set_xlabel('Separation From Trapezium (arcmin)')
+ax.set_ylabel('Radial Velocity')
+ax.legend()
+plt.show()
