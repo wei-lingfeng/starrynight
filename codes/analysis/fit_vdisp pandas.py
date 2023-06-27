@@ -32,24 +32,21 @@ def log_prior(theta):
 
 def log_likelihood(theta, sources):
     '''Log likelihood function. See https://arxiv.org/pdf/2105.05871.pdf Equation 4-7.
-    
-    Parameters
     ----------
-        theta : tuple
-            Set of parameters to fit for: muRA, muDE, muRV, sigmaRA, sigmaDE, sigmaRV, rho1, rho2, rho3.
-        sources : pandas DataFrame with pmRA, pmRA_e, pmDE, pmDE_e, rv, e_rv
+    - Parameters:
+        - theta: set of parameters to fit for: miuRA, miuDE, muvr, sigmaRA, sigmaDE, sigmavr, rho1, rho2, rho3.
+        - sources: pandas DataFrame with pmRA, pmRA_e, pmDE, pmDE_e, vr, vr_e
     
-    Returns
-    -------
-        log likelihood.
+    - Returns:
+        - log likelihood.
     '''
     
     mu = np.array(theta[0:3])
     sigma = np.array(theta[3:6])
     rho = np.array(theta[6:9])
     
-    v = np.array([sources['vRA'].value, sources['vDE'].value, sources['rv'].value]).transpose()
-    epsilon = np.array([sources['e_vRA'].value, sources['e_vDE'].value, sources['e_rv'].value]).transpose()
+    v = np.array([sources.vRA, sources.vDE, sources.vr]).transpose()
+    epsilon = np.array([sources.vRA_e, sources.vDE_e, sources.vr_e]).transpose()
     logL = 0
     
     for i in range(len(sources)):
@@ -78,8 +75,8 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
 
     Parameters
     ----------
-    sources : astropy QTable
-        QTable with columns vRA, e_vRA, vDE, e_vDE, rv, e_rv.
+    sources : pd.DataFrame
+        pandas DataFrame with vRA, vRA_e, vDE, vDE_e, vr, vr_e.
     save_path : str
         folder to save the results.
     MCMC : bool
@@ -94,14 +91,14 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     """
     
     global mean_rv
-    with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'r') as file:
-        mean_rv = eval(file.read().strip('km / s'))
+    with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/mean_rv.txt', 'r') as file:
+        mean_rv = eval(file.read())
     
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     
     sources_new = copy.deepcopy(sources)
-    sources_new = sources_new[~(np.isnan(sources_new['vRA']) | np.isnan(sources_new['vDE']) | np.isnan(sources_new['rv']))]
+    sources_new = sources_new.loc[~(sources_new.vRA.isna() | sources_new.vDE.isna() | sources_new.vr.isna())].reset_index(drop=True)
     
     ndim, nwalkers, step = 9, 100, 500
     discard = step-200
@@ -172,8 +169,8 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         
         ########## Write Parameters ##########
         with open(f'{save_path}/mcmc_params.txt', 'w') as file:
-            for label, values in zip(labels, mcmc.to_numpy().T):
-                file.write(f'{label}:\t{", ".join(str(value) for value in values)}\n')
+            for ylabel, values in zip(ylabels, mcmc.values()):
+                file.write(f'{ylabel}:\t{", ".join(str(value) for value in values)}\n')
     
     else:
         sampler = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
