@@ -1,7 +1,6 @@
 import os
 import copy
 import numpy as np
-from numpy import ma
 import pandas as pd
 import astropy.units as u
 import matplotlib.pyplot as plt
@@ -11,6 +10,8 @@ import matplotlib.ticker as mticker
 from typing import Tuple
 from scipy import stats
 from scipy.optimize import curve_fit
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
 from astroquery.gaia import Gaia
 from astroquery.vizier import Vizier
 from astropy.io import fits
@@ -423,10 +424,9 @@ class StarCluster:
         
         for i, star in enumerate(sources_coord):
             sep = star.separation_3d(sources_coord)
-            if self_included:
-                is_neighbor[i] = sep < radius
-            else:
-                is_neighbor[i] = (sep > 0*u.pc) & (sep < radius)
+            is_neighbor[i] = sep < radius
+            if not self_included:
+                is_neighbor[i, i] = False
             # vel_com[i]: 1-by-3 center of mass velocity
             vcom[i] = (mass[is_neighbor[i]] @ v[is_neighbor[i]]) / sum(mass[is_neighbor[i]])
         
@@ -722,8 +722,8 @@ class ONC(StarCluster):
         self.e_v    = self.data['e_v']
         self.mass_MIST = self.data['mass_MIST']
         self.e_mass_MIST = self.data['e_mass_MIST']
-        self.mass_BHAC15 = self.data['mass_MIST']
-        self.e_mass_BHAC15 = self.data['e_mass_MIST']
+        self.mass_BHAC15 = self.data['mass_BHAC15']
+        self.e_mass_BHAC15 = self.data['e_mass_BHAC15']
         self.mass_Feiden = self.data['mass_Feiden']
         self.e_mass_Feiden = self.data['e_mass_Feiden']
         self.mass_Palla = self.data['mass_Palla']
@@ -1090,6 +1090,7 @@ class ONC(StarCluster):
         fig = corner_plot(
             data=mass_corner.transpose(),
             labels=['MIST ($M_\odot$)', 'BHAC15 ($M_\odot$)', 'Feiden ($M_\odot$)', 'Palla ($M_\odot$)', 'Hillenbrand ($M_\odot$)'], 
+            titles=['MIST', 'BHAC15', 'Feiden', 'Palla', 'Hillenbrand'], 
             limit=limit,
             save_path=save_path
         )
@@ -1193,102 +1194,6 @@ class ONC(StarCluster):
         plt.show()
         
         return mean_diff, max_diff
-    
-    
-    
-    def mass_segregation_ratio(self:QTable, model_name:str, save_path:str, Nmst_min=5, Nmst_max=40, step=1, constraint=None):
-        '''Mass segregation ratio. See https://doi.org/10.1111/j.1365-2966.2009.14508.x.
-        
-        Parameters:
-            model : str
-                Model name
-            save_path : str
-                Path to save the figure
-            Nmst_min : int
-                Minimum number of sources selected to construct the minimum spanning tree (mst).
-            Nmst_max : int
-                Maximum number of sources selected to construct the minimum spanning tree (mst).
-            step : ste
-        
-        Returns:
-            lambda_msr: N-by-2 array of mass segregation ratio in the form of [[value, error], ...].
-        '''
-        
-        # Merge binaries.
-        binary_hc2000 = self.loc[[False if str(_).lower()=='nan' else '_' in _ for _ in list(self.HC2000)], 'HC2000']
-        binary_hc2000_unique = [_.split('_')[0] for _ in binary_hc2000 if _.endswith('_A')]
-        # binary_idx_pairs = [[a_idx, b_idx], [a_idx, b_idx], ...]
-        binary_idx_pairs = [[binary_hc2000.loc[binary_hc2000==f'{_}_A'].index[0], binary_hc2000.loc[binary_hc2000==f'{_}_B'].index[0]] for _ in binary_hc2000_unique]
-        
-        for binary_idx_pair in binary_idx_pairs:
-            nan_flag = self.loc[binary_idx_pair, [f'mass_{model_name}', f'mass_e_{model_name}']].isna()
-        
-            # if any value is valid, update the first place with m=m1+m2, m_e = sqrt(m1_e**2 + m2_e**2) (valid values only). Else (all values are nan), do nothing.
-            if any(~nan_flag[f'mass_{model_name}']):
-                self.loc[binary_idx_pair[0], f'mass_{model_name}'] = sum(self.loc[binary_idx_pair, f'mass_{model_name}'][~nan_flag[f'mass_{model_name}']])
-            
-            if any(~nan_flag[f'mass_e_{model_name}']):
-                self.loc[binary_idx_pair[0], f'mass_e_{model_name}'] = sum(self.loc[binary_idx_pair, f'mass_e_{model_name}'][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
-                
-            # update names to remove '_A', '_B' suffix.
-            self.loc[binary_idx_pair[0], 'HC2000'] = self.loc[binary_idx_pair[0], 'HC2000'].split('_')[0]
-            # remove values in the second place.
-            self = self.drop(binary_idx_pair[1])
-
-        self = self.reset_index(drop=True)
-
-        # Construct separation matrix
-        sources_coord = SkyCoord(ra=self.RAJ2000.to_numpy()*u.degree, dec=self.DEJ2000.to_numpy()*u.degree)
-        sep_matrix = np.zeros((len(self), len(self)))
-
-        for i in range(len(self)):
-            sep_matrix[i, :] = sources_coord[i].separation(sources_coord).arcsec
-            sep_matrix[i, 0:i] = 0
-
-
-        # Construct MST for the Nmst most massive sources.
-        # lambda: [[value, error], [value, error], ...]
-        lambda_msr = np.empty((len(np.arange(Nmst_min, Nmst_max, step)), 2))
-        for i, Nmst in enumerate(np.arange(Nmst_min, Nmst_max, step)):
-            massive_idx = np.sort(self.sort_values(f'mass_{model_name}', ascending=False).index[:Nmst])
-            massive_sep_matrix = sep_matrix[massive_idx][:, massive_idx]
-            massive_mst = minimum_spanning_tree(csr_matrix(massive_sep_matrix)).toarray()
-            l_massive = massive_mst.sum()
-
-            # construct MST for the Nmst random sources.
-            if Nmst>=5 and Nmst<=10:
-                repetition = 1000
-            else:
-                repetition = 50
-            l_norm = np.empty(repetition)
-            for j in range(repetition):
-                random_idx = np.random.choice(len(self), Nmst)
-                random_sep_matrix = sep_matrix[random_idx][:, random_idx]
-                random_mst = minimum_spanning_tree(csr_matrix(random_sep_matrix)).toarray()
-                l_norm[j] = random_mst.sum()
-
-            lambda_msr[i, :] = np.array([l_norm.mean()/l_massive, l_norm.std()/l_massive])
-
-        fig, ax = plt.subplots(figsize=(4, 2.5), dpi=300)
-        h1, = ax.plot(np.arange(Nmst_min, Nmst_max, step), lambda_msr[:, 0], marker='o', markersize=5, label=r'$\Lambda_{MSR}$')
-        f1 = ax.fill_between(np.arange(Nmst_min, Nmst_max, step), lambda_msr[:, 0] - lambda_msr[:, 1], lambda_msr[:, 0] + lambda_msr[:, 1], edgecolor='none', facecolor='C0', alpha=0.4, label='Uncertainty')
-        h2 = ax.hlines(1, Nmst_min, Nmst_max, colors='C3', linestyles='--', label='No Segregation')
-        # automatic log scale
-        if max(lambda_msr[:, 0]) / min(lambda_msr[:, 0]) > 10:
-            ax.set_yscale('log')
-        
-        ax.set_xlabel(r'$N_{MST}$', fontsize=15)
-        ax.set_ylabel(r'$\Lambda_{MSR}$', fontsize=15)
-        if max(lambda_msr[:, 0]) > 1:
-            ax.legend([(h1, f1), h2], [r'$\Lambda_{MSR}$', 'No Segregation'], fontsize=12)
-        else:
-            ax.legend([(h1, f1), h2], [r'$\Lambda_{MSR}$', 'No Segregation'], fontsize=12, loc='lower right')
-        fig.tight_layout()
-        plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-        plt.savefig(save_path, bbox_inches='tight')
-        plt.show()
-        
-        return lambda_msr
 
 
 
@@ -1384,25 +1289,25 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
 
 
 
-def compare_velocity(orion, save_path=None):
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14.5, 4))
-    ax1.errorbar(orion.data['pmRA_kim'].value, orion.data['pmRA_gaia'].value, xerr=orion.data['e_pmRA_kim'].value, yerr=orion.data['e_pmRA_gaia'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    ax1.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
-    ax1.set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax1.set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax1.legend()
+def compare_rv(orion, save_path=None):
+    fig, ax = plt.subplots(figsize=(6, 6))
+    # ax1.errorbar(orion.data['pmRA_kim'].value, orion.data['pmRA_gaia'].value, xerr=orion.data['e_pmRA_kim'].value, yerr=orion.data['e_pmRA_gaia'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    # ax1.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    # ax1.set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax1.set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax1.legend()
     
-    ax2.errorbar(orion.data['pmDE_kim'].value, orion.data['pmDE_gaia'].value, xerr=orion.data['e_pmDE_kim'].value, yerr=orion.data['e_pmDE_gaia'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    ax2.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
-    ax2.set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax2.set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax2.legend()
+    # ax2.errorbar(orion.data['pmDE_kim'].value, orion.data['pmDE_gaia'].value, xerr=orion.data['e_pmDE_kim'].value, yerr=orion.data['e_pmDE_gaia'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    # ax2.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    # ax2.set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax2.set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax2.legend()
     
-    ax3.errorbar(orion.data['rv_helio'].value, orion.data['rv_apogee'].value, xerr=orion.data['e_rv_nirspao'].value, yerr=orion.data['e_rv_apogee'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    ax3.plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
-    ax3.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-    ax3.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-    ax3.legend()
+    ax.errorbar(orion.data['rv_helio'].value, orion.data['rv_apogee'].value, xerr=orion.data['e_rv_nirspao'].value, yerr=orion.data['e_rv_apogee'].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax.plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
+    ax.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax.legend()
     
     fig.subplots_adjust(wspace=0.28)
     if save_path:
@@ -1414,7 +1319,7 @@ def compare_velocity(orion, save_path=None):
 
 
 
-def corner_plot(data, labels, limit, save_path=None):
+def corner_plot(data, labels, limit, titles=None, save_path=None):
     ndim = np.shape(data)[1]
     fontsize=14
     fig, axs = plt.subplots(ndim, ndim, figsize=(2*ndim, 2*ndim))
@@ -1429,6 +1334,8 @@ def corner_plot(data, labels, limit, save_path=None):
                 axs[i, j].set_yticks([])
                 axs[i, j].set_yticklabels([])
                 axs[i, j].set_xlim(limit)
+                if titles is not None:
+                    axs[i, j].set_title(titles[i], fontsize=fontsize)
                 if i==4:
                     axs[i, j].set_xlabel(labels[-1], fontsize=fontsize)
                     axs[i, j].set_xticklabels(axs[i, j].get_xticks(), rotation=45)
@@ -1928,7 +1835,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     mass_sources = []
     for min_mass, max_mass in zip(mass_borders[:-1], mass_borders[1:]):
         bin_idx = (sources[f'mass_{model_name}'] > min_mass) & (sources[f'mass_{model_name}'] <= max_mass)
-        mass_sources.append(np.average(sources[f'mass_{model_name}'][bin_idx].value, weights=1/sources[f'mass_e_{model_name}'][bin_idx].value**2))
+        mass_sources.append(np.average(sources[f'mass_{model_name}'][bin_idx].value, weights=1/sources[f'e_mass_{model_name}'][bin_idx].value**2))
     mass_sources = np.array(mass_sources)
     
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
@@ -1980,6 +1887,301 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     plt.show()
 
 
+
+def merge_multiple_mass(sources:QTable):
+    sources = copy.deepcopy(sources)
+    unique_ids, counts = np.unique(sources['HC2000'], return_counts=True)
+    multiple_ids = unique_ids[(counts > 1) & (~unique_ids.mask)]
+    for multiple_id in multiple_ids:
+        multiple_idx = np.where(sources['HC2000']==multiple_id)[0]
+        for model_name in ['MIST', 'BHAC15', 'Palla', 'Feiden']:
+            # if trapezium stars: replace latest one with mass literature
+            # if all(~sources['theta_orionis'][sources['HC2000']==multiple_id].mask):
+            #         sources[f'mass_{model_name}'][multiple_idx[-1]] = sources['mass_literature'][multiple_idx[-1]]
+            #         sources[f'e_mass_{model_name}'][multiple_idx[-1]] = sources['e_mass_literature'][multiple_idx[-1]]
+            # else:
+            sources[f'mass_{model_name}'][multiple_idx[-1]] = sum(sources[f'mass_{model_name}'][multiple_idx])
+            sources[f'e_mass_{model_name}'][multiple_idx[-1]] = (sum(sources[f'e_mass_{model_name}'][multiple_idx]**2))**0.5
+        
+        sources.remove_rows(multiple_idx[:-1])
+    return sources
+            
+        
+    
+    
+def mass_segregation_ratio(sources:QTable, model_name:str, save_path:str, Nmst_min=5, Nmst_max=40, step=1, use_literature_trapezium_mass=True):
+    '''Mass segregation ratio. See https://doi.org/10.1111/j.1365-2966.2009.14508.x.
+    
+    Parameters:
+        sources : astropy QTable
+            Sources
+        model : str
+            Model name
+        save_path : str
+            Path to save the figure
+        Nmst_min : int
+            Minimum number of sources selected to construct the minimum spanning tree (mst).
+        Nmst_max : int
+            Maximum number of sources selected to construct the minimum spanning tree (mst).
+        step : ste
+    
+    Returns:
+        lambda_msr: N-by-2 array of mass segregation ratio in the form of [[value, error], ...].
+    '''
+    
+    # Merge binaries.
+    sources = merge_multiple_mass(sources)
+    if use_literature_trapezium_mass:
+        idx_mass_literature = ~np.isnan(sources['mass_literature'])
+        sources[f'mass_{model_name}'][idx_mass_literature] = sources['mass_literature'][idx_mass_literature]
+        sources[f'e_mass_{model_name}'][idx_mass_literature] = sources['e_mass_literature'][idx_mass_literature]
+    sources.remove_rows(np.isnan(sources[f'mass_{model_name}']))
+    # binary_hc2000 = sources['HC2000'][(~sources['m_HC2000'].mask) & sources['APOGEE'].mask]
+    # binary_hc2000_unique = [_.split('_')[0] for _ in binary_hc2000 if _.endswith('_A')]
+    # # binary_idx_pairs = [[a_idx, b_idx], [a_idx, b_idx], ...]
+    # binary_idx_pairs = [[binary_hc2000.loc[binary_hc2000==f'{_}_A'].index[0], binary_hc2000.loc[binary_hc2000==f'{_}_B'].index[0]] for _ in binary_hc2000_unique]
+    
+    # for binary_idx_pair in binary_idx_pairs:
+    #     nan_flag = sources.loc[binary_idx_pair, [f'mass_{model_name}', f'e_mass_{model_name}']].isna()
+    
+    #     # if any value is valid, update the first place with m=m1+m2, m_e = sqrt(m1_e**2 + m2_e**2) (valid values only). Else (all values are nan), do nothing.
+    #     if any(~nan_flag[f'mass_{model_name}']):
+    #         sources.loc[binary_idx_pair[0], f'mass_{model_name}'] = sum(sources.loc[binary_idx_pair, f'mass_{model_name}'][~nan_flag[f'mass_{model_name}']])
+        
+    #     if any(~nan_flag[f'e_mass_{model_name}']):
+    #         sources.loc[binary_idx_pair[0], f'e_mass_{model_name}'] = sum(sources.loc[binary_idx_pair, f'e_mass_{model_name}'][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
+            
+    #     # update names to remove '_A', '_B' suffix.
+    #     sources.loc[binary_idx_pair[0], 'HC2000'] = sources.loc[binary_idx_pair[0], 'HC2000'].split('_')[0]
+    #     # remove values in the second place.
+    #     sources = sources.drop(binary_idx_pair[1])
+
+    # sources = sources.reset_index(drop=True)
+
+    # Construct separation matrix
+    sources_coord = SkyCoord(ra=sources['RAJ2000'], dec=sources['DEJ2000'])
+    sep_matrix = np.zeros((len(sources), len(sources)))
+
+    for i in range(len(sources)):
+        sep_matrix[i, :] = sources_coord[i].separation(sources_coord).arcsec
+        sep_matrix[i, 0:i] = 0
+
+
+    # Construct MST for the Nmst most massive sources.
+    # lambda: [[value, error], [value, error], ...]
+    lambda_msr = np.empty((len(np.arange(Nmst_min, Nmst_max, step)), 2))
+    for i, Nmst in enumerate(np.arange(Nmst_min, Nmst_max, step)):
+        massive_idx = np.sort(np.argpartition(sources['mass_MIST'], -Nmst)[-Nmst:])  # sorted idx of most massive Nmst sources
+        massive_sep_matrix = sep_matrix[massive_idx][:, massive_idx]
+        massive_mst = minimum_spanning_tree(csr_matrix(massive_sep_matrix)).toarray()
+        l_massive = massive_mst.sum()
+
+        # construct MST for the Nmst random sources.
+        if Nmst>=5 and Nmst<=10:
+            repetition = 1000
+        else:
+            repetition = 50
+        l_norm = np.empty(repetition)
+        for j in range(repetition):
+            random_idx = np.random.choice(len(sources), Nmst)
+            random_sep_matrix = sep_matrix[random_idx][:, random_idx]
+            random_mst = minimum_spanning_tree(csr_matrix(random_sep_matrix)).toarray()
+            l_norm[j] = random_mst.sum()
+
+        lambda_msr[i, :] = np.array([l_norm.mean()/l_massive, l_norm.std()/l_massive])
+
+    fig, ax = plt.subplots(figsize=(4, 2.5), dpi=300)
+    h1, = ax.plot(np.arange(Nmst_min, Nmst_max, step), lambda_msr[:, 0], marker='o', markersize=5, label=r'$\Lambda_{MSR}$')
+    f1 = ax.fill_between(np.arange(Nmst_min, Nmst_max, step), lambda_msr[:, 0] - lambda_msr[:, 1], lambda_msr[:, 0] + lambda_msr[:, 1], edgecolor='none', facecolor='C0', alpha=0.4, label='Uncertainty')
+    h2 = ax.hlines(1, Nmst_min, Nmst_max, colors='C3', linestyles='--', label='No Segregation')
+    # automatic log scale
+    if max(lambda_msr[:, 0]) / min(lambda_msr[:, 0]) > 3:
+        ax.set_yscale('log')
+    
+    ax.set_xlabel(r'$N_{MST}$', fontsize=15)
+    ax.set_ylabel(r'$\Lambda_{MSR}$', fontsize=15)
+    if max(lambda_msr[:, 0]) > 1:
+        ax.legend([(h1, f1), h2], [r'$\Lambda_{MSR}$', 'No Segregation'], fontsize=12)
+    else:
+        ax.legend([(h1, f1), h2], [r'$\Lambda_{MSR}$', 'No Segregation'], fontsize=12, loc='lower right')
+    fig.tight_layout()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    plt.savefig(save_path, bbox_inches='tight')
+    plt.show()
+    
+    return lambda_msr
+
+
+def mean_mass_binned(sources, separations, model_name):
+    """Mean mass of sources within a bin vs separation from the Trapezium.
+
+    Parameters
+    ----------
+    sources : pandas.DataFrame
+    separations : astropy.Quantity
+        separations.
+    model_name : str
+        model name.
+    save_path : str
+        save path.
+    
+    Returns
+    -------
+    mass_mean: ndarray
+        mean mass within each bin.
+    mass_std: ndarray
+        standard deviation within each bin.
+    """
+    # sources = sources.sort_values('sep_to_trapezium').reset_index(drop=True)
+    sources = sources.copy()
+    sources.sort('sep_to_trapezium')
+    
+    mass_mean = np.array([np.mean(sources[f'mass_{model_name}'][(sources['sep_to_trapezium'] > sep_min) & (sources['sep_to_trapezium'] <= sep_max)].to(u.solMass).value) for sep_min, sep_max in zip(separations[:-1], separations[1:])])*u.solMass
+    mass_std = np.array([np.std(sources[f'mass_{model_name}'][(sources['sep_to_trapezium'] > sep_min) & (sources['sep_to_trapezium'] <= sep_max)].to(u.solMass).value) for sep_min, sep_max in zip(separations[:-1], separations[1:])])*u.solMass
+    
+    return mass_mean, mass_std
+
+
+def mean_mass_equally_spaced(sources, nbins, model_name):
+    """Mean mass vs separation from the Trapezium, equally spaced.
+
+    Parameters
+    ----------
+    sources : pd.DataFrame
+    nbins : int
+        number of bins.
+    model_name : str
+        mass model name
+    save_path : str
+        save path.
+
+    Returns
+    -------
+    separations : astropy.Quantity
+        calculated separations, e.g. [0, 1, 2, 3, 4]*u.arcmin.
+    (mass_mean, mass_std): (ndarray, ndarray)
+        mean mass and the associated standard deviation within each bin.
+    """
+    # filter nans.
+    sources.remove_rows(np.isnan(sources[f'mass_{model_name}']))
+    separations = np.linspace(0, 4, nbins+1) * u.arcmin
+    # sources_in_bins = [len(_) for _ in [sources.loc[(sources.sep_to_trapezium > r_min) & (sources.sep_to_trapezium <= r_max)] for r_min, r_max in zip(separation_arcmin[:-1], separation_arcmin[1:])]]
+    return separations, mean_mass_binned(sources, separations, model_name)
+
+
+def mean_mass_equally_grouped(sources, ngroups, model_name):
+    """Mean mass vs separation from the Trapezium, equally grouped.
+
+    Parameters
+    ----------
+    sources : pd.DataFrame
+    nbins : int
+        number of bins.
+    model_name : str
+        mass model name
+    save_path : str
+        save path.
+
+    Returns
+    -------
+    separations : astropy.Quantity
+        calculated separations, e.g. [0, 1, 2, 3, 4]*u.arcmin.
+    (mass_mean, mass_std): (ndarray, ndarray)
+        mean mass and the associated standard deviation within each bin.
+    """
+    # filter nans.
+    sources.remove_rows(np.isnan(sources[f'mass_{model_name}']))
+    
+    sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    division_idx = np.cumsum(sources_in_bins)[:-1] - 1
+    separation_sorted = np.sort(sources['sep_to_trapezium']).to(u.arcmin).value
+    separations = np.array([0, *(separation_sorted[division_idx] + separation_sorted[division_idx+1])/2, 4]) * u.arcmin
+    
+    return separations, mean_mass_binned(sources, separations, model_name)
+
+
+def mean_mass_vs_separation(sources:QTable, nbins:int, ngroups:int, model_name:str, save_path:str):
+    """Mean mass vs separation, equally spaced and equally grouped
+
+    Parameters
+    ----------
+    sources : QTable
+        Sources
+    nbins : int
+        Number of bins
+    ngroups : int
+        Number of groups
+    model_name : str
+        Model name for stellar mass
+    save_path : str
+        Save path
+    """
+    
+    # filter nans.
+    sources = copy.deepcopy(sources)
+    sources.remove_rows(np.isnan(sources[f'mass_{model_name}']))
+    
+    # Left: equally spaced.
+    separation_borders, (mass_mean, mass_std) = mean_mass_equally_spaced(sources, nbins, model_name)
+    
+    # average separation within each bin.
+    separation_sources = np.array([np.mean(sources['sep_to_trapezium'][(sources['sep_to_trapezium'] > min_sep) & (sources['sep_to_trapezium'] <= max_sep)]).to(u.arcmin).value for min_sep, max_sep in zip(separation_borders[:-1], separation_borders[1:])])
+    
+    sources_in_bins = [sum((sources['sep_to_trapezium'] > sep_min) & (sources['sep_to_trapezium'] <= sep_max)) for sep_min, sep_max in zip(separation_borders[:-1], separation_borders[1:])]
+    
+    # Figure
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 2.5), dpi=300, sharey=True)
+    
+    # Left figure
+    ax1.set_xlim((0, 4))
+    ax1.set_xticks([0, 1, 2, 3])
+    ax1.plot(separation_sources, mass_mean.to(u.solMass).value, marker='o', markersize=5, label=r"$\overline{M}$")
+    ax1.fill_between(separation_sources, y1=(mass_mean-mass_std).to(u.solMass).value, y2=(mass_mean+mass_std).to(u.solMass).value, edgecolor='none', facecolor='C0', alpha=0.3, label='$\sigma_M$')
+    ylim = ax1.get_ylim()
+    for i in range(len(sources_in_bins)):
+        ax1.annotate(f'{sources_in_bins[i]}', (separation_sources[i], mass_mean.to(u.solMass).value[i] + (ylim[1] - ylim[0])/20), fontsize=10, horizontalalignment='center')
+    ax1.legend(fontsize=12, loc='upper left')
+    ax1.tick_params(axis='both', labelsize=12)
+    ax1.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15)
+    ax1.set_ylabel(r'Mean Stellar Mass $(M_{\odot})$', fontsize=15)
+    
+    ax1_upper = ax1.twiny()
+    ax1_upper.tick_params(axis='both', labelsize=12)
+    ax1_upper.set_xlim((0, 4/60*np.pi/180*389))
+    ax1_upper.set_xlabel('Separation from Trapezium (pc)\n', fontsize=15)
+    ax1_upper.set_title('Equally Spaced\n', fontsize=15)
+    
+    
+    # Right: equally grouped.
+    separation_borders, (mass_mean, mass_std) = mean_mass_equally_grouped(sources, ngroups, model_name)
+    
+    # average separation within each bin.
+    separation_sources = np.array([np.mean(sources['sep_to_trapezium'][(sources['sep_to_trapezium'] > min_sep) & (sources['sep_to_trapezium'] <= max_sep)]).to(u.arcmin).value for min_sep, max_sep in zip(separation_borders[:-1], separation_borders[1:])])
+        
+    sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    
+    # Right figure
+    ax2.set_xlim((0, 4))
+    ax2.set_xticks([0, 1, 2, 3, 4])
+    ax2.plot(separation_sources, mass_mean.to(u.solMass).value, marker='o', markersize=5)
+    ax2.fill_between(separation_sources, y1=(mass_mean-mass_std).to(u.solMass).value, y2=(mass_mean+mass_std).to(u.solMass).value, edgecolor='none', facecolor='C0', alpha=0.3)
+    for i in range(len(sources_in_bins)):
+        ax2.annotate(f'{sources_in_bins[i]}', (separation_sources[i], mass_mean[i].to(u.solMass).value + (ylim[1] - ylim[0])/20), fontsize=10, horizontalalignment='center')
+    ax2.tick_params(axis='both', labelsize=12)
+    ax2.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15)
+    
+    ax2_upper = ax2.twiny()
+    ax2_upper.tick_params(axis='both', labelsize=12)
+    ax2_upper.set_xlim((0, 4/60*np.pi/180*389))
+    ax2_upper.set_xlabel('Separation from Trapezium (pc)\n', fontsize=15)
+    ax2_upper.set_title('Equally Grouped\n', fontsize=15)
+
+    fig.tight_layout()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    plt.savefig(save_path, bbox_inches='tight')
+    plt.show()
+
+
 #################################################
 ################# Main Function #################
 #################################################
@@ -2017,10 +2219,10 @@ trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 # fig = orion.plot_3d()
 # fig.write_html(f'{user_path}/ONC/figures/sky 3d.html')
 
-# compare_velocity(orion)
+compare_rv(orion)
 # orion.plot_pm_rv(constraint=~trapezium_only)
 # orion.pm_angle_distribution()
-orion.compare_mass()
+orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
 # orion.compare_chris()
 
 
@@ -2155,4 +2357,17 @@ plt.show()
 vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=False)
 
 # vdisp vs mass
-vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=True)
+vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=False)
+
+
+
+#################################################
+################ Mass Segregation ###############
+#################################################
+
+lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+
+mean_mass_vs_separation(orion.data[~trapezium_only], nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+
+print('--------------------Finished--------------------')
