@@ -10,6 +10,7 @@ import matplotlib.ticker as mticker
 from typing import Tuple
 from scipy import stats
 from scipy.optimize import curve_fit
+from scipy.stats import linregress
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 from astroquery.gaia import Gaia
@@ -397,15 +398,15 @@ class StarCluster:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
         
-        mass = getattr(self, f'mass_{model_name}')
-        e_mass = getattr(self, f'e_mass_{model_name}')
+        mass = self.data[f'mass_{model_name}']
+        e_mass = self.data[f'e_mass_{model_name}']
         
         constraint = \
-            (~np.isnan(self.pmRA)) & (~np.isnan(self.pmDE)) & \
+            (~np.isnan(self.data['pmRA'])) & (~np.isnan(self.data['pmDE'])) & \
             (~np.isnan(mass)) & \
             (e_mass <= max_mass_error) & \
-            (self.rv >= min_rv) & (self.rv <= max_rv) & \
-            (self.e_v <= max_v_error)
+            (self.data['rv'] >= min_rv) & (self.data['rv'] <= max_rv) & \
+            (self.data['e_v'] <= max_v_error)
         
         sources_coord = self.coord[constraint]
         
@@ -466,6 +467,7 @@ class StarCluster:
         
         
         ############# Resampling #############
+        R = np.corrcoef(mass.to(u.solMass).value, vrel.to(u.km/u.s).value)[1, 0]   # Pearson's R
         
         if model_type=='linear':
             def model_func(x, k, b):
@@ -475,32 +477,43 @@ class StarCluster:
                 return b*x**k
         else:
             raise ValueError(f"model_func must be one of 'linear' or 'power', not {model_func}.")
-        
-        R = np.corrcoef(mass.to(u.solMass).value, vrel.to(u.km/u.s).value)[1, 0]   # Pearson's R
-        
+
         # Resampling
         if resampling is True:
             resampling = 100000
         if resampling:
             ks = np.empty(resampling)
-            ebs = np.empty(resampling)
+            bs = np.empty(resampling)
             Rs = np.empty(resampling)
             
-            for i in range(resampling):
-                mass_resample = np.random.normal(loc=mass, scale=e_mass)
-                vrel_resample = np.random.normal(loc=vrel, scale=e_vrel)
-                valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
-                mass_resample = mass_resample[valid_resample_idx]
-                vrel_resample = vrel_resample[valid_resample_idx]
-                popt, _ = curve_fit(model_func, mass_resample, vrel_resample)
-                ks[i] = popt[0]
-                ebs[i] = popt[1]        
-                Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
+            if model_type=='linear':
+                for i in range(resampling):
+                    mass_resample = np.random.normal(loc=mass.to(u.solMass).value, scale=e_mass.to(u.solMass).value)
+                    vrel_resample = np.random.normal(loc=vrel.to(u.km/u.s).value, scale=e_vrel.to(u.km/u.s).value)
+                    valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
+                    mass_resample = mass_resample[valid_resample_idx]
+                    vrel_resample = vrel_resample[valid_resample_idx]
+                    result = linregress(mass_resample, vrel_resample)
+                    ks[i] = result.slope
+                    bs[i] = result.intercept
+                    Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
+                
+            elif model_type=='power':
+                for i in range(resampling):
+                    mass_resample = np.random.normal(loc=mass.to(u.solMass).value, scale=e_mass.to(u.solMass).value)
+                    vrel_resample = np.random.normal(loc=vrel.to(u.km/u.s).value, scale=e_vrel.to(u.km/u.s).value)
+                    valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
+                    mass_resample = mass_resample[valid_resample_idx]
+                    vrel_resample = vrel_resample[valid_resample_idx]
+                    popt, _ = curve_fit(model_func, mass_resample, vrel_resample)
+                    ks[i] = popt[0]
+                    bs[i] = popt[1]        
+                    Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
             
             k_resample = np.median(ks)
             k_e = np.diff(np.percentile(ks, [16, 84]))[0]/2
-            b_resample = np.median(ebs)
-            b_e = np.diff(np.percentile(ebs, [16, 84]))[0]/2
+            b_resample = np.median(bs)
+            b_e = np.diff(np.percentile(bs, [16, 84]))[0]/2
             R_resample = np.median(Rs)
             R_e = np.diff(np.percentile(Rs, [16, 84]))[0]/2
         
@@ -515,9 +528,24 @@ class StarCluster:
                 elif line.startswith('R_resample:'):
                     R_resample, R_e = eval(', '.join(line.strip('R_resample:\t\n').split('± ')))
         
+        # p-value
+        result = linregress(mass, vrel)
+        p = result.pvalue
+        
         print(f'k_resample = {k_resample:.2f} ± {k_e:.2f}')
+        print(f'p_resample = {p:.2E}')
         print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
         
+        # write params
+        if save_path:
+            with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
+                file.write(f'Median of neighbors in a group:\t{np.median(n_neighbors):.0f}\n')
+                file.write(f'k_resample:\t{k_resample} ± {k_e}\n')
+                file.write(f'b_resample:\t{b_resample} ± {b_e}\n')
+                if model_type=='linear':
+                    file.write(f'p:\t{p}\n')
+                file.write(f'R_resample:\t{R_resample} ± {R_e}\n')
+                file.write(f'R:\t{R}\n')
         
         ############# Running average #############
         # equally grouped
@@ -556,15 +584,6 @@ class StarCluster:
             vrel_weight_sum = sum(vrel_weight[idx])
             avrg_vrel_binned[i] = np.average(vrel_value[idx], weights=vrel_weight[idx])
             e_vrel_binned[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * e_vrel_value[idx])
-        
-        # write params
-        if save_path:
-            with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
-                file.write(f'Median of neighbors in a group:\t{np.median(n_neighbors):.0f}\n')
-                file.write(f'k_resample:\t{k_resample} ± {k_e}\n')
-                file.write(f'b_resample:\t{b_resample} ± {b_e}\n')
-                file.write(f'R_resample:\t{R_resample} ± {R_e}\n')
-                file.write(f'R:\t{R}\n')
         
         
         ########## Kernel Density Estimation in Linear Space ##########
@@ -654,8 +673,15 @@ class StarCluster:
         ax.legend(handles, labels)
         
         
+        def sci_notation(number, sig_fig=2):
+            ret_string = "{0:.{1:d}e}".format(number, sig_fig)
+            a, b = ret_string.split("e")
+            # remove leading "+" and strip leading zeros
+            b = int(b)
+            return f'{a}*10^{{{str(b)}}}'
+        
         at = AnchoredText(
-            f'$R={R_resample:.2f}\pm{R_e:.2f}$', 
+            f'$p={sci_notation(p)}$\n$R={R_resample:.2f}\pm{R_e:.2f}$', 
             prop=dict(size=10), frameon=True, loc='lower right'
         )
         at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
@@ -2205,7 +2231,7 @@ def mean_mass_vs_separation(sources:QTable, nbins:int, ngroups:int, model_name:s
 ################# Main Function #################
 #################################################
 MCMC = True
-resampling = True
+resampling = False
 
 C0 = '#1f77b4'
 C1 = '#ff7f0e'
@@ -2223,26 +2249,26 @@ orion.set_attr()
 
 trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
-plot_skymaps(orion)
+# plot_skymaps(orion)
 
-orion.coord_3d = SkyCoord(
-    ra=orion.ra,
-    dec=orion.dec,
-    pm_ra_cosdec=orion.pmRA,
-    pm_dec=orion.pmDE,
-    radial_velocity=orion.rv,
-    distance=1000/orion.data['plx'].value * u.pc
-)
+# orion.coord_3d = SkyCoord(
+#     ra=orion.ra,
+#     dec=orion.dec,
+#     pm_ra_cosdec=orion.pmRA,
+#     pm_dec=orion.pmDE,
+#     radial_velocity=orion.rv,
+#     distance=1000/orion.data['plx'].value * u.pc
+# )
 
-fig = orion.plot_2d()
-fig.write_html(f'{user_path}/ONC/figures/sky 2d.html')
-fig = orion.plot_3d()
-fig.write_html(f'{user_path}/ONC/figures/sky 3d.html')
+# fig = orion.plot_2d()
+# fig.write_html(f'{user_path}/ONC/figures/sky 2d.html')
+# fig = orion.plot_3d()
+# fig.write_html(f'{user_path}/ONC/figures/sky 3d.html')
 
-orion.plot_pm_rv(constraint=~trapezium_only)
-orion.pm_angle_distribution()
-orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
-orion.compare_chris()
+# orion.plot_pm_rv(constraint=~trapezium_only)
+# orion.pm_angle_distribution()
+# orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
+# orion.compare_chris()
 
 
 #################################################
@@ -2311,82 +2337,82 @@ for radius in radii:
 orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
 
-model_name = 'MIST'
-ks = np.empty((2, len(radii)))
-ks_mean_offset = np.empty((2, len(radii)))
+# model_name = 'MIST'
+# ks = np.empty((2, len(radii)))
+# ks_mean_offset = np.empty((2, len(radii)))
 
-for i, radius in enumerate(radii):
-    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw = file.readlines()
-    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw_mean_offset = file.readlines()
+# for i, radius in enumerate(radii):
+#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+#         raw = file.readlines()
+#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
+#         raw_mean_offset = file.readlines()
     
-    for line, line_mean_offset in zip(raw, raw_mean_offset):
-        if line.startswith('k_resample:\t'):
-            ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
-        if line_mean_offset.startswith('k_resample:\t'):
-            ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
+#     for line, line_mean_offset in zip(raw, raw_mean_offset):
+#         if line.startswith('k_resample:\t'):
+#             ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
+#         if line_mean_offset.startswith('k_resample:\t'):
+#             ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
 
 
-colors = ['C0', 'C3']
-fig, ax = plt.subplots()
-blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
-red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
-blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
-red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
+# colors = ['C0', 'C3']
+# fig, ax = plt.subplots()
+# blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
+# red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
+# blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
+# red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
 
-hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
-ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
-ax.set_xlabel('Separation Limits of Neighbors (pc)')
-ax.set_ylabel('Slope of Linear Fit (k)')
-plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
-plt.show()
-
-
-#################################################
-############## Velocity Dispersion ##############
-#################################################
-# Apply rv constraint
-rv_constraint = ((
-    abs(orion.rv - np.nanmean(orion.rv)) <= 3*np.nanstd(orion.rv)
-    ) | (
-        trapezium_only
-))
-print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(trapezium_only)} out of {len(rv_constraint) - sum(trapezium_only)} remains.')
-print(f'Accepted radial velocity range: {np.nanmean(orion.rv):.3f} ± {3*np.nanstd(orion.rv):.3f} km/s.')
-
-if not os.path.exists(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results'):
-    os.mkdir(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results')
-
-with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'w') as file:
-    file.write(str(np.nanmean(orion.rv[rv_constraint])))
-
-fig, ax = plt.subplots(figsize=(6, 4))
-ax.errorbar(orion.data['sep_to_trapezium'].to(u.arcmin).value, orion.rv.value, yerr=orion.e_rv.value, fmt='.', label='Measurements')
-ax.hlines([np.nanmean(orion.rv.value) - 3*np.nanstd(orion.rv.value), np.nanmean(orion.rv.value) + 3*np.nanstd(orion.rv.value)], xmin=min(orion.data['sep_to_trapezium'].to(u.arcmin).value), xmax=max(orion.data['sep_to_trapezium'].to(u.arcmin).value), linestyles='--', colors='C1', label='3σ range')
-ax.set_xlabel('Separation From Trapezium (arcmin)')
-ax.set_ylabel('Radial Velocity')
-ax.legend()
-plt.show()
-
-# vdisp for all
-vdisps_all = vdisp_all(orion.data[rv_constraint], save_path=f'{save_path}/vdisp_results', MCMC=MCMC)
-
-# vdisp vs sep
-vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
-
-# vdisp vs mass
-vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+# hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+# ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
+# ax.set_xlabel('Separation Limits of Neighbors (pc)')
+# ax.set_ylabel('Slope of Linear Fit (k)')
+# plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
+# plt.show()
 
 
+# #################################################
+# ############## Velocity Dispersion ##############
+# #################################################
+# # Apply rv constraint
+# rv_constraint = ((
+#     abs(orion.rv - np.nanmean(orion.rv)) <= 3*np.nanstd(orion.rv)
+#     ) | (
+#         trapezium_only
+# ))
+# print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(trapezium_only)} out of {len(rv_constraint) - sum(trapezium_only)} remains.')
+# print(f'Accepted radial velocity range: {np.nanmean(orion.rv):.3f} ± {3*np.nanstd(orion.rv):.3f} km/s.')
 
-#################################################
-################ Mass Segregation ###############
-#################################################
+# if not os.path.exists(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results'):
+#     os.mkdir(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results')
 
-lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
-lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+# with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'w') as file:
+#     file.write(str(np.nanmean(orion.rv[rv_constraint])))
 
-mean_mass_vs_separation(orion.data[~trapezium_only], nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+# fig, ax = plt.subplots(figsize=(6, 4))
+# ax.errorbar(orion.data['sep_to_trapezium'].to(u.arcmin).value, orion.rv.value, yerr=orion.e_rv.value, fmt='.', label='Measurements')
+# ax.hlines([np.nanmean(orion.rv.value) - 3*np.nanstd(orion.rv.value), np.nanmean(orion.rv.value) + 3*np.nanstd(orion.rv.value)], xmin=min(orion.data['sep_to_trapezium'].to(u.arcmin).value), xmax=max(orion.data['sep_to_trapezium'].to(u.arcmin).value), linestyles='--', colors='C1', label='3σ range')
+# ax.set_xlabel('Separation From Trapezium (arcmin)')
+# ax.set_ylabel('Radial Velocity')
+# ax.legend()
+# plt.show()
+
+# # vdisp for all
+# vdisps_all = vdisp_all(orion.data[rv_constraint], save_path=f'{save_path}/vdisp_results', MCMC=MCMC)
+
+# # vdisp vs sep
+# vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
+
+# # vdisp vs mass
+# vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+
+
+
+# #################################################
+# ################ Mass Segregation ###############
+# #################################################
+
+# lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+# lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+
+# mean_mass_vs_separation(orion.data[~trapezium_only], nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
 
 print('--------------------Finished--------------------')
