@@ -5,6 +5,8 @@ import thejoker as tj
 import astropy.units as u
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import pymc3 as pm
+import exoplanet.units as xu
 from datetime import date
 from scipy.optimize import fsolve
 from matplotlib.lines import Line2D
@@ -13,7 +15,7 @@ from thejoker import JokerPrior, TheJoker, RVData
 
 user_path = os.path.expanduser('~')
 
-new_sampling = False
+new_sampling = True
 
 sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
 sources_epoch_combined = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
@@ -43,12 +45,17 @@ P_min = 10*u.day
 P_max = 2*t[-1]*u.day
 
 if new_sampling:
-    prior = JokerPrior.default(
-        P_min=P_min, 
-        P_max=P_max,
-        sigma_K0=5*u.km/u.s, 
-        sigma_v=100*u.km/u.s
-    )
+    
+    with pm.Model() as model:
+        e = xu.with_unit(pm.Uniform('e', 0, 0.9), u.dimensionless_unscaled)
+
+        prior = JokerPrior.default(
+            P_min=P_min, 
+            P_max=P_max,
+            sigma_K0=5*u.km/u.s, 
+            sigma_v=100*u.km/u.s,
+            pars={'e': e}
+        )
     joker = TheJoker(prior)
     prior_samples = prior.sample(size=100000)
     samples = joker.rejection_sample(data, prior_samples)
@@ -102,7 +109,7 @@ m_grid_left_circular = np.linspace(m_intersections_circular[0], m_intersections_
 m_grid_fill = np.concatenate((m_grid_left, m_grids[-1])).flatten()   # m grid for fill
 
 
-fig, ax = plt.subplots(1, 1, figsize=(6, 6))
+fig, ax = plt.subplots(1, 1, figsize=(6.18, 6.18))
 ax.scatter(m, a, 1, color='C7', marker='.', label='Sampled Systems')
 ax.plot(m_grids[0], lower_bound(m_grids[0]), linewidth=2, label=f'Min. Period: {P_min.value:.0f} days', zorder=5)
 ax.plot(m_grids[-1], upper_bound(m_grids[-1]), linewidth=2, linestyle='-.', label=f'Max. Period: {P_max.value:.0f} days', zorder=4)
@@ -124,7 +131,7 @@ ax.fill_between(
     zorder=0
 )
 ax.set_xscale('log')
-ax.set_xlim(right=0.78)
+ax.set_xlim((0.0081, 0.78))
 ax.set_ylim(bottom=-0.2)
 
 log_percentile = lambda x, percentile : 10**(np.percentile(np.log10(np.array(x)[[0, -1]]), percentile))
@@ -141,13 +148,13 @@ ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontala
 ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=12, rotation=7)
 
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
-ax.set_xticks([0.02, 0.04, 0.06, 0.1, 0.2, 0.3, 0.5])
+ax.set_xticks([0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5])
 ax.tick_params(axis='both', which='major', labelsize=12)
 ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$', fontsize=15, labelpad=10)
 ax.set_ylabel('Semi-Major Axis (au)', fontsize=15, labelpad=10)
 handles, labels = ax.get_legend_handles_labels()
 handles[0] = Line2D([], [], marker='.', color='C7', label='Sampled Systems', markersize=5, linestyle='None')
-ax.legend(handles=handles, loc='lower left', bbox_to_anchor=(1, -0.023), fontsize=12)
+ax.legend(handles=handles, loc='upper center', bbox_to_anchor=(0.5, 1.24), fontsize=11, ncol=2)
 plt.savefig(f'{user_path}/ONC/figures/Parenago 1837 - Allowed Param.pdf', bbox_inches='tight')
 plt.show()
 
