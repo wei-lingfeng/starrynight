@@ -15,7 +15,7 @@ from thejoker import JokerPrior, TheJoker, RVData
 
 user_path = os.path.expanduser('~')
 
-new_sampling = True
+new_sampling = False
 
 sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
 sources_epoch_combined = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
@@ -148,7 +148,7 @@ ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontala
 ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=12, rotation=7)
 
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
-ax.set_xticks([0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5])
+ax.set_xticks([0.01, 0.02, 0.05, 0.1, 0.2, 0.5])
 ax.tick_params(axis='both', which='major', labelsize=12)
 ax.set_xlabel(r'Companion Mass $\left(M_\odot\right)$', fontsize=15, labelpad=10)
 ax.set_ylabel('Semi-Major Axis (au)', fontsize=15, labelpad=10)
