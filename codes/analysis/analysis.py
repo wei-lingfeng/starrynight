@@ -647,44 +647,42 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     )
     
     mass = sources.loc[constraint, f'mass_{model_name}']
-    mass_e = sources.loc[constraint, f'mass_e_{model_name}']
-    v_e = sources.loc[constraint, 'v_e']
+    e_mass = sources.loc[constraint, f'mass_e_{model_name}']
+    e_v = sources.loc[constraint, 'v_e']
     
     ############# calculate vcom within radius #############
     # vel & vel_com: n-by-3 velocity in cartesian coordinates
     v = np.array([coord.velocity.d_xyz.value for coord in sources_coord])
     # vel_rel = np.empty((len(sources_coord), 3))
     vcom = np.empty((len(sources_coord), 3))
-    vcom_e = np.empty(len(sources_coord))
+    e_vcom = np.empty(len(sources_coord))
     
-    # neighbors[i] = list of boolean. Self included.
-    neighbors = []
+    # is_neighbor: boolean symmetric neighborhood matrix
+    is_neighbor = np.empty((len(sources_coord), len(sources_coord)), dtype=bool)
     
     for i, star in enumerate(sources_coord):
         sep = star.separation_3d(sources_coord)
-        if self_included:
-            neighbors.append(sep < radius)
-        else:
-            neighbors.append((sep > 0*u.pc) & (sep < radius))
+        is_neighbor[i] = sep < radius
+        if not self_included:
+            is_neighbor[i, i] = False
         # vel_com[i]: 1-by-3 center of mass velocity
-        vcom[i] = (mass[neighbors[i]] @ v[neighbors[i]]) / sum(mass[neighbors[i]])
+        vcom[i] = (mass[is_neighbor[i]] @ v[is_neighbor[i]]) / sum(mass[is_neighbor[i]])
     
-    neighbors = np.array(neighbors)
-    n_neighbors = np.sum(neighbors, axis=1)
+    n_neighbors = np.sum(is_neighbor, axis=1)
     
     # delete those without any neighbors
     if self_included:
-        no_neighbor = n_neighbors==1
+        has_neighbor = n_neighbors > 1
     else:
-        no_neighbor = n_neighbors==0
+        has_neighbor = n_neighbors > 0
         
-    v = np.delete(v, no_neighbor, axis=0)
-    vcom = np.delete(vcom, no_neighbor, axis=0)
-    vcom_e = np.delete(vcom_e, no_neighbor, axis=0)
-    neighbors = np.delete(neighbors, no_neighbor, axis=1)
-    n_neighbors = np.delete(n_neighbors, no_neighbor)
+    v = v[has_neighbor, :]
+    vcom = vcom[has_neighbor, :]
+    e_vcom = e_vcom[has_neighbor]
+    is_neighbor = is_neighbor[has_neighbor, :][:, has_neighbor]
+    n_neighbors = n_neighbors[has_neighbor]
     # sources = sources.drop(no_neighbor).reset_index(drop=True)
-    valid_idx = np.where(constraint)[0][~no_neighbor]
+    valid_idx = np.where(constraint)[0][has_neighbor]
     
     sources_coord = SkyCoord(
         ra=sources.loc[valid_idx, 'RAJ2000'].to_numpy()*u.degree,
@@ -696,9 +694,9 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     )
     
     mass = sources.loc[valid_idx, f'mass_{model_name}'].to_numpy()
-    mass_e = sources.loc[valid_idx, f'mass_e_{model_name}'].to_numpy()
+    e_mass = sources.loc[valid_idx, f'mass_e_{model_name}'].to_numpy()
 
-    v_e = sources.loc[valid_idx, 'v_e'].to_numpy()
+    e_v = sources.loc[valid_idx, 'v_e'].to_numpy()
     
     print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
     
@@ -708,12 +706,12 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     ############# calculate vrel error #############
     for i in range(len(sources_coord)):
         vcom_e_j = np.sqrt(
-            [sum((vrel_vector[neighbors[i], j]/sum(mass[neighbors[i]]) * mass_e[neighbors[i]])**2 + (mass[neighbors[i]] / sum(mass[neighbors[i]]) * v_e[neighbors[i]])**2) for j in range(3)]
+            [sum((vrel_vector[is_neighbor[i], j]/sum(mass[is_neighbor[i]]) * e_mass[is_neighbor[i]])**2 + (mass[is_neighbor[i]] / sum(mass[is_neighbor[i]]) * e_v[is_neighbor[i]])**2) for j in range(3)]
         )
         
-        vcom_e[i] = np.sqrt(sum([(vcom[i,j] / np.linalg.norm(vcom[i]) * vcom_e_j[j])**2 for j in range(3)]))
+        e_vcom[i] = np.sqrt(sum([(vcom[i,j] / np.linalg.norm(vcom[i]) * vcom_e_j[j])**2 for j in range(3)]))
     
-    vrel_e = np.sqrt(v_e**2 + vcom_e**2)
+    e_vrel = np.sqrt(e_v**2 + e_vcom**2)
     
     
     ############# Resampling #############
@@ -738,8 +736,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
         Rs = np.empty(resampling)
         
         for i in range(resampling):
-            mass_resample = np.random.normal(loc=mass, scale=mass_e)
-            vrel_resample = np.random.normal(loc=vrel, scale=vrel_e)
+            mass_resample = np.random.normal(loc=mass, scale=e_mass)
+            vrel_resample = np.random.normal(loc=vrel, scale=e_vrel)
             valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
             mass_resample = mass_resample[valid_resample_idx]
             vrel_resample = vrel_resample[valid_resample_idx]
@@ -789,20 +787,20 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     
     mass_binned_avrg    = np.empty(nbins)
     mass_binned_e       = np.empty(nbins)
-    mass_weight = 1 / mass_e**2
+    mass_weight = 1 / e_mass**2
     vrel_binned_avrg    = np.empty(nbins)
     vrel_binned_e       = np.empty(nbins)
-    vrel_weight = 1 / vrel_e **2
+    vrel_weight = 1 / e_vrel **2
     
     for i, min_mass, max_mass in zip(range(nbins), mass_borders[:-1], mass_borders[1:]):
         idx = (mass > min_mass) & (mass <= max_mass)
         mass_weight_sum = sum(mass_weight[idx])
         mass_binned_avrg[i] = np.average(mass[idx], weights=mass_weight[idx])
-        mass_binned_e[i] = 1/mass_weight_sum * sum(mass_weight[idx] * mass_e[idx])
+        mass_binned_e[i] = 1/mass_weight_sum * sum(mass_weight[idx] * e_mass[idx])
         
         vrel_weight_sum = sum(vrel_weight[idx])
         vrel_binned_avrg[i] = np.average(vrel[idx], weights=vrel_weight[idx])
-        vrel_binned_e[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * vrel_e[idx])
+        vrel_binned_e[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * e_vrel[idx])
     
     # write params
     if save_path:
@@ -831,7 +829,7 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     
     # Errorbar with uniform transparency
     h1 = ax.errorbar(
-        mass, vrel, xerr=mass_e, yerr=vrel_e,
+        mass, vrel, xerr=e_mass, yerr=e_vrel,
         fmt='.',
         markersize=6, markeredgecolor='none', markerfacecolor='C0', 
         elinewidth=1, ecolor='C0', alpha=0.5,
@@ -924,11 +922,11 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     if update_sources:
         print('Changing sources...')
         sources.loc[valid_idx, f'vrel_{model_name}'] = vrel
-        sources.loc[valid_idx, f'vrel_e_{model_name}'] = vrel_e
+        sources.loc[valid_idx, f'vrel_e_{model_name}'] = e_vrel
     else:
         pass
     
-    return mass, vrel, mass_e, vrel_e
+    return mass, vrel, e_mass, e_vrel
 
 
 #################################################
@@ -2115,7 +2113,7 @@ sources_mean_offset.teff_nirspec += mean_diff
 sources_mean_offset.teff = sources_mean_offset.teff_nirspec.fillna(sources_mean_offset.teff_apogee)
 
 from starrynight import fit_mass
-mean_offset_masses = fit_mass(sources_mean_offset.teff, sources_mean_offset.teff_e)
+mean_offset_masses = fit_mass(sources_mean_offset.teff.to_numpy()*u.K, sources_mean_offset.teff_e.to_numpy()*u.K)
 columns = mean_offset_masses.keys()
 sources_mean_offset[columns] = mean_offset_masses
 indices = ~sources_mean_offset.theta_orionis.isna()

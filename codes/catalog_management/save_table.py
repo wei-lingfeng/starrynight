@@ -8,45 +8,45 @@ user_path = os.path.expanduser('~')
 
 month_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - new.csv')
 hc2000 = sources.loc[~sources.HC2000.isna() & sources.theta_orionis.isna()]
 
-sources_2d = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', dtype={'ID_gaia': str, 'ID_kim': str})
-sources_2d = sources_2d.loc[sources_2d.theta_orionis.isna()]
-sources_2d.ID_kim = sources_2d.ID_kim.fillna('')
+result = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.csv', dtype={'ID_gaia': str, 'ID_kim': str})
+result = result.loc[result.theta_orionis.isna()]
+result.ID_kim = result.ID_kim.fillna('')
 
 obs_df = pd.DataFrame({
-    'HC2000 ID': ['HC2000 {}'.format(_.replace('_', '')) for _ in list(hc2000.HC2000)],
-    'Obs. Date': ['20{} {} {}'.format(str(int(year)).zfill(2), month_list[int(month)-1], int(day)) for year, month, day in zip(hc2000.year, hc2000.month, hc2000.day)],
+    'HC2000 ID': [f"HC2000 {ID:.0f}{m_ID}" for ID, m_ID in zip(hc2000['HC2000'], hc2000['m_HC2000'].fillna(''))],
+    'Obs. Date': [f"{date.split('-')[0]} {month_list[int(date.split('-')[1]) - 1]} {date.split('-')[2]}" for date in hc2000['obs_date']],
     'No. of Frames': [len(eval(_)) for _ in hc2000.sci_frames],
     'Int. Time': [int(_) for _ in hc2000.itime]
 })
 
 result_df = pd.DataFrame({
-    'HC2000 ID': [f"HC2000 {_.replace('_', '')}" if isinstance(_, str) else '' for _ in list(sources_2d.HC2000)],
-    'K19 ID':   sources_2d.ID_kim,
-    'RAJ2000':  sources_2d.RAJ2000,
-    'DEJ2000':  sources_2d.DEJ2000,
-    'rv':       sources_2d.rv,
-    'rv_e':     sources_2d.rv_e,
-    'pmRA':     sources_2d.pmRA,
-    'pmRA_e':   sources_2d.pmRA_e,
-    'pmDE' :    sources_2d.pmDE,
-    'pmDE_e':   sources_2d.pmDE_e,
-    'teff':     sources_2d.teff,
-    'teff_e':   sources_2d.teff_e,
-    'vsini':    sources_2d.vsini,
-    'vsini_e':  sources_2d.vsini_e,
-    'mass_MIST': sources_2d.mass_MIST,
-    'mass_e_MIST': sources_2d.mass_e_MIST,
-    'mass_BHAC15': sources_2d.mass_BHAC15,
-    'mass_e_BHAC15': sources_2d.mass_e_BHAC15,
-    'mass_Feiden': sources_2d.mass_Feiden,
-    'mass_e_Feiden': sources_2d.mass_e_Feiden,
-    'mass_Palla': sources_2d.mass_Palla,
-    'mass_e_Palla': sources_2d.mass_e_Palla,
-    'veiling param': sources_2d.veiling_param_O33,
-    'SNR O33':          sources_2d.snr_O33
+    'HC2000 ID': [f"HC2000 {_.replace('_', '')}" if isinstance(_, str) else '' for _ in list(result.HC2000)],
+    'K19 ID':           result.ID_kim,
+    'RAJ2000':          result.RAJ2000,
+    'DEJ2000':          result.DEJ2000,
+    'rv':               result.rv,
+    'e_rv':             result.e_rv,
+    'pmRA':             result.pmRA,
+    'e_pmRA':           result.e_pmRA,
+    'pmDE' :            result.pmDE,
+    'e_pmDE':           result.e_pmDE,
+    'teff':             result.teff,
+    'e_teff':           result.e_teff,
+    'vsini':            result.vsini_nirspao,
+    'e_vsini':          result.e_vsini_nirspao,
+    'mass_MIST':        result.mass_MIST,
+    'e_mass_MIST':      result.e_mass_MIST,
+    'mass_BHAC15':      result.mass_BHAC15,
+    'e_mass_BHAC15':    result.e_mass_BHAC15,
+    'mass_Feiden':      result.mass_Feiden,
+    'e_mass_Feiden':    result.e_mass_Feiden,
+    'mass_Palla':       result.mass_Palla,
+    'e_mass_Palla':     result.e_mass_Palla,
+    'veiling param':    result.veiling_param_O33_nirspao,
+    'SNR O33':          result.snr_O33
 })
 
 result_rounded = result_df.round({
@@ -60,7 +60,7 @@ result_rounded = result_df.round({
 
 # save latex
 print('Observation Table:')
-obs_latex = obs_df.head(20).to_latex(index=False, header=obs_df.keys().to_list(), na_rep='snodata')
+obs_latex = obs_df.to_latex(index=False, header=obs_df.keys().to_list(), na_rep='snodata')
 obs_latex.replace('snodata', r'\nodata')
 print(obs_latex)
 
@@ -101,15 +101,15 @@ result_table['  K19 ID']    = Column(result_df['K19 ID'], format=str, descriptio
 result_table['  RAJ2000']   = Column(result_df.RAJ2000, unit=u.deg, description='Right ascension in decimal degrees (J2000)')
 result_table['  DEJ2000']   = Column(result_df.DEJ2000, unit=u.deg, description='Declination in decimal degrees (J2000)')
 result_table['  RVel']      = Column(result_df.rv,      unit=u.km/u.s, description='Radial Velocity')
-result_table['e_RVel']      = Column(result_df.rv_e,    unit=u.km/u.s, description='Radial Velocity uncertainty')
+result_table['e_RVel']      = Column(result_df.e_rv,    unit=u.km/u.s, description='Radial Velocity uncertainty')
 result_table['  pmRA']      = Column(result_df.pmRA,    unit=u.mas/u.yr, description='Proper motion in Right ascension')
-result_table['e_pmRA']      = Column(result_df.pmRA_e,  unit=u.mas/u.yr, description='Proper motion uncertainty in right ascension')
+result_table['e_pmRA']      = Column(result_df.e_pmRA,  unit=u.mas/u.yr, description='Proper motion uncertainty in right ascension')
 result_table['  pmDE']      = Column(result_df.pmDE,    unit=u.mas/u.yr, description='Proper motion in declination')
-result_table['e_pmDE']      = Column(result_df.pmDE_e,  unit=u.mas/u.yr, description='Proper motion uncertainty in declination')
+result_table['e_pmDE']      = Column(result_df.e_pmDE,  unit=u.mas/u.yr, description='Proper motion uncertainty in declination')
 result_table['  teff']      = Column(result_df.teff,    unit=u.K, description='Effective temperature')
-result_table['e_teff']      = Column(result_df.teff_e,  unit=u.K, description='Effective temperature uncertainty')
+result_table['e_teff']      = Column(result_df.e_teff,  unit=u.K, description='Effective temperature uncertainty')
 result_table['  vsini']     = Column(result_df.vsini,   unit=u.km/u.s, description='Rotational velocity')
-result_table['e_vsini']     = Column(result_df.vsini_e, unit=u.km/u.s, description='Rotational velocity uncertainty')
+result_table['e_vsini']     = Column(result_df.e_vsini, unit=u.km/u.s, description='Rotational velocity uncertainty')
 for model_name in ['MIST','BHAC15', 'Feiden', 'Palla']:
     result_table[f'M_{model_name}']   = Column(result_df[f'mass_{model_name}'], unit=u.Msun, description=f'Stellar mass based on {model_name} model')
     result_table[f'e_M_{model_name}'] = Column(result_df[f'mass_e_{model_name}'], unit=u.Msun, description=f'Stellar mass uncertainty based on {model_name} model')
