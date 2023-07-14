@@ -851,6 +851,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
             nirspao.remove_rows((nirspao['HC2000']==trapezium_HC2000) & ~nirspao['theta_orionis'].mask)
             nirspao['theta_orionis'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['theta_orionis'][trapezium_stars['HC2000']==trapezium_HC2000]
             nirspao['mass_literature'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['mass_literature'][trapezium_stars['HC2000']==trapezium_HC2000]
+            nirspao['e_mass_literature'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['e_mass_literature'][trapezium_stars['HC2000']==trapezium_HC2000]
 
     
     # Remove multiplicty index with only A or B

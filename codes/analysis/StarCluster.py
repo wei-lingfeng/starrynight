@@ -286,7 +286,7 @@ class StarCluster:
         plt.show()
 
     
-    def pm_angle_distribution(self, save_path=None, constraint=None):
+    def pm_angle_distribution(self, save_path=None):
         def angle_between(v1, v2):
             """Angle between two vectors
 
@@ -306,15 +306,15 @@ class StarCluster:
             v2 = v2 / np.linalg.norm(v2)
             return np.arctan2(np.linalg.det(np.array([v1, v2])), np.dot(v1, v2))
         
-        if constraint is None: constraint = np.ones(self.len, dtype=bool)
+        # if constraint is None: constraint = np.ones(self.len, dtype=bool)
         position = np.array([
-            -(self.ra - trapezium.ra)[constraint].value,   # minius sign because ra increases from right to left
-            (self.dec - trapezium.dec)[constraint].value
+            -(self.ra - trapezium.ra).value,   # minius sign because ra increases from right to left
+            (self.dec - trapezium.dec).value
         ])
 
         pm = np.array([
-            -self.pmRA[constraint].value,
-            self.pmDE[constraint].value
+            -self.pmRA.value,
+            self.pmDE.value
         ])
         
         # After adding minus sign: clock-wise is positive, counter clock-wise is negative
@@ -412,7 +412,7 @@ class StarCluster:
         
         mass = mass[constraint]
         e_mass = e_mass[constraint]
-        e_v = self.e_v[constraint]
+        e_v = self.data['e_v'][constraint]
         
         ############# calculate vcom within radius #############
         # v & vcom: n-by-3 velocity in cartesian coordinates
@@ -496,6 +496,9 @@ class StarCluster:
                     result = linregress(mass_resample, vrel_resample)
                     ks[i] = result.slope
                     bs[i] = result.intercept
+                    # popt, pcov = curve_fit(model_func, mass_resample, vrel_resample)
+                    # ks[i] = popt[0]
+                    # bs[i] = popt[1]
                     Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
                 
             elif model_type=='power':
@@ -505,9 +508,12 @@ class StarCluster:
                     valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
                     mass_resample = mass_resample[valid_resample_idx]
                     vrel_resample = vrel_resample[valid_resample_idx]
-                    popt, _ = curve_fit(model_func, mass_resample, vrel_resample)
-                    ks[i] = popt[0]
-                    bs[i] = popt[1]        
+                    result = linregress(np.log10(mass_resample), np.log10(vrel_resample))
+                    ks[i] = result.slope
+                    bs[i] = result.intercept
+                    # popt, pcov = curve_fit(model_func, mass_resample, vrel_resample)
+                    # ks[i] = popt[0]
+                    # bs[i] = popt[1]
                     Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
             
             k_resample = np.median(ks)
@@ -533,7 +539,7 @@ class StarCluster:
         p = result.pvalue
         
         print(f'k_resample = {k_resample:.2f} ± {k_e:.2f}')
-        print(f'p_resample = {p:.2E}')
+        print(f'p = {p:.2E}')
         print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
         
         # write params
@@ -542,8 +548,7 @@ class StarCluster:
                 file.write(f'Median of neighbors in a group:\t{np.median(n_neighbors):.0f}\n')
                 file.write(f'k_resample:\t{k_resample} ± {k_e}\n')
                 file.write(f'b_resample:\t{b_resample} ± {b_e}\n')
-                if model_type=='linear':
-                    file.write(f'p:\t{p}\n')
+                file.write(f'p:\t{p}\n')
                 file.write(f'R_resample:\t{R_resample} ± {R_e}\n')
                 file.write(f'R:\t{R}\n')
         
@@ -571,7 +576,7 @@ class StarCluster:
         mass_binned_avrg    = np.empty(nbins)
         e_mass_binned       = np.empty(nbins)
         mass_weight = 1 / e_mass_value**2
-        avrg_vrel_binned    = np.empty(nbins)
+        vrel_binned_avrg    = np.empty(nbins)
         e_vrel_binned       = np.empty(nbins)
         vrel_weight = 1 / e_vrel_value**2
         
@@ -582,7 +587,7 @@ class StarCluster:
             e_mass_binned[i] = 1/mass_weight_sum * sum(mass_weight[idx] * e_mass_value[idx])
             
             vrel_weight_sum = sum(vrel_weight[idx])
-            avrg_vrel_binned[i] = np.average(vrel_value[idx], weights=vrel_weight[idx])
+            vrel_binned_avrg[i] = np.average(vrel_value[idx], weights=vrel_weight[idx])
             e_vrel_binned[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * e_vrel_value[idx])
         
         
@@ -601,34 +606,81 @@ class StarCluster:
         
         fig, ax = plt.subplots(figsize=(6, 4.5), dpi=300)
         
-        # Errorbar with uniform transparency
-        h1 = ax.errorbar(
-            mass_value, vrel_value, xerr=e_mass_value, yerr=e_vrel_value,
-            fmt='.',
-            markersize=6, markeredgecolor='none', markerfacecolor='C0', 
-            elinewidth=1, ecolor='C0', alpha=0.5,
-            zorder=2
-        )
-        
-        # Running Average
-        h2 = ax.errorbar(
-            mass_binned_avrg, avrg_vrel_binned, 
-            xerr=e_mass_binned, 
-            yerr=e_vrel_binned, 
-            fmt='.', 
-            elinewidth=1.2, ecolor='C3', 
-            markersize=8, markeredgecolor='none', markerfacecolor='C3', 
-            alpha=0.8,
-            zorder=4
-        )
-        
-        # Running Average Fill
-        f2 = ax.fill_between(mass_binned_avrg, avrg_vrel_binned - e_vrel_binned, avrg_vrel_binned + e_vrel_binned, color='C3', edgecolor='none', alpha=0.5)
+        if model_type=='linear':
+            # Errorbar with uniform transparency
+            h1 = ax.errorbar(
+                mass_value, vrel_value, xerr=e_mass_value, yerr=e_vrel_value,
+                fmt='.', 
+                markersize=6, markeredgecolor='none', markerfacecolor='C0', 
+                elinewidth=1, ecolor='C0', alpha=0.5,
+                zorder=2
+            )
             
-        h4, = ax.plot(xs, model_func(xs, k_resample, b_resample), color='k', label='Best Fit', zorder=3)
+            # Running Average
+            h2 = ax.errorbar(
+                mass_binned_avrg, vrel_binned_avrg, 
+                xerr=e_mass_binned, 
+                yerr=e_vrel_binned, 
+                fmt='.', 
+                markersize=8, markeredgecolor='none', markerfacecolor='C3', 
+                elinewidth=1.2, ecolor='C3', 
+                alpha=0.8,
+                zorder=4
+            )
+        
+            # Running Average Fill
+            f2 = ax.fill_between(mass_binned_avrg, vrel_binned_avrg - e_vrel_binned, vrel_binned_avrg + e_vrel_binned, color='C3', edgecolor='none', alpha=0.5)
+            
+            # Model
+            h4, = ax.plot(xs, k_resample*xs + b_resample, color='k', label='Best Fit', zorder=3)
+        
+        
+        elif model_type=='power':
+            mass_log = np.log10(mass_value)
+            vrel_log = np.log10(vrel_value)
+            e_mass_log = 1/(np.log(10) * mass_value) * e_mass_value
+            e_vrel_log = 1/(np.log(10) * vrel_value) * e_vrel_value
+            h1 = ax.errorbar(
+                mass_value, vrel_value, 
+                xerr=np.array([mass_value - 10**(mass_log - e_mass_log), 10**(mass_log + e_mass_log) - mass_value]), 
+                yerr=np.array([vrel_value - 10**(vrel_log - e_vrel_log), 10**(vrel_log + e_vrel_log) - vrel_value]), 
+                fmt='.', 
+                markersize=6, markeredgecolor='none', markerfacecolor='C0', 
+                elinewidth=1, ecolor='C0', alpha=0.5,
+                zorder=2
+            )
+            
+            mass_avrg_log = np.log10(mass_binned_avrg)
+            vrel_avrg_log = np.log10(vrel_binned_avrg)
+            e_mass_avrg_log = 1/(np.log(10) * mass_binned_avrg) * e_mass_binned
+            e_vrel_avrg_log = 1/(np.log(10) * vrel_binned_avrg) * e_vrel_binned
+            # Running Average
+            h2 = ax.errorbar(
+                mass_binned_avrg, vrel_binned_avrg, 
+                xerr=np.array([mass_binned_avrg - 10**(mass_avrg_log - e_mass_avrg_log), 10**(mass_avrg_log + e_mass_avrg_log) - mass_binned_avrg]), 
+                yerr=np.array([vrel_binned_avrg - 10**(vrel_avrg_log - e_vrel_avrg_log), 10**(vrel_avrg_log + e_vrel_avrg_log) - vrel_binned_avrg]), 
+                fmt='.', 
+                markersize=8, markeredgecolor='none', markerfacecolor='C3', 
+                elinewidth=1.2, ecolor='C3', 
+                alpha=0.8,
+                zorder=4
+            )
+            
+            # Running Average Fill
+            f2 = ax.fill_between(mass_binned_avrg, 10**(vrel_avrg_log - e_vrel_avrg_log), 10**(vrel_avrg_log + e_vrel_avrg_log), color='C3', edgecolor='none', alpha=0.5)
+            
+            # Model
+            h4, = ax.plot(xs, 10**b_resample * xs**k_resample, color='k', label='Best Fit', zorder=3)
+            
+            plt.loglog()
+        
         
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
+        
+        if model_type=='power':
+            if xlim[0] < 0.018: xlim = (0.018, xlim[1])
+            if ylim[0] < 0.3: ylim = (0.3, ylim[1])
         
         # Plot KDE and contours
         # see https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_demo.html
@@ -665,10 +717,7 @@ class StarCluster:
             f"KDE's {kde_percentile}-th Percentile"
         ]
         
-        if model_type=='linear':
-            labels.append(f'Best Linear Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$b={b_resample:.2f}\pm{b_e:.2f}$')
-        elif model_type=='power':
-            labels.append(f'Best Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$A={b_resample:.2f}\pm{b_e:.2f}$')
+        labels.append(f'Best Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$b={b_resample:.2f}\pm{b_e:.2f}$')
         
         ax.legend(handles, labels)
         
@@ -688,10 +737,10 @@ class StarCluster:
         at.patch.set_alpha(0.8)
         at.patch.set_edgecolor((0.8, 0.8, 0.8))
         ax.add_artist(at)
-
+        
         ax.set_xlabel('Mass $(M_\odot)$', fontsize=12)
         ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
-
+        
         if save_path:
             if save_path.endswith('png'):
                 plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight', transparent=True)
@@ -786,8 +835,7 @@ class ONC(StarCluster):
             file.write(f'pmRA_gaia - pmRA_kim = {offset_RA}\npmDE_gaia - pmDE_kim = {offset_DE}')
         
         # Plot pm comparison
-        # Remove binaries
-        fig, ax = plt.subplots(figsize=(6, 6))
+        fig, ax = plt.subplots(figsize=(5, 5))
         ax.errorbar(
             (self.data['pmRA_gaia'] - self.data['pmRA_kim'] - offset_RA).value,
             (self.data['pmDE_gaia'] - self.data['pmDE_kim'] - offset_DE).value,
@@ -817,9 +865,11 @@ class ONC(StarCluster):
 
         parenago_idx = (self.data['HC2000']==546).filled(False)
         V1337_idx = (self.data['HC2000']==214).filled(False)
-        fig, ax = plt.subplots(figsize=(6, 6))
+        
+        # Plot RV comparison
+        fig, ax = plt.subplots(figsize=(5, 5))
         ax.errorbar(self.data['rv_helio'][(~parenago_idx) & (~V1337_idx)].value, self.data['rv_apogee'][(~parenago_idx) & (~V1337_idx)].value, xerr=self.data['e_rv_nirspao'][(~parenago_idx) & (~V1337_idx)].value, yerr=self.data['e_rv_apogee'][(~parenago_idx) & (~V1337_idx)].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-        ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, fmt='o', color='C0', alpha=0.5, marker='s', markersize=5, label='Parenago 1837')
+        ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, fmt='o', color='C0', alpha=0.5, marker='.', markersize=3, label='Parenago 1837')
         ax.errorbar(self.data['rv_helio'][V1337_idx].value, self.data['rv_apogee'][V1337_idx].value, xerr=self.data['e_rv_nirspao'][V1337_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, fmt='o', color='C1', alpha=0.5, marker='D', markersize=5, label='V* V1337 Ori')
         ax.plot([23, 38], [23, 38], color='C3', linestyle='--', label='Equal Line')
         ax.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
@@ -864,7 +914,8 @@ class ONC(StarCluster):
             self.len - sum((self.data['sci_frames'].mask) & (self.data['APOGEE'].mask))
         ))
 
-        self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources 2d.ecsv', overwrite=True)
+        self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.csv', overwrite=True)
+        self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.ecsv', overwrite=True)
     
     
     
@@ -1060,7 +1111,7 @@ class ONC(StarCluster):
         return fig
 
 
-    def plot_pm_rv(self, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits', save_path=None, constraint=None):
+    def plot_pm_rv(self, background_path=f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits', save_path=None):
         """Plot proper motion and radial velocity
 
         Parameters
@@ -1069,8 +1120,6 @@ class ONC(StarCluster):
             background path, by default f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
         save_path : str, optional
             Save path, by default None
-        constraint : array-like, optional
-            Constraint array, by default None
         """
         hdu = fits.open(background_path)[0]
         wcs = WCS(background_path)
@@ -1087,13 +1136,13 @@ class ONC(StarCluster):
         ax = fig.add_subplot(1, 1, 1, projection=image_wcs)
         ax.imshow(image_data, cmap='gray')
         
-        if constraint is None: constraint = np.ones(self.len, dtype=bool)
+        # if constraint is None: constraint = np.ones(self.len, dtype=bool)
         im = ax.quiver(
-            ra_wcs[constraint],
-            dec_wcs[constraint],
-            -self.pmRA[constraint].value,   # minius sign because ra increases from right to left
-            self.pmDE[constraint].value,
-            self.rv[constraint].value,
+            ra_wcs,
+            dec_wcs,
+            -self.pmRA.value,   # minius sign because ra increases from right to left
+            self.pmDE.value,
+            self.rv.value,
             cmap='coolwarm',
             width=0.006,
             scale=25
@@ -1218,9 +1267,9 @@ class ONC(StarCluster):
         plt.subplots_adjust(wspace=0.3)
         if save_path:
             if save_path.endswith('png'):
-                plt.savefig(f'{save_path}/compare Chris.pdf', bbox_inches='tight', transparent=True)
+                plt.savefig(save_path, bbox_inches='tight', transparent=True)
             else:
-                plt.savefig(f'{save_path}/compare Chris.pdf', bbox_inches='tight')
+                plt.savefig(save_path, bbox_inches='tight')
         plt.show()
 
 
@@ -1317,14 +1366,20 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     ]
     tobin_ra, tobin_dec = wcs.wcs_world2pix(tobin_coord.ra.value, tobin_coord.dec.value, 0)
     apogee_ra, apogee_dec = wcs.wcs_world2pix(apogee['RAJ2000'].value, apogee['DEJ2000'].value, 0)
+    trapezium_ra, trapezium_dec = wcs.wcs_world2pix(trapezium.ra.value, trapezium.dec.value, 0)
     tobin_ra    += ra_offset
     tobin_dec   += dec_offset
     apogee_ra   += ra_offset
     apogee_dec  += dec_offset
-
+    trapezium_ra    += ra_offset
+    trapezium_dec   += dec_offset
+    
+    ax.scatter(trapezium_ra, trapezium_dec, s=80, marker='*', edgecolor='royalblue', linewidth=1.5, facecolor='none', label='Center', zorder=4)
     ax.scatter(apogee_ra, apogee_dec, s=10, marker='s', edgecolor='C9', linewidths=1, facecolor='none', label='APOGEE', zorder=2)
     ax.scatter(tobin_ra, tobin_dec, s=10, marker='^', edgecolor='C1', linewidths=1, facecolor='none', label='Tobin et al. 2009', zorder=1)
-    ax.legend(loc='upper right', framealpha=0.75)
+    handles, labels = ax.get_legend_handles_labels()
+    order = [1, 0, 2, 3]
+    ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], framealpha=0.75, loc='upper right')
     plt.savefig(f'{user_path}/ONC/figures/skymap/Skymap Wide.pdf')
     plt.show()
 
@@ -1354,7 +1409,7 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     ax.scatter(trapezium_ra, trapezium_dec, s=100, marker='*', edgecolor='royalblue', linewidth=1.5, facecolor='none', label='Center', zorder=4)
     ax.scatter(apogee_ra, apogee_dec, s=15, marker='s', edgecolor='C9', linewidths=1.25, facecolor='none', label='APOGEE', zorder=2)
     ax.scatter(parenago_ra, parenago_dec, s=50, marker='X', edgecolor='lightgreen', linewidth=1.5, facecolor='none', label='Parenago 1837', zorder=4)
-    ax.scatter(V1337_ra, V1337_dec, s=50, marker='P', edgecolor='gold', linewidth=1.5, facecolor='none', label='V1337', zorder=4)
+    ax.scatter(V1337_ra, V1337_dec, s=50, marker='P', edgecolor='gold', linewidth=1.5, facecolor='none', label='V* V1337 Ori', zorder=4)
     handles, labels = ax.get_legend_handles_labels()
     order = [1, 0, 2, 3, 4]
     ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], framealpha=0.75, loc='upper right')
@@ -1899,15 +1954,8 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
     
-    fig, axs = plt.subplots(1, 3, figsize=(12, 3.5), sharey=True)
+    fig, axs = plt.subplots(1, 3, figsize=(10, 3), sharey=True)
     for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
-        # arcmin axis
-        ax.set_ylim((1.3, 6))
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        ax.tick_params(axis='both', labelsize=12)
-        ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
-        
         if direction=='1d':
             ax.set_title('$\sigma_{\mathrm{1D, rms}}$', fontsize=15)
             ax.set_ylabel(r'$\sigma$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
@@ -1922,8 +1970,15 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
         for i in range(len(sources_in_bins)):
             ax.annotate(f'{sources_in_bins[i]}', (mass_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
         fill = ax.fill_between(mass_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
-        ax.tick_params(axis='both', labelsize=12)
-    
+
+        ax.set_ylim((1.3, 5.2))
+        ax.loglog()
+        ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
+        ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
+        ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
+        ax.set_xticks([0.2, 0.4, 0.6, 0.8, 1])
+        ax.tick_params(axis='both', which='major', labelsize=12)
+
     axs[0].legend(handles=[(errorbar, fill)], labels=['Measured Velocity Dispersion'], fontsize=12, loc='upper left')
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
@@ -2230,7 +2285,7 @@ def mean_mass_vs_separation(sources:QTable, nbins:int, ngroups:int, model_name:s
 #################################################
 ################# Main Function #################
 #################################################
-MCMC = True
+MCMC = False
 resampling = False
 
 C0 = '#1f77b4'
@@ -2249,7 +2304,7 @@ orion.set_attr()
 
 trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
-# plot_skymaps(orion)
+plot_skymaps(orion)
 
 # orion.coord_3d = SkyCoord(
 #     ra=orion.ra,
@@ -2265,15 +2320,19 @@ trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 # fig = orion.plot_3d()
 # fig.write_html(f'{user_path}/ONC/figures/sky 3d.html')
 
-# orion.plot_pm_rv(constraint=~trapezium_only)
-# orion.pm_angle_distribution()
-# orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
-# orion.compare_chris()
+orion.plot_pm_rv(save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
+orion.pm_angle_distribution(save_path=f'{user_path}/ONC/figures/pm direction.pdf')
+orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
+orion.compare_chris(save_path=f'{user_path}/ONC/figures/compare T22.pdf')
 
 
 #################################################
 ########### Relative Velocity vs Mass ###########
 #################################################
+
+model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
+radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
+model_type = 'linear'
 
 # Remove the high relative velocity sources.
 max_rv = 40*u.km/u.s
@@ -2295,105 +2354,102 @@ for column in columns:
     orion_mean_offset.data[column] = mean_offset_masses[column]
 orion_mean_offset.set_attr()
 
-model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
-radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
-base_path = 'linear'
-base_path_mean_offset = 'linear-mean-offset'
 
-for radius in radii:
-    for model_name in model_names:
+# for radius in radii:
+#     for model_name in model_names:
         
-        if (radius == 0.1*u.pc) and (model_name == 'MIST'):
-            update_self = True
-        else:
-            update_self = False
+#         if radius == 0.1*u.pc:
+#             update_self = True
+#         else:
+#             update_self = False
         
-        mass, vrel, e_mass, e_vrel = orion.vrel_vs_mass(
-            model_name=model_name,
-            model_type='linear',
-            radius=radius,
-            resampling=resampling,
-            min_rv=min_rv,
-            max_rv=max_rv,
-            update_self=update_self,
-            kde_percentile=84,
-            show_figure=False,
-            save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc'
-        )
+#         mass, vrel, e_mass, e_vrel = orion.vrel_vs_mass(
+#             model_name=model_name,
+#             model_type=model_type,
+#             radius=radius,
+#             resampling=resampling,
+#             min_rv=min_rv,
+#             max_rv=max_rv,
+#             update_self=update_self,
+#             kde_percentile=84,
+#             show_figure=False,
+#             save_path=f'{save_path}/vrel_results/{model_type}-{radius.value:.2f}pc'
+#         )
         
-        mass, vrel, e_mass, e_vrel = orion_mean_offset.vrel_vs_mass(
-            model_name=model_name,
-            model_type='linear',
-            radius=radius,
-            resampling=resampling,
-            min_rv=min_rv,
-            max_rv=max_rv,
-            update_self=False,
-            kde_percentile=84,
-            show_figure=False,
-            save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc'
-        )
+#         mass, vrel, e_mass, e_vrel = orion_mean_offset.vrel_vs_mass(
+#             model_name=model_name,
+#             model_type=model_type,
+#             radius=radius,
+#             resampling=resampling,
+#             min_rv=min_rv,
+#             max_rv=max_rv,
+#             update_self=False,
+#             kde_percentile=84,
+#             show_figure=False,
+#             save_path=f'{save_path}/vrel_results/{model_type}-mean-offset-{radius.value:.2f}pc'
+#         )
 
-orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
+# orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
 
-# model_name = 'MIST'
-# ks = np.empty((2, len(radii)))
-# ks_mean_offset = np.empty((2, len(radii)))
+model_name = 'MIST'
+model_type = 'linear'
+ks = np.empty((2, len(radii)))
+ks_mean_offset = np.empty((2, len(radii)))
 
-# for i, radius in enumerate(radii):
-#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-#         raw = file.readlines()
-#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc/{model_name}-linear-{radius.value:.2f}pc params.txt', 'r') as file:
-#         raw_mean_offset = file.readlines()
+for i, radius in enumerate(radii):
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw = file.readlines()
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw_mean_offset = file.readlines()
     
-#     for line, line_mean_offset in zip(raw, raw_mean_offset):
-#         if line.startswith('k_resample:\t'):
-#             ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
-#         if line_mean_offset.startswith('k_resample:\t'):
-#             ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
+    for line, line_mean_offset in zip(raw, raw_mean_offset):
+        if line.startswith('k_resample:\t'):
+            ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
+        if line_mean_offset.startswith('k_resample:\t'):
+            ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
 
 
-# colors = ['C0', 'C3']
-# fig, ax = plt.subplots()
-# blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
-# red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
-# blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
-# red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
+colors = ['C0', 'C3']
+fig, ax = plt.subplots()
+blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
+red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
+blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
+red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
 
-# hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
-# ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
-# ax.set_xlabel('Separation Limits of Neighbors (pc)')
-# ax.set_ylabel('Slope of Linear Fit (k)')
-# plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
-# plt.show()
+hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
+ax.set_xlabel('Separation Limits of Neighbors (pc)')
+ax.set_ylabel('Slope of Linear Fit (k)')
+plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
+plt.show()
 
 
-# #################################################
-# ############## Velocity Dispersion ##############
-# #################################################
-# # Apply rv constraint
-# rv_constraint = ((
-#     abs(orion.rv - np.nanmean(orion.rv)) <= 3*np.nanstd(orion.rv)
-#     ) | (
-#         trapezium_only
-# ))
-# print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(trapezium_only)} out of {len(rv_constraint) - sum(trapezium_only)} remains.')
-# print(f'Accepted radial velocity range: {np.nanmean(orion.rv):.3f} ± {3*np.nanstd(orion.rv):.3f} km/s.')
+#################################################
+############## Velocity Dispersion ##############
+#################################################
+# Apply rv constraint
+rv_constraint = ((
+    abs(orion.rv - np.nanmean(orion.rv)) <= 3*np.nanstd(orion.rv)
+    ) | (
+        trapezium_only
+))
+print(f'3σ RV constraint for velocity dispersion: {sum(rv_constraint) - sum(trapezium_only)} out of {len(rv_constraint) - sum(trapezium_only)} remains.')
+print(f'Accepted radial velocity range: {np.nanmean(orion.rv):.3f} ± {3*np.nanstd(orion.rv):.3f} km/s.')
 
-# if not os.path.exists(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results'):
-#     os.mkdir(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results')
+if not os.path.exists(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results'):
+    os.mkdir(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results')
 
-# with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'w') as file:
-#     file.write(str(np.nanmean(orion.rv[rv_constraint])))
+with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'w') as file:
+    file.write(str(np.nanmean(orion.rv[rv_constraint])))
 
-# fig, ax = plt.subplots(figsize=(6, 4))
-# ax.errorbar(orion.data['sep_to_trapezium'].to(u.arcmin).value, orion.rv.value, yerr=orion.e_rv.value, fmt='.', label='Measurements')
-# ax.hlines([np.nanmean(orion.rv.value) - 3*np.nanstd(orion.rv.value), np.nanmean(orion.rv.value) + 3*np.nanstd(orion.rv.value)], xmin=min(orion.data['sep_to_trapezium'].to(u.arcmin).value), xmax=max(orion.data['sep_to_trapezium'].to(u.arcmin).value), linestyles='--', colors='C1', label='3σ range')
-# ax.set_xlabel('Separation From Trapezium (arcmin)')
-# ax.set_ylabel('Radial Velocity')
-# ax.legend()
-# plt.show()
+fig, ax = plt.subplots(figsize=(6, 4))
+ax.errorbar(orion.data['sep_to_trapezium'].to(u.arcmin).value, orion.rv.value, yerr=orion.e_rv.value, fmt='.', label='Measurements')
+ax.hlines([np.nanmean(orion.rv.value) - 3*np.nanstd(orion.rv.value), np.nanmean(orion.rv.value) + 3*np.nanstd(orion.rv.value)], xmin=min(orion.data['sep_to_trapezium'].to(u.arcmin).value), xmax=max(orion.data['sep_to_trapezium'].to(u.arcmin).value), linestyles='--', colors='C1', label='3σ range')
+ax.set_xlabel('Separation From Trapezium (arcmin)')
+ax.set_ylabel('Radial Velocity')
+ax.legend()
+plt.show()
 
 # # vdisp for all
 # vdisps_all = vdisp_all(orion.data[rv_constraint], save_path=f'{save_path}/vdisp_results', MCMC=MCMC)
@@ -2401,8 +2457,8 @@ orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv',
 # # vdisp vs sep
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
-# # vdisp vs mass
-# vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+# vdisp vs mass
+vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 
 
@@ -2410,8 +2466,8 @@ orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv',
 # ################ Mass Segregation ###############
 # #################################################
 
-# lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
-# lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
 
 # mean_mass_vs_separation(orion.data[~trapezium_only], nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
 
