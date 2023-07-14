@@ -59,9 +59,9 @@ if new_sampling:
     joker = TheJoker(prior)
     prior_samples = prior.sample(size=100000)
     samples = joker.rejection_sample(data, prior_samples)
-    samples.write(f'{user_path}/ONC/starrynight/codes/Parenago_1837/samples.hdf5', overwrite=True)
+    samples.write(f'{user_path}/ONC/starrynight/codes/Parenago_1837/samples_Parenago_1837.hdf5', overwrite=True)
 else:
-    samples = tj.JokerSamples.read(f'{user_path}/ONC/starrynight/codes/Parenago_1837/samples.hdf5')
+    samples = tj.JokerSamples.read(f'{user_path}/ONC/starrynight/codes/Parenago_1837/samples_Parenago_1837.hdf5')
 
 valid_idx = []
 m = []
