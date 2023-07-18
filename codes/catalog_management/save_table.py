@@ -112,7 +112,7 @@ result_table['  vsini']     = Column(result_df.vsini,   unit=u.km/u.s, descripti
 result_table['e_vsini']     = Column(result_df.e_vsini, unit=u.km/u.s, description='Rotational velocity uncertainty')
 for model_name in ['MIST','BHAC15', 'Feiden', 'Palla']:
     result_table[f'M_{model_name}']   = Column(result_df[f'mass_{model_name}'], unit=u.Msun, description=f'Stellar mass based on {model_name} model')
-    result_table[f'e_M_{model_name}'] = Column(result_df[f'mass_e_{model_name}'], unit=u.Msun, description=f'Stellar mass uncertainty based on {model_name} model')
+    result_table[f'e_M_{model_name}'] = Column(result_df[f'e_mass_{model_name}'], unit=u.Msun, description=f'Stellar mass uncertainty based on {model_name} model')
 
 
 # result_table.write(f'{user_path}/ONC/starrynight/catalogs/result_table.dat', format='ascii.mrt', overwrite=True)

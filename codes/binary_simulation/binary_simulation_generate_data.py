@@ -13,13 +13,14 @@ user_path = os.path.expanduser('~')
 
 def simulate_binaries(sources, fbin, n_sims, show_figure=False):
     n_sims = int(n_sims)
+    trapezium_only = (sources['sci_frames'].isna()) & (sources['APOGEE'].isna())
+    sources = sources.loc[~trapezium_only].reset_index(drop=True)
 
-    sources = sources.loc[sources.theta_orionis.isna()].reset_index(drop=True)
-
-    N = len(sources)
+    unique, counts = np.unique(sources.HC2000[~trapezium_only], return_counts=True)
+    N = len(sources) - (sum(counts[counts>1]) - len(counts[counts>1]))
     print('N={}'.format(N))
     rv = sources.rv
-    rv_err = sources.rv_e
+    rv_err = sources.e_rv
     mass_MIST = sources.loc[~sources.mass_MIST.isna(), 'mass_MIST']
 
     # sort the data
@@ -130,5 +131,5 @@ show_figure = False
 # fbins=[0.5]
 # show_figure = True
 
-sources = pd.read_csv(user_path + '/ONC/starrynight/catalogs/sources 2d.csv')
+sources = pd.read_csv(user_path + '/ONC/starrynight/catalogs/sources post-processing.csv')
 v_dispersions = [simulate_binaries(sources=sources, fbin=fbin, n_sims=n_sims, show_figure=show_figure) for fbin in fbins]
