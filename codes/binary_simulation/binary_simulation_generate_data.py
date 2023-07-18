@@ -112,7 +112,7 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
         ax.set_ylim((0, 0.2))
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.set_xlabel(r'$\Delta v_r$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
-        ax.set_ylabel('Normalized Distribution', fontsize=15)
+        ax.set_ylabel('Probability Density', fontsize=15)
         plt.savefig(user_path + '/ONC/figures/Binary Simulation Histogram.pdf')
         plt.show()
     
@@ -123,13 +123,13 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
     return v_dispersions
 
 
-n_sims = 1e5
-fbins = np.linspace(0, 1, 5, endpoint=True)
-show_figure = False
+# n_sims = 1e5
+# fbins = np.linspace(0, 1, 5, endpoint=True)
+# show_figure = False
 
-# n_sims = 1
-# fbins=[0.5]
-# show_figure = True
+n_sims = 1
+fbins=[0.5]
+show_figure = True
 
 sources = pd.read_csv(user_path + '/ONC/starrynight/catalogs/sources post-processing.csv')
 v_dispersions = [simulate_binaries(sources=sources, fbin=fbin, n_sims=n_sims, show_figure=show_figure) for fbin in fbins]

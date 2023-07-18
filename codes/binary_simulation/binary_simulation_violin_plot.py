@@ -17,7 +17,7 @@ for fbin in fbins:
 quartile1, medians, quartile3 = np.percentile(v_disps, [25, 50, 75], axis=1)
 hline_width = 0.2 / 3
 
-with open(f'{user_path}/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
+with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/all/mcmc_params.txt', 'r') as file:
     raw = file.readlines()
 vdisp_rv, vdisp_rv_e = eval([line for line in raw if line.startswith('σ_rv:')][0].strip('σ_rv:\t\n'))
 vdisp_ra, vdisp_ra_e = eval([line for line in raw if line.startswith('σ_RA:')][0].strip('σ_RA:\t\n'))
