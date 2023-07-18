@@ -175,14 +175,14 @@ def normal(x, mu=0, sigma=1, amplitude=1):
 #     return mu, sigma
 
 # Depricated:
-def apply_dist_constraint(dist, dist_e, dist_range=15, dist_error_range=15, min_plx_over_e=5):
+def apply_dist_constraint(dist, e_dist, dist_range=15, e_distrror_range=15, min_plx_over_e=5):
     '''Apply a distance constraint on sources.
     ----------
     - Parameters:
         - dist: sources distance in pc.
-        - dist_e: sources distance error in pc.
+        - e_dist: sources distance error in pc.
         - dist_range: allowed distance range in +/- pc. Default is 15 pc.
-        - dist_error_range: allowed distance error in pc. Default is 15 pc.
+        - e_distrror_range: allowed distance error in pc. Default is 15 pc.
         - min_plx_over_e: minimum parallax over error. Default is 5, as per https://www.aanda.org/articles/aa/full_html/2021/05/aa39834-20/aa39834-20.html.
     
     - Returns:
@@ -191,16 +191,16 @@ def apply_dist_constraint(dist, dist_e, dist_range=15, dist_error_range=15, min_
     '''
     
     plx = 1000/dist
-    plx_e = dist_e / dist * plx
+    plx_e = e_dist / dist * plx
     
     trial_dists = np.arange(np.nanmedian(dist) - dist_range, np.nanmedian(dist) + dist_range)
     n_matches = [sum(
         (abs(dist - trial_dist) < dist_range) & 
-        (dist_e < dist_error_range)
+        (e_dist < e_distrror_range)
     ) for trial_dist in trial_dists]
 
     center_dist = trial_dists[np.argmax(n_matches)]
-    dist_constraint = (abs(dist - center_dist) < dist_range) & (dist_e < dist_error_range) & (plx/plx_e > min_plx_over_e)
+    dist_constraint = (abs(dist - center_dist) < dist_range) & (e_dist < e_distrror_range) & (plx/plx_e > min_plx_over_e)
     
     fig, ax = plt.subplots()
     n, bins, patches = ax.hist(dist, range=(center_dist - 3*dist_range, center_dist + 3*dist_range), bins=21, alpha=0.5)
@@ -211,13 +211,13 @@ def apply_dist_constraint(dist, dist_e, dist_range=15, dist_error_range=15, min_
     ax.set_ylabel('Counts')
     plt.show()
     
-    print(f'Distance constraint applied: {center_dist} \u00B1 {dist_range} pc, maximum uncertainty: {dist_error_range} pc.')
+    print(f'Distance constraint applied: {center_dist} \u00B1 {dist_range} pc, maximum uncertainty: {e_distrror_range} pc.')
     print(f'Number of matches: {sum(dist_constraint)}')
     return center_dist, dist_constraint
 
-def distance_cut(dist, dist_e, min_dist=300, max_dist=500, min_plx_over_e=5):
+def distance_cut(dist, e_dist, min_dist=300, max_dist=500, min_plx_over_e=5):
     plx = 1000/dist
-    plx_e = dist_e / dist * plx
+    plx_e = e_dist / dist * plx
     dist_constraint = (dist >= min_dist) & (dist <= max_dist) & (plx/plx_e >= min_plx_over_e) | np.isnan(dist)
     print(f'{min_dist}~{max_dist} pc distance range constraint: {sum(dist_constraint) - 5} sources out of {len(dist_constraint) - 5} remains.')
     return dist_constraint
@@ -226,44 +226,44 @@ def distance_cut(dist, dist_e, min_dist=300, max_dist=500, min_plx_over_e=5):
 ############## Calculate velocity ###############
 #################################################
 
-def calculate_velocity(sources, dist=389, dist_e=3):
+def calculate_velocity(sources, dist=389, e_dist=3):
     '''Calculate velocity
     ------------------------------
     - Parameters:
-        - sources: pandas DataFrame containing keys: pmRA, pmRA_e, pmDE, pmDE_e, rv, rv_e.
+        - sources: pandas DataFrame containing keys: pmRA, e_pmRA, pmDE, e_pmDE, rv, rv_e.
         - dist: distance to target in parsecs. Default is 389 pc uniform.
-        - dist_e: distance uncertainty in parsecs.
+        - e_dist: distance uncertainty in parsecs.
     
     - Returns:
         - sources: pandas DataFrame with tangential & total velocity and errors updated in km/s.
     '''
     vRA = 4.74e-3 * sources.pmRA * dist
-    vRA_e = 4.74e-3 * np.sqrt((sources.pmRA_e * dist)**2 + (dist_e * sources.pmRA)**2)
+    e_vRA = 4.74e-3 * np.sqrt((sources.e_pmRA * dist)**2 + (e_dist * sources.pmRA)**2)
     
     vDE = 4.74e-3 * sources.pmDE * dist
-    vDE_e = 4.74e-3 * np.sqrt((sources.pmDE_e * dist)**2 + (dist_e * sources.pmDE)**2)
+    e_vDE = 4.74e-3 * np.sqrt((sources.e_pmDE * dist)**2 + (e_dist * sources.pmDE)**2)
     
     pm = np.sqrt(sources.pmRA**2 + sources.pmDE**2)
-    pm_e = 1/pm * np.sqrt((sources.pmRA * sources.pmRA_e)**2 + (sources.pmDE * sources.pmDE_e)**2)
+    e_pm = 1/pm * np.sqrt((sources.pmRA * sources.e_pmRA)**2 + (sources.pmDE * sources.e_pmDE)**2)
     
     vt = 4.74e-3 * pm * dist
-    vt_e = vt * np.sqrt((pm_e / pm)**2 + (dist_e / dist)**2)
+    e_vt = vt * np.sqrt((e_pm / pm)**2 + (e_dist / dist)**2)
     
     vr = sources.rv
-    vr_e = sources.rv_e
+    e_vr = sources.e_rv
     
     v = np.sqrt(vt**2 + vr**2)
-    v_e = 1/v * np.sqrt((vt * vt_e)**2 + (vr * vr_e)**2)
+    e_v = 1/v * np.sqrt((vt * e_vt)**2 + (vr * e_vr)**2)
     
     sources = copy.deepcopy(sources)
     sources['vRA'] = vRA
-    sources['vRA_e'] = vRA_e
+    sources['e_vRA'] = e_vRA
     sources['vDE'] = vDE
-    sources['vDE_e'] = vDE_e
+    sources['e_vDE'] = e_vDE
     sources['vt'] = vt
-    sources['vt_e'] = vt_e
+    sources['e_vt'] = e_vt
     sources['v'] = v
-    sources['v_e'] = v_e
+    sources['e_v'] = e_v
     return sources
 
 
@@ -272,26 +272,26 @@ def calculate_velocity(sources, dist=389, dist_e=3):
 #################################################
 
 def compare_velocity(sources, save_path=None):
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14.5, 4))
-    ax1.errorbar(sources.pmRA_kim.values, sources.pmRA_gaia.values, xerr=sources.pmRA_e_kim.values, yerr=sources.pmRA_e_gaia.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    ax1.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
-    ax1.set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax1.set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax1.legend()
+    fig, ax = plt.subplots(figsize=(5, 5))
+    # ax1.errorbar(sources.pmRA_kim.values, sources.pmRA_gaia.values, xerr=sources.e_pmRA_kim.values, yerr=sources.e_pmRA_gaia.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    # ax1.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    # ax1.set_xlabel(r'$\mu_{\alpha^*, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax1.set_ylabel(r'$\mu_{\alpha^*, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax1.legend()
     
-    ax2.errorbar(sources.pmDE_kim.values, sources.pmDE_gaia.values, xerr=sources.pmDE_e_kim.values, yerr=sources.pmDE_e_gaia.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    ax2.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
-    ax2.set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax2.set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
-    ax2.legend()
+    # ax2.errorbar(sources.pmDE_kim.values, sources.pmDE_gaia.values, xerr=sources.e_pmDE_kim.values, yerr=sources.e_pmDE_gaia.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    # ax2.plot([-2, 3], [-2, 3], color='C3', linestyle='--', label='Equal Line')
+    # ax2.set_xlabel(r'$\mu_{\delta, HK} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax2.set_ylabel(r'$\mu_{\delta, DR3} - \widetilde{\Delta\mu_{\alpha^*}} \quad \left(\mathrm{mas}\cdot\mathrm{yr}^{-1}\right)$')
+    # ax2.legend()
     
-    ax3.errorbar(sources.rv_helio.values, sources.rv_apogee.values, xerr=sources.rv_e_nirspec.values, yerr=sources.rv_e_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-    ax3.plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
-    ax3.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-    ax3.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-    ax3.legend()
+    ax.errorbar(sources.rv_helio.values, sources.rv_apogee.values, xerr=sources.e_rv_nirspao.values, yerr=sources.e_rv_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+    ax.plot([25, 36], [25, 36], color='C3', linestyle='--', label='Equal Line')
+    ax.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+    ax.legend()
     
-    fig.subplots_adjust(wspace=0.28)
+    # fig.subplots_adjust(wspace=0.28)
     if save_path:
         if save_path.endswith('png'):
             plt.savefig(save_path, bbox_inches='tight', transparent=True)
@@ -317,18 +317,18 @@ def plot_2d(sources, scale=0.004):
     opacity=0.8
     marker_size = 6
 
-    nirspec_flag    = np.logical_and(~sources.HC2000.isna(), sources.ID_apogee.isna())
-    apogee_flag     = np.logical_and(sources.HC2000.isna(), ~sources.ID_apogee.isna())
-    matched_flag    = np.logical_and(~sources.HC2000.isna(), ~sources.ID_apogee.isna())
+    nirspao_flag    = np.logical_and(~sources.HC2000.isna(), sources.APOGEE.isna())
+    apogee_flag     = np.logical_and(sources.HC2000.isna(), ~sources.APOGEE.isna())
+    matched_flag    = np.logical_and(~sources.HC2000.isna(), ~sources.APOGEE.isna())
 
     fig_data = [
-        # nirspec quiver
+        # nirspao quiver
         ff.create_quiver(
-            sources.loc[nirspec_flag, 'RAJ2000'],
-            sources.loc[nirspec_flag, 'DEJ2000'],
-            sources.loc[nirspec_flag, 'pmRA'],
-            sources.loc[nirspec_flag, 'pmDE'],
-            name='NIRSPEC Velocity',
+            sources.loc[nirspao_flag, 'RAJ2000'],
+            sources.loc[nirspao_flag, 'DEJ2000'],
+            sources.loc[nirspao_flag, 'pmRA'],
+            sources.loc[nirspao_flag, 'pmDE'],
+            name='NIRSPAO Velocity',
             scale=scale,
             line=dict(
                 color='rgba' + str(hex_to_rgb(C0) + (opacity,)),
@@ -368,11 +368,11 @@ def plot_2d(sources, scale=0.004):
         ).data[0],
         
         
-        # nirspec scatter
+        # nirspao scatter
         go.Scatter(
-            name='NIRSPEC Sources',
-            x=sources.loc[nirspec_flag, 'RAJ2000'], 
-            y=sources.loc[nirspec_flag, 'DEJ2000'], 
+            name='NIRSPAO Sources',
+            x=sources.loc[nirspao_flag, 'RAJ2000'], 
+            y=sources.loc[nirspao_flag, 'DEJ2000'], 
             mode='markers',
             marker=dict(
                 size=marker_size,
@@ -498,7 +498,7 @@ def plot_3d(sources_coord_3d, scale=3):
     fig1_data = [
         go.Scatter3d(
             mode='markers',
-            name='NIRSPEC + APOGEE',
+            name='NIRSPAO + APOGEE',
             x=sources_coord_3d.cartesian.x.value,
             y=sources_coord_3d.cartesian.y.value,
             z=sources_coord_3d.cartesian.z.value,
@@ -633,8 +633,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     constraint = \
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
         (~sources[f'mass_{model_name}'].isna()) & \
-        (sources[f'mass_e_{model_name}'] < max_mass_error) & \
-        (sources.rv < max_rv) & (sources.v_e < max_v_error)
+        (sources[f'e_mass_{model_name}'] < max_mass_error) & \
+        (sources.rv < max_rv) & (sources.e_v < max_v_error)
     
     # sources = sources.loc[constraint].reset_index(drop=True)
     sources_coord = SkyCoord(
@@ -647,8 +647,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     )
     
     mass = sources.loc[constraint, f'mass_{model_name}']
-    e_mass = sources.loc[constraint, f'mass_e_{model_name}']
-    e_v = sources.loc[constraint, 'v_e']
+    e_mass = sources.loc[constraint, f'e_mass_{model_name}']
+    e_v = sources.loc[constraint, 'e_v']
     
     ############# calculate vcom within radius #############
     # vel & vel_com: n-by-3 velocity in cartesian coordinates
@@ -694,9 +694,9 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
     )
     
     mass = sources.loc[valid_idx, f'mass_{model_name}'].to_numpy()
-    e_mass = sources.loc[valid_idx, f'mass_e_{model_name}'].to_numpy()
+    e_mass = sources.loc[valid_idx, f'e_mass_{model_name}'].to_numpy()
 
-    e_v = sources.loc[valid_idx, 'v_e'].to_numpy()
+    e_v = sources.loc[valid_idx, 'e_v'].to_numpy()
     
     print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
     
@@ -1397,7 +1397,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     mass_sources = []
     for min_mass, max_mass in zip(mass_borders[:-1], mass_borders[1:]):
         bin_idx = (sources[f'mass_{model_name}'] > min_mass) & (sources[f'mass_{model_name}'] <= max_mass)
-        mass_sources.append(np.average(sources.loc[bin_idx, f'mass_{model_name}'], weights=1/sources.loc[bin_idx, f'mass_e_{model_name}']**2))
+        mass_sources.append(np.average(sources.loc[bin_idx, f'mass_{model_name}'], weights=1/sources.loc[bin_idx, f'e_mass_{model_name}']**2))
     mass_sources = np.array(mass_sources)
     
     sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
@@ -1477,14 +1477,14 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
     binary_idx_pairs = [[binary_hc2000.loc[binary_hc2000==f'{_}_A'].index[0], binary_hc2000.loc[binary_hc2000==f'{_}_B'].index[0]] for _ in binary_hc2000_unique]
     
     for binary_idx_pair in binary_idx_pairs:
-        nan_flag = sources.loc[binary_idx_pair, [f'mass_{model_name}', f'mass_e_{model_name}']].isna()
+        nan_flag = sources.loc[binary_idx_pair, [f'mass_{model_name}', f'e_mass_{model_name}']].isna()
     
         # if any value is valid, update the first place with m=m1+m2, m_e = sqrt(m1_e**2 + m2_e**2) (valid values only). Else (all values are nan), do nothing.
         if any(~nan_flag[f'mass_{model_name}']):
             sources.loc[binary_idx_pair[0], f'mass_{model_name}'] = sum(sources.loc[binary_idx_pair, f'mass_{model_name}'][~nan_flag[f'mass_{model_name}']])
         
-        if any(~nan_flag[f'mass_e_{model_name}']):
-            sources.loc[binary_idx_pair[0], f'mass_e_{model_name}'] = sum(sources.loc[binary_idx_pair, f'mass_e_{model_name}'][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
+        if any(~nan_flag[f'e_mass_{model_name}']):
+            sources.loc[binary_idx_pair[0], f'e_mass_{model_name}'] = sum(sources.loc[binary_idx_pair, f'e_mass_{model_name}'][~nan_flag[f'mass_{model_name}']].pow(2))**0.5
             
         # update names to remove '_A', '_B' suffix.
         sources.loc[binary_idx_pair[0], 'HC2000'] = sources.loc[binary_idx_pair[0], 'HC2000'].split('_')[0]
@@ -1808,15 +1808,15 @@ def compare_chris(sources, save_path=None):
     ax1.errorbar(
         sources.loc[idx_other, 'teff'].values, 
         sources.loc[idx_other, 'teff_chris'].values, 
-        xerr=sources.loc[idx_other, 'teff_e'].values, 
-        yerr=sources.loc[idx_other, 'teff_e_chris'].values, 
+        xerr=sources.loc[idx_other, 'e_teff'].values, 
+        yerr=sources.loc[idx_other, 'e_teff_chris'].values, 
         color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
     )
     ax1.errorbar(
         sources.loc[idx_binary, 'teff'].values, 
         sources.loc[idx_binary, 'teff_chris'].values, 
-        xerr=sources.loc[idx_binary, 'teff_e'].values, 
-        yerr=sources.loc[idx_binary, 'teff_e_chris'].values, 
+        xerr=sources.loc[idx_binary, 'e_teff'].values, 
+        yerr=sources.loc[idx_binary, 'e_teff_chris'].values, 
         color='C0', label='Parenago 1837', 
         fmt='o', alpha=0.5, markersize=3
     )
@@ -1829,15 +1829,15 @@ def compare_chris(sources, save_path=None):
     ax2.errorbar(
         sources.loc[idx_other, 'rv'].values, 
         sources.loc[idx_other, 'rv_chris'].values, 
-        xerr=sources.loc[idx_other, 'rv_e'].values, 
-        yerr=sources.loc[idx_other, 'rv_e_chris'].values, 
+        xerr=sources.loc[idx_other, 'e_rv'].values, 
+        yerr=sources.loc[idx_other, 'e_rv_chris'].values, 
         color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
     )
     ax2.errorbar(
         sources.loc[idx_binary, 'rv'].values, 
         sources.loc[idx_binary, 'rv_chris'].values, 
-        xerr=sources.loc[idx_binary, 'rv_e'].values, 
-        yerr=sources.loc[idx_binary, 'rv_e_chris'].values, 
+        xerr=sources.loc[idx_binary, 'e_rv'].values, 
+        yerr=sources.loc[idx_binary, 'e_rv_chris'].values, 
         color='C0', label='Parenago 1837', 
         fmt='o', alpha=0.5, markersize=3
     )
@@ -1847,7 +1847,7 @@ def compare_chris(sources, save_path=None):
     
     # compare veiling param    
     ax3.hist(sources.veiling_param_O33_chris, bins=20, range=(0, 1), histtype='step', color='C0', label='T22', lw=2)
-    ax3.hist(sources.veiling_param_O33, bins=20, range=(0, 1), histtype='step', color='C3', label='This work', lw=1.2)
+    ax3.hist(sources.veiling_param_O33_nirspao, bins=20, range=(0, 1), histtype='step', color='C3', label='This work', lw=1.2)
     ax3.legend()
     ax3.set_xlabel('Veiling Param O33', fontsize=12)
     ax3.set_ylabel('Counts', fontsize=12)
@@ -1862,17 +1862,17 @@ def compare_chris(sources, save_path=None):
 
 
 def compare_teff_with_apogee(sources, save_path=None):
-    diffs = sources.teff_apogee - sources.teff_nirspec
+    diffs = sources.teff_apogee - sources.teff_nirspao
     valid_idx = ~diffs.isna()
     diffs = diffs[valid_idx]
-    weights = 1/(sources.teff_e_nirspec**2 + sources.teff_e_apogee**2)[valid_idx]
+    weights = 1/(sources.e_teff_nirspao**2 + sources.e_teff_apogee**2)[valid_idx]
     print(diffs)
     print(weights)
     mean_diff = np.average(diffs, weights=weights)
     max_diff = max(diffs)
     
     fig, ax = plt.subplots(figsize=(5, 4))
-    ax.errorbar(sources.teff_nirspec.values, sources.teff_apogee.values, xerr=sources.teff_e_nirspec.values, yerr=sources.teff_e_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
+    ax.errorbar(sources.teff_nirspao.values, sources.teff_apogee.values, xerr=sources.e_teff_nirspao.values, yerr=sources.e_teff_apogee.values, fmt='o', color=(.2, .2, .2, .8), alpha=0.5, markersize=3)
     ranges = np.array([3600, 4800]) 
     ax.plot(ranges, ranges, linestyle='--', color='C3', label='Equal Line')
     ax.plot(ranges - mean_diff/2, ranges + mean_diff/2, linestyle=':', color='C0', label=f'Median Difference: {mean_diff:.2f} K')
@@ -1909,32 +1909,49 @@ def pm_to_v(pm, dist):
 #################################################
 
 def preprocessing(sources):
+    
+    trapezium_only = (sources['sci_frames'].isna()) & (sources['APOGEE'].isna())
+    unique_HC2000, counts_HC2000 = np.unique(sources['HC2000'][~sources['sci_frames'].isna()], return_counts=True)
+    unique_APOGEE, counts_APOGEE = np.unique(sources['APOGEE'][~sources['APOGEE'].isna()], return_counts=True)
+    print('Before any constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
+        len(unique_HC2000),
+        np.array(unique_HC2000[counts_HC2000 > 1], dtype=int),
+        list(counts_HC2000[counts_HC2000 > 1]),
+        len(unique_APOGEE),
+        list(unique_APOGEE[counts_APOGEE > 1]),
+        list(counts_APOGEE[counts_APOGEE > 1]),
+        sum((~sources['sci_frames'].isna()) & (~sources['APOGEE'].isna())),
+        len(sources) - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1])),
+        len(sources) - sum(trapezium_only)
+    ))
     trapezium_names = ['A', 'B', 'C', 'D', 'E']
 
     # Replace Trapezium stars fitting results with literature values.
     for i in range(len(trapezium_names)):
         trapezium_index = sources.loc[sources.theta_orionis == trapezium_names[i]].index[-1]
         for model_name in ['BHAC15', 'MIST', 'Feiden', 'Palla']:
-            sources.loc[trapezium_index, [f'mass_{model_name}', f'mass_e_{model_name}']] = [sources.loc[trapezium_index, 'mass_literature'], sources.loc[trapezium_index, 'mass_e_literature']]
+            sources.loc[trapezium_index, [f'mass_{model_name}', f'e_mass_{model_name}']] = [sources.loc[trapezium_index, 'mass_literature'], sources.loc[trapezium_index, 'e_mass_literature']]
 
 
     # Apply rv error constraint.
     max_rv_e = 5
 
     rv_constraint = ((
-        (sources.rv_e_nirspec <= max_rv_e) |
-        (sources.rv_e_apogee <= max_rv_e)
+        (sources.e_rv_nirspao <= max_rv_e) |
+        (sources.e_rv_apogee <= max_rv_e)
     ) | (
-        ~sources.theta_orionis.isna()
+        trapezium_only
     ))
-
-    print(f'Maximum RV error of {max_rv_e} km/s constraint: {sum(rv_constraint) - sum(~sources.theta_orionis.isna())} out of {len(rv_constraint) - sum(~sources.theta_orionis.isna())} remaining.')
+    
+    unique_HC2000_after_rv, counts_HC2000_after_rv = np.unique(sources.loc[rv_constraint & ~sources['HC2000'].isna(), 'HC2000'], return_counts=True)
+    print(f"Multiples after RV constraint: {list(unique_HC2000_after_rv[counts_HC2000_after_rv > 1])}->{list(counts_HC2000_after_rv[counts_HC2000_after_rv > 1])}")
+    print(f'Maximum RV error of {max_rv_e} km/s constraint: {sum(rv_constraint) - sum(trapezium_only) - (sum(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]) - len(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]))} out of {len(rv_constraint) - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1]))} remaining.')
 
     sources = sources.loc[rv_constraint].reset_index(drop=True)
 
-    rv_use_apogee = (sources.rv_e_nirspec > max_rv_e) & (sources.rv_e_apogee <= max_rv_e)
+    rv_use_apogee = (sources.e_rv_nirspao > max_rv_e) & (sources.e_rv_apogee <= max_rv_e)
     sources.loc[rv_use_apogee, 'rv_helio'] = sources.loc[rv_use_apogee, 'rv_apogee']
-    sources.loc[rv_use_apogee, 'rv_e_nirspec'] = sources.loc[rv_use_apogee, 'rv_e_apogee']
+    sources.loc[rv_use_apogee, 'e_rv_nirspao'] = sources.loc[rv_use_apogee, 'e_rv_apogee']
 
     # Apply gaia constraint.
     gaia_columns = [key for key in sources.keys() if (key.endswith('gaia') | key.startswith('plx') | key.startswith('Gmag') | key.startswith('astrometric') | (key=='ruwe') | (key=='bp_rp'))]
@@ -1953,8 +1970,8 @@ def preprocessing(sources):
     markers, caps, bars = ax.errorbar(
         sources.pmRA_gaia - sources.pmRA_kim - offset_RA,
         sources.pmDE_gaia - sources.pmDE_kim - offset_DE,
-        xerr = (sources.pmRA_e_gaia**2 + sources.pmRA_e_kim**2)**0.5,
-        yerr = (sources.pmDE_e_gaia**2 + sources.pmDE_e_kim**2)**0.5,
+        xerr = (sources.e_pmRA_gaia**2 + sources.e_pmRA_kim**2)**0.5,
+        yerr = (sources.e_pmDE_gaia**2 + sources.e_pmDE_kim**2)**0.5,
         fmt='o', color=(.2, .2, .2, .8), markersize=3, ecolor='black', alpha=0.4
     )
 
@@ -1970,28 +1987,28 @@ def preprocessing(sources):
     # Correct Gaia values?
     sources.pmRA_gaia -= offset_RA
     sources.pmDE_gaia -= offset_DE
-    # sources.pmRA_e_kim = np.sqrt(sources.pmRA_e_kim**2 + ((offset[2] - offset[1])/2)**2)
+    # sources.e_pmRA_kim = np.sqrt(sources.e_pmRA_kim**2 + ((offset[2] - offset[1])/2)**2)
 
     # merge proper motion and rv
     # prioritize kim
     sources['pmRA'] = merge(sources.pmRA_kim, sources.pmRA_gaia)
-    sources['pmRA_e'] = merge(sources.pmRA_e_kim, sources.pmRA_e_gaia)
+    sources['e_pmRA'] = merge(sources.e_pmRA_kim, sources.e_pmRA_gaia)
     sources['pmDE'] = merge(sources.pmDE_kim, sources.pmDE_gaia)
-    sources['pmDE_e'] = merge(sources.pmDE_e_kim, sources.pmDE_e_gaia)
+    sources['e_pmDE'] = merge(sources.e_pmDE_kim, sources.e_pmDE_gaia)
 
-    # choose one from the two options: weighted avrg or prioritize nirspec.
+    # choose one from the two options: weighted avrg or prioritize nirspao.
     # # weighted average
-    # sources['rv'], sources['rv_e'] = weighted_avrg_and_merge(sources.rv_helio, sources.rv_apogee, error1=sources.rv_e_nirspec, error2=sources.rv_e_apogee)
-    # prioritize nirspec values
+    # sources['rv'], sources['rv_e'] = weighted_avrg_and_merge(sources.rv_helio, sources.rv_apogee, error1=sources.e_rv_nirspao, error2=sources.e_rv_apogee)
+    # prioritize nirspao values
     sources['rv'] = merge(sources.rv_helio, sources.rv_apogee)
-    sources['rv_e'] = merge(sources.rv_e_nirspec, sources.rv_e_apogee)
+    sources['e_rv'] = merge(sources.e_rv_nirspao, sources.e_rv_apogee)
 
     sources['dist'] = 1000/sources.plx
-    sources['dist_e'] = sources.dist / sources.plx * sources.plx_e
+    sources['e_dist'] = sources.dist / sources.plx * sources.e_plx
 
 
     # Apply dist constraint
-    dist_constraint = distance_cut(sources.dist, sources.dist_e)
+    dist_constraint = distance_cut(sources.dist, sources.e_dist)
 
     # Construct 2-D & 3-D Coordinates
     # 2-D
@@ -1999,7 +2016,7 @@ def preprocessing(sources):
     sources_2d = calculate_velocity(sources_2d)
     sources_2d.plx = 1000/389
     sources_2d.dist = 389
-    sources_2d.dist_e = 3
+    sources_2d.e_dist = 3
     sources_coord_2d = SkyCoord(
         ra=sources_2d.RAJ2000.to_numpy()*u.degree,
         dec=sources_2d.DEJ2000.to_numpy()*u.degree, 
@@ -2010,10 +2027,10 @@ def preprocessing(sources):
 
 
     # # 3-D
-    # # center_dist, dist_constraint = apply_dist_constraint(sources.dist, sources.dist_e, min_plx_over_e=5)
-    # dist_constraint = distance_cut(sources.dist, sources.dist_e)
+    # # center_dist, dist_constraint = apply_dist_constraint(sources.dist, sources.e_dist, min_plx_over_e=5)
+    # dist_constraint = distance_cut(sources.dist, sources.e_dist)
     # sources_3d = sources.loc[dist_constraint].reset_index(drop=True)
-    # sources_3d = calculate_velocity(sources_3d, dist=sources_3d.dist, dist_e=sources_3d.dist_e)
+    # sources_3d = calculate_velocity(sources_3d, dist=sources_3d.dist, e_dist=sources_3d.e_dist)
     # sources_coord_3d = SkyCoord(
     #     ra=sources_3d.RAJ2000.to_numpy()*u.degree, 
     #     dec=sources_3d.DEJ2000.to_numpy()*u.degree, 
@@ -2023,12 +2040,21 @@ def preprocessing(sources):
     #     radial_velocity=sources_3d.rv.to_numpy()*u.km/u.s
     # )
 
-    print('After all constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
-        sum((sources_2d.theta_orionis.isna()) & (~sources_2d.HC2000.isna())),
-        sum((sources_2d.theta_orionis.isna()) & (~sources_2d.ID_apogee.isna())),
-        sum((sources_2d.theta_orionis.isna()) & (~sources_2d.HC2000.isna()) & (~sources_2d.ID_apogee.isna())),
-        sum((sources_2d.theta_orionis.isna()))
+    trapezium_only = (sources_2d['sci_frames'].isna()) & (sources_2d['APOGEE'].isna())
+    unique_HC2000, counts_HC2000 = np.unique(sources_2d['HC2000'][~sources_2d['sci_frames'].isna()], return_counts=True)
+    unique_APOGEE, counts_APOGEE = np.unique(sources_2d['APOGEE'][~sources_2d['APOGEE'].isna()], return_counts=True)
+    print('After all constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
+        len(unique_HC2000),
+        list(unique_HC2000[counts_HC2000 > 1]),
+        list(counts_HC2000[counts_HC2000 > 1]),
+        len(unique_APOGEE),
+        list(unique_APOGEE[counts_APOGEE > 1]),
+        list(counts_APOGEE[counts_APOGEE > 1]),
+        sum((~sources_2d['sci_frames'].isna()) & (~sources_2d['APOGEE'].isna())),
+        len(sources_2d) - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1])),
+        len(sources_2d) - sum(trapezium_only)
     ))
+
 
     sources_2d.to_csv(f'{user_path}/ONC/starrynight/catalogs/sources 2d.csv', index=False)
     return sources, sources_2d
@@ -2053,18 +2079,11 @@ C6 = '#e377c2'
 C7 = '#7f7f7f'
 C9 = '#17becf'
 
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'ID_gaia': str, 'ID_kim': str})
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined - new.csv', dtype={'HC2000':str, 'Gaia DR3': str, 'ID_kim': str})
 save_path = f'{user_path}/ONC/starrynight/codes/analysis'
 
 # LV 3 / HC2000 322 / Gaia DR3 3017364063323188864 / 
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s", distance=1000/2.59226*u.pc)
-
-print('Before any constraint:\nNIRSPEC:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
-    sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna())),
-    sum((sources.theta_orionis.isna()) & (~sources.ID_apogee.isna())),
-    sum((sources.theta_orionis.isna()) & (~sources.HC2000.isna()) & (~sources.ID_apogee.isna())),
-    sum((sources.theta_orionis.isna()))
-))
 
 # preprocessing
 sources, sources_2d = preprocessing(sources)
@@ -2073,8 +2092,8 @@ sources, sources_2d = preprocessing(sources)
 
 compare_velocity(sources_2d, save_path=f'{user_path}/ONC/figures/Velocity Comparison.pdf')
 # Save html figures
-fig_2d = plot_2d(sources_2d)
-fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
+# fig_2d = plot_2d(sources_2d)
+# fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
 # fig_3d1, fig_3d2 = plot_3d(sources_coord_3d)
 # fig_3d2.write_html(f'{user_path}/ONC/figures/sky 3d small.html')
 plot_pm_rv(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
@@ -2110,11 +2129,11 @@ print(f'Maximum difference in teff: {maximum_diff:.2f} K')
 
 # teff offset simulation
 sources_mean_offset = copy.deepcopy(sources_2d)
-sources_mean_offset.teff_nirspec += mean_diff
-sources_mean_offset.teff = sources_mean_offset.teff_nirspec.fillna(sources_mean_offset.teff_apogee)
+sources_mean_offset.teff_nirspao += mean_diff
+sources_mean_offset.teff = sources_mean_offset.teff_nirspao.fillna(sources_mean_offset.teff_apogee)
 
 from starrynight import fit_mass
-mean_offset_masses = fit_mass(sources_mean_offset.teff.to_numpy()*u.K, sources_mean_offset.teff_e.to_numpy()*u.K)
+mean_offset_masses = fit_mass(sources_mean_offset.teff.to_numpy()*u.K, sources_mean_offset.e_teff.to_numpy()*u.K)
 columns = mean_offset_masses.keys()
 sources_mean_offset[columns] = mean_offset_masses
 indices = ~sources_mean_offset.theta_orionis.isna()
@@ -2208,7 +2227,7 @@ with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt
     file.write(str(np.nanmean(sources_2d.loc[rv_constraint, 'rv'])))
 
 fig, ax = plt.subplots(figsize=(6, 4))
-ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.rv, yerr=sources_2d.rv_e, fmt='.', label='Measurements')
+ax.errorbar(sources_2d.sep_to_trapezium, sources_2d.rv, yerr=sources_2d.e_rv, fmt='.', label='Measurements')
 ax.hlines([np.nanmean(sources_2d.rv) - 3*np.nanstd(sources_2d.rv), np.nanmean(sources_2d.rv) + 3*np.nanstd(sources_2d.rv)], xmin=min(sources_2d.sep_to_trapezium), xmax=max(sources_2d.sep_to_trapezium), linestyles='--', colors='C1', label='3σ range')
 ax.set_xlabel('Separation From Trapezium (arcmin)')
 ax.set_ylabel('Radial Velocity')

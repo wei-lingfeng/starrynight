@@ -809,8 +809,8 @@ class ONC(StarCluster):
     
     def preprocessing(self):
         trapezium_only = (self.data['sci_frames'].mask) & (self.data['APOGEE'].mask)
-        unique_HC2000, counts_HC2000 = np.unique(orion.data['HC2000'][~orion.data['sci_frames'].mask], return_counts=True)
-        unique_APOGEE, counts_APOGEE = np.unique(orion.data['APOGEE'][~orion.data['APOGEE'].mask], return_counts=True)
+        unique_HC2000, counts_HC2000 = np.unique(self.data['HC2000'][~self.data['sci_frames'].mask], return_counts=True)
+        unique_APOGEE, counts_APOGEE = np.unique(self.data['APOGEE'][~self.data['APOGEE'].mask], return_counts=True)
         print('Before any constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
             len(unique_HC2000),
             list(unique_HC2000[counts_HC2000 > 1]),
@@ -835,8 +835,35 @@ class ONC(StarCluster):
         print(f"Maximum RV error of {max_rv_e} constraint: {sum(rv_constraint) - sum(trapezium_only) - (sum(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]) - len(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]))} out of {len(rv_constraint) - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1]))} remaining.")
         self.data = self.data[rv_constraint]
         
+        # Plot RV comparison
+        # read multiepoch rv of HC2000 546
+        sources = QTable.read(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.ecsv')
+        idx = np.where(sources['HC2000']==546)[0]
+        parenago_rv_apogee = sources['rv_apogee'][idx[0]].unmasked * np.ones_like(idx)
+        parenago_e_rv_apogee = sources['e_rv_apogee'][idx[0]].unmasked * np.ones_like(idx)
+        parenago_rv_nirspao = sources['rv_helio'][idx].unmasked
+        parenago_e_rv_nirspao = sources['e_rv_nirspao'][idx].unmasked
+
+        parenago_idx = (self.data['HC2000']==546).filled(False)
+        V1337_idx = (self.data['HC2000']==214).filled(False)
+        brun_idx = (self.data['HC2000']==172).filled(False)
+
+        fig, ax = plt.subplots(figsize=(5, 5))
+        ax.errorbar(self.data['rv_helio'][~parenago_idx & ~V1337_idx & ~brun_idx].value, self.data['rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, xerr=self.data['e_rv_nirspao'][~parenago_idx & ~V1337_idx & ~brun_idx].value, yerr=self.data['e_rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+        ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, fmt='o', color='C0', alpha=0.5, marker='.', markersize=3, label='Parenago 1837')
+        ax.errorbar(self.data['rv_helio'][V1337_idx].value, self.data['rv_apogee'][V1337_idx].value, xerr=self.data['e_rv_nirspao'][V1337_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C1', alpha=0.5, marker='s', markersize=6, label='V* V1337 Ori')
+        ax.errorbar(self.data['rv_helio'][brun_idx].value, self.data['rv_apogee'][brun_idx].value, xerr=self.data['e_rv_nirspao'][brun_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C2', alpha=0.5, marker='d', markersize=6, label='Brun 590')
+        ax.plot([23, 38], [23, 38], color='C3', linestyle='--', label='Equal Line')
+        ax.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+        ax.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
+        ax.legend()
+        plt.savefig(f'{user_path}/ONC/figures/RV Comparison.pdf')
+        plt.show()
+        
+        # update rv_nirspao with rv_apogee where the uncertainty is smaller in apogee
         rv_use_apogee = (self.data['e_rv_nirspao'] > max_rv_e) & (self.data['e_rv_apogee'] <= max_rv_e)
-        self.data['rv_nirspao', 'e_rv_nirspao'][rv_use_apogee] = self.data['rv_apogee', 'e_rv_apogee'][rv_use_apogee]
+        self.data['rv_helio'][rv_use_apogee] = self.data['rv_apogee'][rv_use_apogee]
+        self.data['e_rv_nirspao'][rv_use_apogee] = self.data['e_rv_apogee'][rv_use_apogee]
         
         # Apply gaia constraint
         gaia_columns = [key for key in self.data.keys() if (key.endswith('gaia') | key.startswith('plx') | key.startswith('Gmag') | key.startswith('astrometric') | (key=='ruwe') | (key=='bp_rp'))]
@@ -855,7 +882,7 @@ class ONC(StarCluster):
         ax.errorbar(
             (self.data['pmRA_gaia'] - self.data['pmRA_kim'] - offset_RA).value,
             (self.data['pmDE_gaia'] - self.data['pmDE_kim'] - offset_DE).value,
-            xerr = ((self.data['e_pmRA_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value,
+            xerr = ((self.data['e_pmRA_gaia']**2 + self.data['e_pmRA_kim']**2)**0.5).value,
             yerr = ((self.data['e_pmDE_gaia']**2 + self.data['e_pmDE_kim']**2)**0.5).value,
             fmt='o', color=(.2, .2, .2, .8), markersize=3, ecolor='black', alpha=0.4
         )
@@ -869,33 +896,7 @@ class ONC(StarCluster):
         ax.set_ylim((ymin, ymax))
         plt.savefig(f'{user_path}/ONC/figures/Proper Motion Comparison.pdf')
         plt.show()
-        
-        
-        # read multiepoch rv of HC2000 546
-        sources = QTable.read(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.ecsv')
-        idx = np.where(sources['HC2000']==546)[0]
-        parenago_rv_apogee = sources['rv_apogee'][idx[0]].unmasked * np.ones_like(idx)
-        parenago_e_rv_apogee = sources['e_rv_apogee'][idx[0]].unmasked * np.ones_like(idx)
-        parenago_rv_nirspao = sources['rv_helio'][idx].unmasked
-        parenago_e_rv_nirspao = sources['e_rv_nirspao'][idx].unmasked
-
-        parenago_idx = (self.data['HC2000']==546).filled(False)
-        V1337_idx = (self.data['HC2000']==214).filled(False)
-        brun_idx = (self.data['HC2000']==172).filled(False)
-        
-        # Plot RV comparison
-        fig, ax = plt.subplots(figsize=(5, 5))
-        ax.errorbar(self.data['rv_helio'][~parenago_idx & ~V1337_idx & ~brun_idx].value, self.data['rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, xerr=self.data['e_rv_nirspao'][~parenago_idx & ~V1337_idx & ~brun_idx].value, yerr=self.data['e_rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-        ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, fmt='o', color='C0', alpha=0.5, marker='.', markersize=3, label='Parenago 1837')
-        ax.errorbar(self.data['rv_helio'][V1337_idx].value, self.data['rv_apogee'][V1337_idx].value, xerr=self.data['e_rv_nirspao'][V1337_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C1', alpha=0.5, marker='s', markersize=6, label='V* V1337 Ori')
-        ax.errorbar(self.data['rv_helio'][brun_idx].value, self.data['rv_apogee'][brun_idx].value, xerr=self.data['e_rv_nirspao'][brun_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C2', alpha=0.5, marker='d', markersize=6, label='Brun 590')
-        ax.plot([23, 38], [23, 38], color='C3', linestyle='--', label='Equal Line')
-        ax.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
-        ax.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
-        ax.legend()
-        plt.savefig(f'{user_path}/ONC/figures/RV Comparison.pdf')
-        plt.show()
-        
+                
         # Correct Gaia values
         self.data['pmRA_gaia'] -= offset_RA
         self.data['pmDE_gaia'] -= offset_DE
@@ -929,8 +930,8 @@ class ONC(StarCluster):
         self.data['sep_to_trapezium'] = self.coord.separation(trapezium)
         
         trapezium_only = (self.data['sci_frames'].mask) & (self.data['APOGEE'].mask)
-        unique_HC2000, counts_HC2000 = np.unique(orion.data['HC2000'][~orion.data['sci_frames'].mask], return_counts=True)
-        unique_APOGEE, counts_APOGEE = np.unique(orion.data['APOGEE'][~orion.data['APOGEE'].mask], return_counts=True)
+        unique_HC2000, counts_HC2000 = np.unique(self.data['HC2000'][~self.data['sci_frames'].mask], return_counts=True)
+        unique_APOGEE, counts_APOGEE = np.unique(self.data['APOGEE'][~self.data['APOGEE'].mask], return_counts=True)
         print('After all constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
             len(unique_HC2000),
             list(unique_HC2000[counts_HC2000 > 1]),
