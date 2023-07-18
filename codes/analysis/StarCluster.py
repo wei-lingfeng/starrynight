@@ -809,6 +809,20 @@ class ONC(StarCluster):
     
     def preprocessing(self):
         trapezium_only = (self.data['sci_frames'].mask) & (self.data['APOGEE'].mask)
+        unique_HC2000, counts_HC2000 = np.unique(orion.data['HC2000'][~orion.data['sci_frames'].mask], return_counts=True)
+        unique_APOGEE, counts_APOGEE = np.unique(orion.data['APOGEE'][~orion.data['APOGEE'].mask], return_counts=True)
+        print('Before any constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
+            len(unique_HC2000),
+            list(unique_HC2000[counts_HC2000 > 1]),
+            list(counts_HC2000[counts_HC2000 > 1]),
+            len(unique_APOGEE),
+            list(unique_APOGEE[counts_APOGEE > 1]),
+            list(counts_APOGEE[counts_APOGEE > 1]),
+            sum((~self.data['sci_frames'].mask) & (~self.data['APOGEE'].mask)),
+            self.len - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1])),
+            self.len - sum(trapezium_only)
+        ))
+        
         max_rv_e = 5*u.km/u.s
         rv_constraint = ((
             (self.data['e_rv_nirspao']   <= max_rv_e) |
@@ -816,7 +830,9 @@ class ONC(StarCluster):
         ) | (
             trapezium_only
         ))
-        print(f"Maximum RV error of {max_rv_e} constraint: {sum(rv_constraint) - sum(~self.data['theta_orionis'].mask)} out of {len(rv_constraint) - sum(~self.data['theta_orionis'].mask)} remaining.")
+        unique_HC2000_after_rv, counts_HC2000_after_rv = np.unique(self.data['HC2000'][rv_constraint & ~self.data['HC2000'].mask], return_counts=True)
+        print(f"Multiples after RV constraint: {list(unique_HC2000_after_rv[counts_HC2000_after_rv > 1])}->{list(counts_HC2000_after_rv[counts_HC2000_after_rv > 1])}")
+        print(f"Maximum RV error of {max_rv_e} constraint: {sum(rv_constraint) - sum(trapezium_only) - (sum(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]) - len(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]))} out of {len(rv_constraint) - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1]))} remaining.")
         self.data = self.data[rv_constraint]
         
         rv_use_apogee = (self.data['e_rv_nirspao'] > max_rv_e) & (self.data['e_rv_apogee'] <= max_rv_e)
@@ -865,12 +881,14 @@ class ONC(StarCluster):
 
         parenago_idx = (self.data['HC2000']==546).filled(False)
         V1337_idx = (self.data['HC2000']==214).filled(False)
+        brun_idx = (self.data['HC2000']==172).filled(False)
         
         # Plot RV comparison
         fig, ax = plt.subplots(figsize=(5, 5))
-        ax.errorbar(self.data['rv_helio'][(~parenago_idx) & (~V1337_idx)].value, self.data['rv_apogee'][(~parenago_idx) & (~V1337_idx)].value, xerr=self.data['e_rv_nirspao'][(~parenago_idx) & (~V1337_idx)].value, yerr=self.data['e_rv_apogee'][(~parenago_idx) & (~V1337_idx)].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
+        ax.errorbar(self.data['rv_helio'][~parenago_idx & ~V1337_idx & ~brun_idx].value, self.data['rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, xerr=self.data['e_rv_nirspao'][~parenago_idx & ~V1337_idx & ~brun_idx].value, yerr=self.data['e_rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
         ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, fmt='o', color='C0', alpha=0.5, marker='.', markersize=3, label='Parenago 1837')
-        ax.errorbar(self.data['rv_helio'][V1337_idx].value, self.data['rv_apogee'][V1337_idx].value, xerr=self.data['e_rv_nirspao'][V1337_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, fmt='o', color='C1', alpha=0.5, marker='D', markersize=5, label='V* V1337 Ori')
+        ax.errorbar(self.data['rv_helio'][V1337_idx].value, self.data['rv_apogee'][V1337_idx].value, xerr=self.data['e_rv_nirspao'][V1337_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C1', alpha=0.5, marker='s', markersize=6, label='V* V1337 Ori')
+        ax.errorbar(self.data['rv_helio'][brun_idx].value, self.data['rv_apogee'][brun_idx].value, xerr=self.data['e_rv_nirspao'][brun_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C2', alpha=0.5, marker='d', markersize=6, label='Brun 590')
         ax.plot([23, 38], [23, 38], color='C3', linestyle='--', label='Equal Line')
         ax.set_xlabel(r'$\mathrm{RV}_\mathrm{NIRSPAO} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
         ax.set_ylabel(r'$\mathrm{RV}_\mathrm{APOGEE} \quad \left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=12)
@@ -899,6 +917,9 @@ class ONC(StarCluster):
         self.data['e_dist'] = self.data['e_plx'] / self.data['plx'] * self.data['dist']
         
         dist_constraint = distance_cut(self.data['dist'], self.data['e_dist'])
+        unique_HC2000_after_dist, counts_HC2000_after_dist = np.unique(self.data['HC2000'][dist_constraint & ~self.data['HC2000'].mask], return_counts=True)
+        print(f'Multiples after distance constraint: {list(unique_HC2000_after_dist[counts_HC2000_after_dist > 1])}->{list(counts_HC2000_after_dist[counts_HC2000_after_dist > 1])}')
+        print(f'{300*u.pc}~{500*u.pc} distance range constraint: {sum(dist_constraint) - sum(trapezium_only) - (sum(counts_HC2000_after_dist[counts_HC2000_after_dist > 1]) - len(counts_HC2000_after_dist[counts_HC2000_after_dist > 1]))} sources out of {len(dist_constraint) - sum(trapezium_only) - (sum(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]) - len(counts_HC2000_after_rv[counts_HC2000_after_rv > 1]))} remains.')
         self.data.remove_rows(~dist_constraint)
         
         # Calculate velocity
@@ -907,11 +928,19 @@ class ONC(StarCluster):
         super().set_coord(ra=self.data['RAJ2000'], dec=self.data['DEJ2000'], pmRA=self.data['pmRA'], pmDE=self.data['pmDE'], rv=self.data['rv'], distance=389*u.pc)
         self.data['sep_to_trapezium'] = self.coord.separation(trapezium)
         
-        print('After all constraint:\nNIRSPAO:\t{}\nAPOGEE:\t{}\nMatched:\t{}\nTotal:\t{}'.format(
-            sum(~self.data['sci_frames'].mask),
-            sum(~self.data['APOGEE'].mask),
+        trapezium_only = (self.data['sci_frames'].mask) & (self.data['APOGEE'].mask)
+        unique_HC2000, counts_HC2000 = np.unique(orion.data['HC2000'][~orion.data['sci_frames'].mask], return_counts=True)
+        unique_APOGEE, counts_APOGEE = np.unique(orion.data['APOGEE'][~orion.data['APOGEE'].mask], return_counts=True)
+        print('After all constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
+            len(unique_HC2000),
+            list(unique_HC2000[counts_HC2000 > 1]),
+            list(counts_HC2000[counts_HC2000 > 1]),
+            len(unique_APOGEE),
+            list(unique_APOGEE[counts_APOGEE > 1]),
+            list(counts_APOGEE[counts_APOGEE > 1]),
             sum((~self.data['sci_frames'].mask) & (~self.data['APOGEE'].mask)),
-            self.len - sum((self.data['sci_frames'].mask) & (self.data['APOGEE'].mask))
+            self.len - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1])),
+            self.len - sum(trapezium_only)
         ))
 
         self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.csv', overwrite=True)
@@ -1201,8 +1230,8 @@ class ONC(StarCluster):
     
     
     def compare_chris(self, save_path=None):
-        idx_binary = list(self.data['HC2000']).index(546)
-        idx_other = np.delete(np.array(range(self.len)), np.array(idx_binary))
+        parenago_idx = list(self.data['HC2000']).index(546)
+        idx_other = np.delete(np.array(range(self.len)), np.array(parenago_idx))
 
         teff_diff = self.teff - self.data['teff_chris']
         rv_diff = self.rv[idx_other] - self.data['rv_chris'][idx_other]
@@ -1225,10 +1254,10 @@ class ONC(StarCluster):
             color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
         )
         ax1.errorbar(
-            self.data['teff'][idx_binary].value, 
-            self.data['teff_chris'][idx_binary].value, 
-            xerr=self.data['e_teff'][idx_binary].value, 
-            yerr=self.data['e_teff_chris'][idx_binary].value, 
+            self.data['teff'][parenago_idx].value, 
+            self.data['teff_chris'][parenago_idx].value, 
+            xerr=self.data['e_teff'][parenago_idx].value, 
+            yerr=self.data['e_teff_chris'][parenago_idx].value, 
             color='C0', label='Parenago 1837', 
             fmt='o', alpha=0.5, markersize=3
         )
@@ -1246,10 +1275,10 @@ class ONC(StarCluster):
             color=(.2, .2, .2, .8), fmt='o', alpha=0.5, markersize=3
         )
         ax2.errorbar(
-            self.data['rv'][idx_binary].value, 
-            self.data['rv_chris'][idx_binary].value, 
-            xerr=self.data['e_rv'][idx_binary].value, 
-            yerr=self.data['e_rv_chris'][idx_binary].value, 
+            self.data['rv'][parenago_idx].value, 
+            self.data['rv_chris'][parenago_idx].value, 
+            xerr=self.data['e_rv'][parenago_idx].value, 
+            yerr=self.data['e_rv_chris'][parenago_idx].value, 
             color='C0', label='Parenago 1837', 
             fmt='o', alpha=0.5, markersize=3
         )
@@ -1330,7 +1359,6 @@ def distance_cut(dist, e_dist, min_dist=300*u.pc, max_dist=500*u.pc, min_plx_ove
     plx = 1000/dist.to(u.pc).value * u.mas
     plx_e = e_dist / dist * plx
     dist_constraint = (dist >= min_dist) & (dist <= max_dist) & (plx/plx_e >= min_plx_over_e) | np.isnan(dist)
-    print(f'{min_dist}~{max_dist} distance range constraint: {sum(dist_constraint) - 5} sources out of {len(dist_constraint) - 5} remains.')
     return dist_constraint
 
 
@@ -1378,7 +1406,9 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     ax.scatter(apogee_ra, apogee_dec, s=10, marker='s', edgecolor='C9', linewidths=1, facecolor='none', label='APOGEE', zorder=2)
     ax.scatter(tobin_ra, tobin_dec, s=10, marker='^', edgecolor='C1', linewidths=1, facecolor='none', label='Tobin et al. 2009', zorder=1)
     handles, labels = ax.get_legend_handles_labels()
-    order = [1, 0, 2, 3]
+    order = np.arange(len(labels))
+    order [0] = 1
+    order [1] = 0
     ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], framealpha=0.75, loc='upper right')
     plt.savefig(f'{user_path}/ONC/figures/skymap/Skymap Wide.pdf')
     plt.show()
@@ -1386,17 +1416,23 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     # Zoom-in figure
     parenago_idx = (orion.data['HC2000']==546).filled(False)
     V1337_idx = (orion.data['HC2000']==214).filled(False)
+    V1279_idx = (orion.data['HC2000']==170).filled(False)
+    brun_idx = (orion.data['HC2000']==172).filled(False)
+    
     parenago_coord = SkyCoord(ra=orion.ra[parenago_idx], dec=orion.dec[parenago_idx])
     V1337_coord = SkyCoord(ra=orion.ra[V1337_idx], dec=orion.dec[V1337_idx])
+    brun_coord = SkyCoord(ra=orion.ra[brun_idx], dec=orion.dec[brun_idx])
     apogee = apogee[(apogee['sep_to_trapezium'] <= 4*u.arcmin)]
     apogee_coord = SkyCoord(ra=apogee['RAJ2000'], dec=apogee['DEJ2000'])
     apogee = apogee[
-        (apogee_coord.separation(parenago_coord) > 1.5*u.arcsec) & (apogee_coord.separation(V1337_coord) > 1.5*u.arcsec)
+        (apogee_coord.separation(parenago_coord) > 1.2*u.arcsec) & (apogee_coord.separation(V1337_coord) > 1.2*u.arcsec) & (apogee_coord.separation(brun_coord) > 1.2*u.arcsec)
     ]
-    fig, ax, wcs = orion.plot_skymap(background_path=background_path, show_figure=False, label='NIRSPAO', zoom=True, constraint=~orion.data['HC2000'].mask & ~parenago_idx & ~V1337_idx, zorder=3)
+    fig, ax, wcs = orion.plot_skymap(background_path=background_path, show_figure=False, label='NIRSPAO', zoom=True, constraint=~orion.data['HC2000'].mask & ~parenago_idx & ~V1337_idx & ~V1279_idx & ~brun_idx, zorder=3)
     apogee_ra, apogee_dec = wcs.wcs_world2pix(apogee['RAJ2000'].value, apogee['DEJ2000'].value, 0)
     parenago_ra, parenago_dec = wcs.wcs_world2pix(orion.ra[parenago_idx].value, orion.dec[parenago_idx].value, 0)
     V1337_ra, V1337_dec = wcs.wcs_world2pix(orion.ra[V1337_idx].value, orion.dec[V1337_idx].value, 0)
+    V1279_ra, V1279_dec = wcs.wcs_world2pix(orion.ra[V1279_idx].value, orion.dec[V1279_idx].value, 0)
+    brun_ra, brun_dec = wcs.wcs_world2pix(orion.ra[brun_idx].value, orion.dec[brun_idx].value, 0)
     trapezium_ra, trapezium_dec = wcs.wcs_world2pix(trapezium.ra.value, trapezium.dec.value, 0)
     apogee_ra       += ra_offset
     apogee_dec      += dec_offset
@@ -1404,14 +1440,22 @@ def plot_skymaps(orion, background_path=f'{user_path}/ONC/figures/skymap/hlsp_or
     parenago_dec    += dec_offset
     V1337_ra        += ra_offset
     V1337_dec       += dec_offset
+    V1279_ra        += ra_offset
+    V1279_dec       += dec_offset
+    brun_ra         += ra_offset
+    brun_dec        += dec_offset
     trapezium_ra    += ra_offset
     trapezium_dec   += dec_offset
     ax.scatter(trapezium_ra, trapezium_dec, s=100, marker='*', edgecolor='royalblue', linewidth=1.5, facecolor='none', label='Center', zorder=4)
     ax.scatter(apogee_ra, apogee_dec, s=15, marker='s', edgecolor='C9', linewidths=1.25, facecolor='none', label='APOGEE', zorder=2)
     ax.scatter(parenago_ra, parenago_dec, s=50, marker='X', edgecolor='lightgreen', linewidth=1.5, facecolor='none', label='Parenago 1837', zorder=4)
     ax.scatter(V1337_ra, V1337_dec, s=50, marker='P', edgecolor='gold', linewidth=1.5, facecolor='none', label='V* V1337 Ori', zorder=4)
+    ax.scatter(V1279_ra, V1279_dec, s=30, marker='D', edgecolor='orange', linewidth=1.5, facecolor='none', label='V* V1279 Ori', zorder=4)
+    ax.scatter(brun_ra, brun_dec, s=50, marker='H', edgecolor='red', linewidth=1.5, facecolor='none', label='Brun 590', zorder=4)
     handles, labels = ax.get_legend_handles_labels()
-    order = [1, 0, 2, 3, 4]
+    order = np.arange(len(labels))
+    order [0] = 1
+    order [1] = 0
     ax.legend([handles[idx] for idx in order],[labels[idx] for idx in order], framealpha=0.75, loc='upper right')
     plt.savefig(f'{user_path}/ONC/figures/skymap/Skymap Zoom.pdf')
     plt.show()
@@ -2299,10 +2343,9 @@ C9 = '#17becf'
 save_path = f'{user_path}/ONC/starrynight/codes/analysis'
 
 orion = ONC(QTable.read(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv'))
+trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 orion.preprocessing()
 orion.set_attr()
-
-trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
 plot_skymaps(orion)
 
