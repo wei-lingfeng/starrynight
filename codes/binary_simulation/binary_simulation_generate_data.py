@@ -41,7 +41,7 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
     dates = (0., )
     sigma = 2
 
-    with open(user_path + '/ONC/starrynight/codes/data_processing/vdisp_results/all/mcmc_params.txt', 'r') as file:
+    with open(user_path + '/ONC/starrynight/codes/analysis/vdisp_results/all/mcmc_params.txt', 'r') as file:
         raw = file.readlines()
     raw = [line for line in raw if line.startswith('σ_rv:')][0]
     vdisp_rv, vdisp_rv_e = eval(raw.strip('σ_rv:\t\n'))
