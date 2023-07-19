@@ -850,7 +850,7 @@ class ONC(StarCluster):
 
         fig, ax = plt.subplots(figsize=(5, 5))
         ax.errorbar(self.data['rv_helio'][~parenago_idx & ~V1337_idx & ~brun_idx].value, self.data['rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, xerr=self.data['e_rv_nirspao'][~parenago_idx & ~V1337_idx & ~brun_idx].value, yerr=self.data['e_rv_apogee'][~parenago_idx & ~V1337_idx & ~brun_idx].value, fmt='o', color=(.2, .2, .2, .8), alpha=0.4, markersize=3)
-        ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, fmt='o', color='C0', alpha=0.5, marker='.', markersize=3, label='Parenago 1837')
+        ax.errorbar(parenago_rv_nirspao.value, parenago_rv_apogee.value, xerr=parenago_e_rv_nirspao.value, yerr=parenago_e_rv_apogee.value, ls='none', color='C0', alpha=0.5, marker='.', markersize=3, label='Parenago 1837')
         ax.errorbar(self.data['rv_helio'][V1337_idx].value, self.data['rv_apogee'][V1337_idx].value, xerr=self.data['e_rv_nirspao'][V1337_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C1', alpha=0.5, marker='s', markersize=6, label='V* V1337 Ori')
         ax.errorbar(self.data['rv_helio'][brun_idx].value, self.data['rv_apogee'][brun_idx].value, xerr=self.data['e_rv_nirspao'][brun_idx].value, yerr=self.data['e_rv_apogee'][V1337_idx].value, ls='none', color='C2', alpha=0.5, marker='d', markersize=6, label='Brun 590')
         ax.plot([23, 38], [23, 38], color='C3', linestyle='--', label='Equal Line')
@@ -2344,9 +2344,10 @@ C9 = '#17becf'
 save_path = f'{user_path}/ONC/starrynight/codes/analysis'
 
 orion = ONC(QTable.read(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.ecsv'))
-trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 orion.preprocessing()
 orion.set_attr()
+
+trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
 plot_skymaps(orion)
 
@@ -2501,8 +2502,8 @@ plt.show()
 # # vdisp vs sep
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
-# vdisp vs mass
-vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+# # vdisp vs mass
+# vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 
 
