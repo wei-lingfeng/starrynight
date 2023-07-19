@@ -16,8 +16,7 @@ def simulate_binaries(sources, fbin, n_sims, show_figure=False):
     trapezium_only = (sources['sci_frames'].isna()) & (sources['APOGEE'].isna())
     sources = sources.loc[~trapezium_only].reset_index(drop=True)
 
-    unique, counts = np.unique(sources.HC2000[~trapezium_only], return_counts=True)
-    N = len(sources) - (sum(counts[counts>1]) - len(counts[counts>1]))
+    N = len(sources)
     print('N={}'.format(N))
     rv = sources.rv
     rv_err = sources.e_rv
