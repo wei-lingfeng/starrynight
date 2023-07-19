@@ -79,8 +79,9 @@ for i, sample in enumerate(samples):
             m.append(mi)
             a.append(ai)
             valid_idx.append(i)
-
+    
 print(f'{len(valid_idx)} valid samples out of {len(samples)}.')
+    
 samples = samples[valid_idx]
 P = P[valid_idx]    # yr
 K = K[valid_idx]    # au/yr
@@ -97,7 +98,7 @@ left_bound = lambda m, e : left_bound_circular(m) / (1 - e**2)  # a < sma(mass, 
 print(f'Maximum e for a < left_bound_circular: {max(e[a > left_bound_circular(m)]):.2f}')
 e_max = 0.9
 
-Ps = [P_min, delta_t/4, delta_t/3, delta_t/2, delta_t, P_max]
+Ps = [P_min, delta_t/4, delta_t/2, delta_t, P_max]
 solve_intersection = lambda m, P, e : left_bound(m, e) - period(m, P) # solve for m intersections where Δv constraint = period constraint
 m_intersections = np.array([fsolve(lambda m : solve_intersection(m, _, e_max), x0=0.03)[0] for _ in Ps]) # intersection between period and e_max
 m_intersections_circular = np.array([fsolve(lambda m : solve_intersection(m, _, 0), x0=0.03)[0] for _ in [P_min, P_max]]) # intersection between period and e=0
@@ -144,8 +145,7 @@ ax.annotate(rf'$m_\mathrm{{max}}={M:.2f}~M_\odot$', xy=(0.6, (lower_bound(M) + u
 
 ax.annotate('$P=\Delta t$', xy=(0.3, period(0.3, Ps[-2])), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=15)
 ax.annotate('$P=\Delta t/2$', xy=(0.3, period(0.3, Ps[-3])), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=10)
-ax.annotate('$P=\Delta t/3$', xy=(0.3, period(0.3, Ps[-4]) - 0.015), horizontalalignment='center', verticalalignment='bottom', size=12, rotation=9)
-ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-5]) - 0.02), horizontalalignment='center', verticalalignment='top', size=12, rotation=7)
+ax.annotate('$P=\Delta t/4$', xy=(0.3, period(0.3, Ps[-4]) - 0.02), horizontalalignment='center', verticalalignment='top', size=12, rotation=7)
 
 ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
 ax.set_xticks([0.01, 0.02, 0.05, 0.1, 0.2, 0.5])
@@ -159,7 +159,7 @@ plt.savefig(f'{user_path}/ONC/figures/Parenago 1837 - Allowed Param.pdf', bbox_i
 plt.show()
 
 # only plot orbits with period > Δt/3
-plot_orbit = P > (max(t)/3/365.25)
+plot_orbit = P > (max(t)/3/(1*u.yr.to(u.day)))
 print(f'{sum(plot_orbit)} orbits plotted.')
 
 fig, ax = plt.subplots(1, 1, figsize=(6, 4)) # doctest: +SKIP
@@ -170,7 +170,7 @@ ax.errorbar(t[0], rv[0], yerr=rv_err[0], color='C0', fmt='.', markersize=5, elin
 ax.errorbar(t[1:], rv[1:], yerr=rv_err[1:], color='C3', fmt='.', markersize=5, elinewidth=1.2, capsize=3, capthick=1.2, label='NIRSPAO')
 ax.set_ylim((min(rv.value) - 5, max(rv.value) + 7))
 ax.set_ylabel(r'RV ($\mathrm{km}\cdot\mathrm{s}^{-1}$)')
-ax.set_xlabel(r'Days after 2019.2.25')
+ax.set_xlabel(r'Days after 2019 Feb 25$^\mathrm{th}$ (UT)')
 ax.legend(loc='lower right')
 plt.savefig(f'{user_path}/ONC/figures/Parenago 1837 - Orbital Fits.pdf', bbox_inches='tight')
 plt.show()
