@@ -2116,7 +2116,7 @@ def mass_segregation_ratio(sources:QTable, model_name:str, save_path:str, Nmst_m
     # lambda: [[value, error], [value, error], ...]
     lambda_msr = np.empty((len(np.arange(Nmst_min, Nmst_max, step)), 2))
     for i, Nmst in enumerate(np.arange(Nmst_min, Nmst_max, step)):
-        massive_idx = np.sort(np.argpartition(sources['mass_MIST'], -Nmst)[-Nmst:])  # sorted idx of most massive Nmst sources
+        massive_idx = np.sort(np.argpartition(sources[f'mass_{model_name}'], -Nmst)[-Nmst:])  # sorted idx of most massive Nmst sources
         massive_sep_matrix = sep_matrix[massive_idx][:, massive_idx]
         massive_mst = minimum_spanning_tree(csr_matrix(massive_sep_matrix)).toarray()
         l_massive = massive_mst.sum()
@@ -2437,7 +2437,7 @@ orion_mean_offset.set_attr()
 # orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
 
-model_name = 'BHAC15'
+model_name = 'MIST'
 model_type = 'linear'
 ks = np.empty((2, len(radii)))
 ks_mean_offset = np.empty((2, len(radii)))
@@ -2502,7 +2502,7 @@ plt.show()
 # # vdisp vs sep
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
-# # vdisp vs mass
+# vdisp vs mass
 # vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 

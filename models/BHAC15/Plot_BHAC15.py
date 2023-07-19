@@ -1,10 +1,12 @@
 import numpy as np
-import sys
+import os
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from mpl_toolkits.mplot3d import Axes3D, axes3d
 
-with open('/home/l3wei/ONC/Models/Baraffe/BHAC15.txt', 'r') as file:
+user_path = os.path.expanduser('~')
+
+with open(f'{user_path}/ONC/starrynight/models/BHAC15/BHAC15.txt', 'r') as file:
     raw = file.readlines()
 
 Age  = np.empty([8, 30])    # Myr
