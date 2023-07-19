@@ -2437,7 +2437,7 @@ orion_mean_offset.set_attr()
 # orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
 
-model_name = 'MIST'
+model_name = 'BHAC15'
 model_type = 'linear'
 ks = np.empty((2, len(radii)))
 ks_mean_offset = np.empty((2, len(radii)))
