@@ -956,8 +956,8 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     ########### Merge Duplicate Columns ###########
     ###############################################
     
-    sources.add_column(fillna(sources['teff_nirspao'], sources['teff_apogee']), index=10, name='teff')
-    sources.add_column(fillna(sources['e_teff_nirspao'], sources['e_teff_apogee']), index=11, name='e_teff')
+    sources.add_column(fillna(sources['teff_nirspao'], sources['teff_apogee']), index=11, name='teff')
+    sources.add_column(fillna(sources['e_teff_nirspao'], sources['e_teff_apogee']), index=12, name='e_teff')
     
     sources['Kmag'], sources['e_Kmag'] = weighted_avrg_and_merge(
         sources['Kmag'], 

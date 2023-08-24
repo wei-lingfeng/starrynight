@@ -28,7 +28,7 @@ from scipy.sparse.csgraph import minimum_spanning_tree
 ################### Functions ###################
 #################################################
 
-def corner_plot(data, labels, limit, save_path):
+def corner_plot(data, labels, limit, save_path=None):
     ndim = np.shape(data)[1]
     fontsize=14
     fig, axs = plt.subplots(ndim, ndim, figsize=(2*ndim, 2*ndim))
@@ -572,7 +572,7 @@ def plot_3d(sources_coord_3d, scale=3):
 ########### Relative Velocity vs Mass ###########
 #################################################
 
-def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, max_rv=np.inf, max_v_error=5., max_mass_error=0.5, kde_percentile=84, update_sources=False, save_path=None, **kwargs):
+def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, min_rv=-np.inf, max_rv=np.inf, max_v_error=5., max_mass_error=0.5, kde_percentile=84, show_figure=True, update_sources=False, save_path=None, **kwargs):
     """Velocity relative to the neighbors of each source within a radius vs mass.
 
     Parameters
@@ -634,7 +634,8 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
         (~sources.pmRA.isna()) & (~sources.pmDE.isna()) & \
         (~sources[f'mass_{model_name}'].isna()) & \
         (sources[f'e_mass_{model_name}'] < max_mass_error) & \
-        (sources.rv < max_rv) & (sources.e_v < max_v_error)
+        (sources.rv <= max_rv) & (sources.rv >= min_rv) & \
+        (sources.e_v <= max_v_error)
     
     # sources = sources.loc[constraint].reset_index(drop=True)
     sources_coord = SkyCoord(
@@ -916,7 +917,11 @@ def vrel_vs_mass(sources, model_name, radius=0.1*u.pc, model_type='linear', resa
             plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight', transparent=True)
         else:
             plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight')
-    plt.close()
+    
+    if show_figure:
+        plt.show()
+    else:
+        plt.close()
     
     ########## Updating the original DataFrame ##########
     if update_sources:
@@ -1760,7 +1765,7 @@ def pm_angle_distribution(sources, save_path=None):
     plt.show()
 
 
-def compare_mass(sources, save_path):
+def compare_mass(sources, save_path=None):
     fltr = ~(
         sources.mass_MIST.isna() | \
         sources.mass_BHAC15.isna() | \
@@ -1866,8 +1871,6 @@ def compare_teff_with_apogee(sources, save_path=None):
     valid_idx = ~diffs.isna()
     diffs = diffs[valid_idx]
     weights = 1/(sources.e_teff_nirspao**2 + sources.e_teff_apogee**2)[valid_idx]
-    print(diffs)
-    print(weights)
     mean_diff = np.average(diffs, weights=weights)
     max_diff = max(diffs)
     
@@ -1910,7 +1913,8 @@ def pm_to_v(pm, dist):
 
 def preprocessing(sources):
     
-    trapezium_only = (sources['sci_frames'].isna()) & (sources['APOGEE'].isna())
+    # trapezium_only = (sources['sci_frames'].isna()) & (sources['APOGEE'].isna())
+    trapezium_only = ~sources.theta_orionis.isna()
     unique_HC2000, counts_HC2000 = np.unique(sources['HC2000'][~sources['sci_frames'].isna()], return_counts=True)
     unique_APOGEE, counts_APOGEE = np.unique(sources['APOGEE'][~sources['APOGEE'].isna()], return_counts=True)
     print('Before any constraint:\nNIRSPAO: {} (multiples: {}->{})\nAPOGEE: {} (multiples: {}->{})\nMatched: {}\nTotal: {} (including multiples: {})'.format(
@@ -2079,7 +2083,7 @@ C6 = '#e377c2'
 C7 = '#7f7f7f'
 C9 = '#17becf'
 
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined - new.csv', dtype={'HC2000':str, 'Gaia DR3': str, 'ID_kim': str})
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined - old.csv', dtype={'HC2000':str, 'Gaia DR3': str, 'ID_kim': str})
 save_path = f'{user_path}/ONC/starrynight/codes/analysis'
 
 # LV 3 / HC2000 322 / Gaia DR3 3017364063323188864 / 
@@ -2090,23 +2094,23 @@ sources, sources_2d = preprocessing(sources)
 
 
 
-compare_velocity(sources_2d, save_path=f'{user_path}/ONC/figures/Velocity Comparison.pdf')
+compare_velocity(sources_2d)
 # Save html figures
 # fig_2d = plot_2d(sources_2d)
 # fig_2d.write_html(f'{user_path}/ONC/figures/sky 2d.html')
 # fig_3d1, fig_3d2 = plot_3d(sources_coord_3d)
 # fig_3d2.write_html(f'{user_path}/ONC/figures/sky 3d small.html')
-plot_pm_rv(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
+plot_pm_rv(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True))
 
 # pm angle distribution
 # pm_angle_distribution(sources_2d)
-pm_angle_distribution(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True), save_path=f'{user_path}/ONC/figures/pm direction.pdf')
+pm_angle_distribution(sources_2d.loc[sources_2d.theta_orionis.isna()].reset_index(drop=True))
 
 # compare mass
-compare_mass(sources_2d, save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
+compare_mass(sources_2d)
 
 # compare with Chris
-compare_chris(sources_2d, save_path=f'{user_path}/ONC/figures')
+compare_chris(sources_2d)
 
 
 #################################################
@@ -2135,12 +2139,14 @@ sources_mean_offset.teff = sources_mean_offset.teff_nirspao.fillna(sources_mean_
 from starrynight import fit_mass
 mean_offset_masses = fit_mass(sources_mean_offset.teff.to_numpy()*u.K, sources_mean_offset.e_teff.to_numpy()*u.K)
 columns = mean_offset_masses.keys()
-sources_mean_offset[columns] = mean_offset_masses
-indices = ~sources_mean_offset.theta_orionis.isna()
-sources_mean_offset.loc[indices, columns] = np.nan
+for column in columns:
+    sources_mean_offset[column] = mean_offset_masses[column].filled(np.nan).value
+# trapezium_only = (sources_mean_offset['sci_frames'].isna()) & (sources_mean_offset['APOGEE'].isna())
+trapezium_only = ~sources_mean_offset.theta_orionis.isna()
+sources_mean_offset.loc[trapezium_only, columns] = np.nan
 
-for radius in radii:
-    for model_name in model_names:
+for radius in [0.1*u.pc]:
+    for model_name in ['MIST']:
         
         if radius == 0.1*u.pc:
             update_sources = True
@@ -2152,12 +2158,13 @@ for radius in radii:
             model_name, 
             model_type='linear',
             radius=radius, 
-            resampling=False,
+            resampling=True,
+            min_rv=0,
             max_rv=rv_threshold,
             update_sources=update_sources,
             kde_percentile=84,
-            show_figure=False,
-            save_path=f'{save_path}/vrel_results/{base_path}-{radius.value:.2f}pc'
+            show_figure=True,
+            save_path=f'{save_path}/vrel_results_test/{base_path}-{radius.value:.2f}pc'
         )
 
         mass, vrel, mass_e, vrel_e = vrel_vs_mass(
@@ -2165,12 +2172,13 @@ for radius in radii:
             model_name,
             model_type='linear',
             radius=radius,
-            resampling=False,
+            resampling=True,
+            min_rv=0,
             max_rv=rv_threshold,
             update_sources=False,
             kde_percentile=84,
-            show_figure=False,
-            save_path=f'{save_path}/vrel_results/{base_path_mean_offset}-{radius.value:.2f}pc'
+            show_figure=True,
+            save_path=f'{save_path}/vrel_results_test/{base_path_mean_offset}-{radius.value:.2f}pc'
         )
 
 # write sources_2d with vrel
