@@ -89,13 +89,17 @@ def weighted_avrg_and_merge(array1, array2, error1=None, error2=None):
     
     if error1 is not None and error2 is not None:
         N_stars = len(array1)
+        avrg = ma.empty(N_stars)
         avrg_e = ma.empty(N_stars)
         value_in_1 = np.logical_and(~array1.mask,  array2.mask)   # value in 1 ONLY
         value_in_2 = np.logical_and( array1.mask, ~array2.mask)   # value in 2 ONLY
         value_both = np.logical_and(~array1.mask, ~array2.mask)   # value in both
         value_none = np.logical_and( array1.mask,  array2.mask)   # value in none
         
-        avrg = ma.average([array1, array2], axis=0, weights=[1/error1**2, 1/error2**2])
+        avrg[value_in_1] = array1[value_in_1]
+        avrg[value_in_2] = array2[value_in_2]
+        avrg[value_both] = ma.average([array1[value_both], array2[value_both]], axis=0, weights=[1/error1[value_both]**2, 1/error2[value_both]**2])
+        avrg[value_none] = np.nan
         avrg_e[value_in_1] = error1[value_in_1]
         avrg_e[value_in_2] = error2[value_in_2]
         avrg_e[value_both] = 1 / np.sqrt(1/error1[value_both]**2 + 1/error2[value_both]**2)
@@ -104,6 +108,9 @@ def weighted_avrg_and_merge(array1, array2, error1=None, error2=None):
         if unit is not None:
             avrg = MaskedColumn(avrg, mask=value_none, unit=unit)
             avrg_e = MaskedColumn(avrg_e, mask=value_none, unit=unit)
+        else:
+            avrg = MaskedColumn(avrg, mask=value_none)
+            avrg_e = MaskedColumn(avrg_e, mask=value_none)
         return avrg, avrg_e
     
     else:
@@ -569,6 +576,8 @@ def fit_mass(teff, e_teff):
         **DAntona_Fit.fit(teff)
     })
     
+    result = result.round(2)
+    
     mapping = {key: u.solMass for key in result.keys()}
     result = QTable.from_pandas(result, units=mapping)
     return result
@@ -865,7 +874,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     gaia.add_column(
         MaskedColumn(((2.5/np.log(10)*gaia['phot_g_mean_flux_error']/gaia['phot_g_mean_flux'])**2 + 0.0027553202**2)**(1/2), unit=u.mag),
         index=gaia.colnames.index('Gmag') + 1,
-        name='Gmag_e'
+        name='e_Gmag'
     )
     
     # Offset specified in https://iopscience.iop.org/article/10.1086/309309/pdf, Section 4.5.
@@ -937,7 +946,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         'plx', 'e_plx', 'plx_over_e',
         'pmRA_gaia', 'e_pmRA_gaia', 
         'pmDE_gaia', 'e_pmDE_gaia', 
-        'Gmag', 'Gmag_e', 'bp_rp', 
+        'Gmag', 'e_Gmag', 'bp_rp', 
         'astrometric_n_good_obs_al', 'astrometric_gof_al', 'astrometric_excess_noise', 'ruwe'
     ]], matches=matches, table_names=['nirspao+apogee', 'gaia'])
     
@@ -971,9 +980,20 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources.add_column(sources['APOGEE-temp'], index=3, name='APOGEE')
     sources.remove_column('APOGEE-temp')
     
+    
+    ###############################################
+    ############### Format Decimals ###############
+    ###############################################
+    sources.round({
+        'rv_chris':2, 'e_rv_chris':2, 'vsini_chris':2, 'e_vsini_chris':2,
+        'pmRA_kim':2, 'e_pmRA_kim':2, 'pmDE_kim':2, 'e_pmDE_kim':2,
+        'pmRA_gaia':3, 'e_pmRA_gaia':3, 'pmDE_gaia':3, 'e_pmDE_gaia':3, 
+        'plx':4, 'e_plx':4, 'Gmag':6, 'e_Gmag':6
+    })
+    
     sources_epoch_combined = merge_multiepoch(sources)
-        
-
+    
+    
     ###############################################
     ################### Fit Mass ##################
     ###############################################
@@ -990,14 +1010,18 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     # plot
     plot_four_catalogs([sources_epoch_combined, apogee, kim, gaia], save_path=save_path)
-
+    
+    
     ###############################################
     ################# Write to csv ################
     ###############################################
+    sources_pd = sources.to_pandas()
+    sources_epoch_combined_pd = sources_epoch_combined.to_pandas()
+    
     sources.write(f'{save_path}/synthetic catalog.ecsv', overwrite=True)
-    sources.write(f'{save_path}/synthetic catalog - new.csv', overwrite=True)
+    sources_pd.to_csv(f'{save_path}/synthetic catalog.csv', index=False)
     sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined.ecsv', overwrite=True)
-    sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined - new.csv', overwrite=True)
+    sources_epoch_combined_pd.to_csv(f'{save_path}/synthetic catalog - epoch combined.csv', index=False)
     
     return sources, sources_epoch_combined
 

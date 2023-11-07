@@ -77,7 +77,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         'veiling_param_O33':    [],
         'veiling_param_O35':    [],
         'lsf':                  [],
-        'lsf_e':                [],
+        'e_lsf':                [],
         'noise':                [],
         'e_noise':              [],
         'model_dip_O32':        [],
@@ -201,7 +201,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             elif line.startswith('lsf:'):
                 value, error = read_text(line)
                 result['lsf'].append(value)
-                result['lsf_e'].append(error)
+                result['e_lsf'].append(error)
             
             elif line.startswith('noise:'):
                 value, error = read_text(line)
@@ -319,7 +319,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
                     elif line.startswith('lsf:'):
                         value, error = read_text(line)
                         result['lsf'][-1] = value
-                        result['lsf_e'][-1] = error
+                        result['e_lsf'][-1] = error
                     
                     elif line.startswith('noise:'):
                         value, error = read_text(line)
@@ -350,6 +350,27 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
             result['snr_O35'].append(None)
     
     result = pd.DataFrame.from_dict(result)
+    
+    result = result.round({
+        'RAJ2000':6, 'DEJ2000':6, 
+        'teff':1, 'e_teff':1,
+        'vsini':2, 'e_vsini':2,
+        'rv_helio':2, 'rv':2, 'e_rv':2,
+        'airmass':2, 'e_airmass':2, 
+        'pwv':2, 'e_pwv':2, 
+        'veiling':2, 'e_veiling':2, 'veiling_param_O32':2, 'veiling_param_O33':2, 'veiling_param_O35':2, 
+        'lsf':2, 'e_lsf':2,
+        'noise':2, 'e_noise':2,
+        'model_dip_O32':2, 'model_std_O32':2,
+        'model_dip_O33':2, 'model_std_O33':2,
+        'model_dip_O35':2, 'model_std_O35':2,
+        'wave_offset_O32':5, 'e_wave_offset_O32':5, 
+        'wave_offset_O33':5, 'e_wave_offset_O33':5, 
+        'wave_offset_O35':5, 'e_wave_offset_O35':5, 
+        'snr_O32':2, 'snr_O33':2, 'snr_O35':2,
+        'Kmag':6, 'e_Kmag':6, 'Hmag':6, 'e_Hmag':6
+    })
+    
     result = QTable.from_pandas(result, units={
         'RAJ2000': u.deg,
         'DEJ2000': u.deg,

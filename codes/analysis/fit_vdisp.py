@@ -73,7 +73,7 @@ def log_posterior(theta, sources):
     return log_prior(theta) + log_likelihood(theta, sources)
 
 
-def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
+def fit_vdisp(sources, save_path:str, MCMC=True, multiprocess=True, nwalkers=100, steps=500) -> dict:
     """Fit velocity dispersion for all three directions: ra, dec, radial.
 
     Parameters
@@ -97,14 +97,15 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     with open(f'{user_path}/ONC/starrynight/codes/analysis/vdisp_results/mean_rv.txt', 'r') as file:
         mean_rv = eval(file.read().strip('km / s'))
     
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    if save_path:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
     
     sources_new = copy.deepcopy(sources)
     sources_new = sources_new[~(np.isnan(sources_new['vRA']) | np.isnan(sources_new['vDE']) | np.isnan(sources_new['rv']))]
     
-    ndim, nwalkers, step = 9, 100, 500
-    discard = step-200
+    ndim = 9
+    discard = steps-200
     
     
     pos = [np.array([
@@ -126,12 +127,26 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
     nparams = len(params)
     
     if MCMC:
-        backend = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
-        backend.reset(nwalkers, ndim)
+        if save_path:
+            backend = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
+            backend.reset(nwalkers, ndim)
+            
+            if multiprocess:
+                with Pool(32) as pool:
+                    sampler=emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=[sources_new], moves=emcee.moves.KDEMove(), backend=backend, pool=pool)
+                    sampler.run_mcmc(pos, steps, progress=True)
+            else:
+                sampler=emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=[sources_new], moves=emcee.moves.KDEMove(), backend=backend)
+                sampler.run_mcmc(pos, steps, progress=True)
         
-        with Pool(32) as pool:
-            sampler=emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=[sources_new], moves=emcee.moves.KDEMove(), backend=backend, pool=pool)
-            sampler.run_mcmc(pos, step, progress=True)
+        else:
+            if multiprocess:
+                with Pool(32) as pool:
+                    sampler=emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=[sources_new], moves=emcee.moves.KDEMove(), pool=pool)
+                    sampler.run_mcmc(pos, steps, progress=True)
+            else:
+                sampler=emcee.EnsembleSampler(nwalkers, ndim, log_posterior, args=[sources_new], moves=emcee.moves.KDEMove())
+                sampler.run_mcmc(pos, steps, progress=True)
         
         flat_samples = sampler.get_chain(discard=discard, flat=True)
 
@@ -146,37 +161,43 @@ def fit_vdisp(sources, save_path:str, MCMC=True) -> dict:
         ################## Create Plots ##################
         ##################################################
         
-        ########## Walker Plot ##########
-        fig, axes = plt.subplots(nrows=ndim, ncols=1, figsize=(10, 18), sharex=True)
-        samples = sampler.get_chain()
-        
-        for i in range(ndim):
-            ax = axes[i]
-            ax.plot(samples[:, :, i], "C0", alpha=0.2)
-            ax.set_xlim(0, len(samples))
-            ax.set_ylabel(ylabels[i])
-        
-        ax.set_xlabel("step number");
-        plt.minorticks_on()
-        fig.align_ylabels()
-        plt.savefig(f'{save_path}/mcmc_walker.png', dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        ########## Corner Plot ##########
-        fig = corner.corner(
-            flat_samples, labels=labels, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
-        )
-        plt.savefig(f'{save_path}/mcmc_corner.png', dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        
-        ########## Write Parameters ##########
-        with open(f'{save_path}/mcmc_params.txt', 'w') as file:
-            for label, values in zip(labels, mcmc.to_numpy().T):
-                file.write(f'{label}:\t{", ".join(str(value) for value in values)}\n')
+        if save_path:
+            ########## Walker Plot ##########
+            fig, axes = plt.subplots(nrows=ndim, ncols=1, figsize=(10, 18), sharex=True)
+            samples = sampler.get_chain()
+            
+            for i in range(ndim):
+                ax = axes[i]
+                ax.plot(samples[:, :, i], "C0", alpha=0.2)
+                ax.set_xlim(0, len(samples))
+                ax.set_ylabel(ylabels[i])
+            
+            ax.set_xlabel("step number");
+            plt.minorticks_on()
+            fig.align_ylabels()
+            plt.savefig(f'{save_path}/mcmc_walker.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            ########## Corner Plot ##########
+            fig = corner.corner(
+                flat_samples, labels=labels, truths=mcmc.loc[0].to_numpy(), quantiles=[0.16, 0.84]
+            )
+            plt.savefig(f'{save_path}/mcmc_corner.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            
+            ########## Write Parameters ##########
+            with open(f'{save_path}/mcmc_params.txt', 'w') as file:
+                for label, values in zip(labels, mcmc.to_numpy().T):
+                    file.write(f'{label}:\t{", ".join(str(value) for value in values)}\n')
+        else:
+            pass # do not generate plot if save path is none.
     
     else:
-        sampler = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
+        try:
+            sampler = emcee.backends.HDFBackend(f'{save_path}/sampler.h5')
+        except:
+            raise LookupError('Please set MCMC=True and run the sampler first before reading saved results.')
     
         flat_samples = sampler.get_chain(discard=discard, flat=True)
         

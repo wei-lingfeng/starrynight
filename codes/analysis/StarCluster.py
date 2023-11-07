@@ -1,5 +1,6 @@
 import os
 import copy
+import pickle
 import numpy as np
 import pandas as pd
 import astropy.units as u
@@ -12,6 +13,7 @@ from scipy import stats
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from scipy.sparse import csr_matrix
+from scipy.interpolate import interp1d
 from scipy.sparse.csgraph import minimum_spanning_tree
 from astroquery.gaia import Gaia
 from astroquery.vizier import Vizier
@@ -25,6 +27,8 @@ from matplotlib.lines import Line2D
 from matplotlib.colors import ListedColormap
 from matplotlib.offsetbox import AnchoredText
 from fit_vdisp import fit_vdisp
+from tqdm import tqdm
+from multiprocessing import Pool
 
 Vizier.ROW_LIMIT = -1
 Gaia.ROW_LIMIT = -1
@@ -345,7 +349,7 @@ class StarCluster:
         plt.show()
     
     
-    def vrel_vs_mass(self, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, min_rv=-np.inf*u.km/u.s, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, kde_percentile=84, update_self=False, save_path=None, show_figure=True, bin_method='equally grouped', **kwargs):
+    def vrel_vs_mass(self, model_name, radius=0.1*u.pc, model_type='linear', resampling=100000, self_included=True, min_rv=-np.inf*u.km/u.s, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, kde_percentile=84, update_self=False, save_path=None, read_path=None, show_figure=True, bin_method='equally grouped', suppress_output=False, **kwargs):
         """Velocity relative to the neighbors of each source within a radius vs mass.
 
         Parameters
@@ -376,8 +380,12 @@ class StarCluster:
             Whether to show the figure, by default True
         save_path : str, optional
             Save path, by default None
+        read_path : str, optional
+            Read saved vrel_vs_mass.npy, by default None
         bin_method: str, optional
             Binning method when calculating running average, 'equally spaced' or 'equally grouped', by default 'equally grouped'
+        suppress_output: bool, optional
+            Suppress output or not, by default False
         kwargs:
             nbins: int, optional
                 Number of bins, by default 7 for 'equally grouped' and 5 for 'equally spaced'.
@@ -386,7 +394,7 @@ class StarCluster:
         -------
         mass, vrel, mass_e, vrel_e, fit_result
             mass, vrel, mass_e, vrel_e: 1-D array.
-            fit_result: pd.DataFrame with keys 'k', 'b'.
+            fit_result: dict with keys 'k', 'e_k', 'b', 'e_b', 'p', 'R'
 
         Raises
         ------
@@ -429,7 +437,7 @@ class StarCluster:
             if not self_included:
                 is_neighbor[i, i] = False
             # vel_com[i]: 1-by-3 center of mass velocity
-            vcom[i] = (mass[is_neighbor[i]] @ v[is_neighbor[i]]) / sum(mass[is_neighbor[i]])
+            vcom[i] = (mass[is_neighbor[i]] @ v[is_neighbor[i]]) / (sum(mass[is_neighbor[i]].to(u.solMass).value) * u.solMass)  # Ensure unit if is_neighbor is empty
         
         n_neighbors = np.sum(is_neighbor, axis=1)
         
@@ -453,7 +461,8 @@ class StarCluster:
         e_mass = e_mass[has_neighbor]
         e_v = e_v[has_neighbor]
         
-        print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
+        if not suppress_output:
+            print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
         
         vrel_vector = v - vcom
         vrel = np.linalg.norm(vrel_vector, axis=1)
@@ -465,6 +474,11 @@ class StarCluster:
         
         e_vrel = np.sqrt(e_v**2 + e_vcom**2)
         
+        
+        ############# Fit Original Data #############
+        result = linregress(mass, vrel)
+        k = result.slope
+        b = result.intercept
         
         ############# Resampling #############
         R = np.corrcoef(mass.to(u.solMass).value, vrel.to(u.km/u.s).value)[1, 0]   # Pearson's R
@@ -481,7 +495,7 @@ class StarCluster:
         # Resampling
         if resampling is True:
             resampling = 100000
-        if resampling:
+        if resampling & (resampling > 1):
             ks = np.empty(resampling)
             bs = np.empty(resampling)
             Rs = np.empty(resampling)
@@ -517,240 +531,277 @@ class StarCluster:
                     Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
             
             k_resample = np.median(ks)
-            k_e = np.diff(np.percentile(ks, [16, 84]))[0]/2
+            e_k_resample = np.diff(np.percentile(ks, [16, 84]))[0]/2
             b_resample = np.median(bs)
-            b_e = np.diff(np.percentile(bs, [16, 84]))[0]/2
+            e_b_resample = np.diff(np.percentile(bs, [16, 84]))[0]/2
             R_resample = np.median(Rs)
-            R_e = np.diff(np.percentile(Rs, [16, 84]))[0]/2
+            e_R_resample = np.diff(np.percentile(Rs, [16, 84]))[0]/2
+        
+        elif resampling == 1:
+            k_resample = k
+            e_k_resample = np.nan
+            b_resample = b
+            e_b_resample = np.nan
+            R_resample = R
+            e_R_resample = np.nan
         
         else:
-            with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+            if (read_path is None) & (save_path is None):
+                raise FileExistsError('Needs to specify read_path if resampling is False.')
+            elif read_path is None:
+                read_path = save_path
+            
+            with open(f'{read_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
                 raw = file.readlines()
+                    
             for line in raw:
                 if line.startswith('k_resample:'):
-                    k_resample, k_e = eval(', '.join(line.strip('k_resample:\t\n').split('± ')))
+                    k_resample, e_k_resample = eval(', '.join(line.strip('k_resample:\t\n').split('± ')))
                 elif line.startswith('b_resample:'):
-                    b_resample, b_e = eval(', '.join(line.strip('b_resample:\t\n').split('± ')))
+                    b_resample, e_b_resample = eval(', '.join(line.strip('b_resample:\t\n').split('± ')))
                 elif line.startswith('R_resample:'):
-                    R_resample, R_e = eval(', '.join(line.strip('R_resample:\t\n').split('± ')))
+                    R_resample, e_R_resample = eval(', '.join(line.strip('R_resample:\t\n').split('± ')))
         
         # p-value
         result = linregress(mass, vrel)
         p = result.pvalue
         
-        print(f'k_resample = {k_resample:.2f} ± {k_e:.2f}')
-        print(f'p = {p:.2E}')
-        print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
+        fit_result = {
+            'k': k,
+            'b': b,
+            'k_resample':   k_resample,
+            'e_k_resample': e_k_resample,
+            'b_resample':   b_resample,
+            'e_b_resample': e_b_resample,
+            'p': p,
+            'R': R
+        }
+        
+        if not suppress_output:
+            print(f'k = {k:.2f}')
+            print(f'k_resample = {k_resample:.2f} ± {e_k_resample:.2f}')
+            print(f'p = {p:.2E}')
+            print(f'R = {R:.2f}, R_resample = {R_resample:.2f}')
         
         # write params
         if save_path:
             with open(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
                 file.write(f'Median of neighbors in a group:\t{np.median(n_neighbors):.0f}\n')
-                file.write(f'k_resample:\t{k_resample} ± {k_e}\n')
-                file.write(f'b_resample:\t{b_resample} ± {b_e}\n')
+                file.write(f'k:\t{k}\n')
+                file.write(f'b:\t{b}\n')
+                file.write(f'k_resample:\t{k_resample} ± {e_k_resample}\n')
+                file.write(f'b_resample:\t{b_resample} ± {e_b_resample}\n')
                 file.write(f'p:\t{p}\n')
-                file.write(f'R_resample:\t{R_resample} ± {R_e}\n')
+                file.write(f'R_resample:\t{R_resample} ± {e_R_resample}\n')
                 file.write(f'R:\t{R}\n')
-        
-        ############# Running average #############
-        # equally grouped
-        if bin_method == 'equally grouped':
-            nbins = kwargs.get('nbins', 7)
-            sources_in_bins = [len(mass) // nbins + (1 if x < len(valid_idx) % nbins else 0) for x in range (nbins)]
-            division_idx = np.cumsum(sources_in_bins)[:-1] - 1
-            mass_sorted = np.sort(mass)
-            mass_borders = np.array([np.nanmin(mass).to(u.solMass).value - 1e-3, *(mass_sorted[division_idx] + mass_sorted[division_idx + 1]).to(u.solMass).value/2, np.nanmax(mass).to(u.solMass).value])
-        
-        # equally spaced
-        elif bin_method == 'equally spaced':
-            nbins = kwargs.get('nbins', 5)
-            mass_borders = np.linspace(np.nanmin(mass).to(u.solMass).value - 1e-3, np.nanmax(mass).to(u.solMass).value, nbins + 1)
-        
-        else:
-            raise ValueError("bin_method must be one of the following: ['equally grouped', 'equally spaced']")
-        
-        mass_value      = mass.to(u.solMass).value
-        e_mass_value    = e_mass.to(u.solMass).value
-        vrel_value      = vrel.to(u.km/u.s).value
-        e_vrel_value    = e_vrel.to(u.km/u.s).value
-        mass_binned_avrg    = np.empty(nbins)
-        e_mass_binned       = np.empty(nbins)
-        mass_weight = 1 / e_mass_value**2
-        vrel_binned_avrg    = np.empty(nbins)
-        e_vrel_binned       = np.empty(nbins)
-        vrel_weight = 1 / e_vrel_value**2
-        
-        for i, min_mass, max_mass in zip(range(nbins), mass_borders[:-1]*u.solMass, mass_borders[1:]*u.solMass):
-            idx = (mass > min_mass) & (mass <= max_mass)
-            mass_weight_sum = sum(mass_weight[idx])
-            mass_binned_avrg[i] = np.average(mass_value[idx], weights=mass_weight[idx])
-            e_mass_binned[i] = 1/mass_weight_sum * sum(mass_weight[idx] * e_mass_value[idx])
             
-            vrel_weight_sum = sum(vrel_weight[idx])
-            vrel_binned_avrg[i] = np.average(vrel_value[idx], weights=vrel_weight[idx])
-            e_vrel_binned[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * e_vrel_value[idx])
+            with open(f'{read_path}/mass_vrel.pkl', 'wb') as file:
+                pickle.dump([mass, vrel, e_mass, e_vrel], file)
         
-        
-        ########## Kernel Density Estimation in Linear Space ##########
-        # see https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-        resolution = 200
-        X, Y = np.meshgrid(np.linspace(0, mass_value.max(), resolution), np.linspace(0, vrel_value.max(), resolution))
-        positions = np.vstack([X.T.ravel(), Y.T.ravel()])
-        values = np.vstack([mass_value, vrel_value])
-        kernel = stats.gaussian_kde(values)
-        Z = np.rot90(np.reshape(kernel(positions).T, X.shape))
-        
-        
-        ########## Linear Fit Plot - Original Error ##########
-        xs = np.linspace(mass_value.min(), mass_value.max(), 100)
-        
-        fig, ax = plt.subplots(figsize=(6, 4.5), dpi=300)
-        
-        if model_type=='linear':
-            # Errorbar with uniform transparency
-            h1 = ax.errorbar(
-                mass_value, vrel_value, xerr=e_mass_value, yerr=e_vrel_value,
-                fmt='.', 
-                markersize=6, markeredgecolor='none', markerfacecolor='C0', 
-                elinewidth=1, ecolor='C0', alpha=0.5,
-                zorder=2
-            )
-            
-            # Running Average
-            h2 = ax.errorbar(
-                mass_binned_avrg, vrel_binned_avrg, 
-                xerr=e_mass_binned, 
-                yerr=e_vrel_binned, 
-                fmt='.', 
-                markersize=8, markeredgecolor='none', markerfacecolor='C3', 
-                elinewidth=1.2, ecolor='C3', 
-                alpha=0.8,
-                zorder=4
-            )
-        
-            # Running Average Fill
-            f2 = ax.fill_between(mass_binned_avrg, vrel_binned_avrg - e_vrel_binned, vrel_binned_avrg + e_vrel_binned, color='C3', edgecolor='none', alpha=0.5)
-            
-            # Model
-            h4, = ax.plot(xs, k_resample*xs + b_resample, color='k', label='Best Fit', zorder=3)
-        
-        
-        elif model_type=='power':
-            mass_log = np.log10(mass_value)
-            vrel_log = np.log10(vrel_value)
-            e_mass_log = 1/(np.log(10) * mass_value) * e_mass_value
-            e_vrel_log = 1/(np.log(10) * vrel_value) * e_vrel_value
-            h1 = ax.errorbar(
-                mass_value, vrel_value, 
-                xerr=np.array([mass_value - 10**(mass_log - e_mass_log), 10**(mass_log + e_mass_log) - mass_value]), 
-                yerr=np.array([vrel_value - 10**(vrel_log - e_vrel_log), 10**(vrel_log + e_vrel_log) - vrel_value]), 
-                fmt='.', 
-                markersize=6, markeredgecolor='none', markerfacecolor='C0', 
-                elinewidth=1, ecolor='C0', alpha=0.5,
-                zorder=2
-            )
-            
-            mass_avrg_log = np.log10(mass_binned_avrg)
-            vrel_avrg_log = np.log10(vrel_binned_avrg)
-            e_mass_avrg_log = 1/(np.log(10) * mass_binned_avrg) * e_mass_binned
-            e_vrel_avrg_log = 1/(np.log(10) * vrel_binned_avrg) * e_vrel_binned
-            # Running Average
-            h2 = ax.errorbar(
-                mass_binned_avrg, vrel_binned_avrg, 
-                xerr=np.array([mass_binned_avrg - 10**(mass_avrg_log - e_mass_avrg_log), 10**(mass_avrg_log + e_mass_avrg_log) - mass_binned_avrg]), 
-                yerr=np.array([vrel_binned_avrg - 10**(vrel_avrg_log - e_vrel_avrg_log), 10**(vrel_avrg_log + e_vrel_avrg_log) - vrel_binned_avrg]), 
-                fmt='.', 
-                markersize=8, markeredgecolor='none', markerfacecolor='C3', 
-                elinewidth=1.2, ecolor='C3', 
-                alpha=0.8,
-                zorder=4
-            )
-            
-            # Running Average Fill
-            f2 = ax.fill_between(mass_binned_avrg, 10**(vrel_avrg_log - e_vrel_avrg_log), 10**(vrel_avrg_log + e_vrel_avrg_log), color='C3', edgecolor='none', alpha=0.5)
-            
-            # Model
-            h4, = ax.plot(xs, 10**b_resample * xs**k_resample, color='k', label='Best Fit', zorder=3)
-            
-            plt.loglog()
-        
-        
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        
-        if model_type=='power':
-            if xlim[0] < 0.018: xlim = (0.018, xlim[1])
-            if ylim[0] < 0.3: ylim = (0.3, ylim[1])
-        
-        # Plot KDE and contours
-        # see https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_demo.html
-        
-        # Choose colormap
-        cmap = plt.cm.Blues
-
-        # set from white to half-blue
-        my_cmap = cmap(np.linspace(0, 0.5, cmap.N))
-
-        # Create new colormap
-        my_cmap = ListedColormap(my_cmap)
-        
-        ax.set_facecolor(cmap(0))
-        im = ax.imshow(Z, cmap=my_cmap, alpha=0.8, extent=[0, mass_value.max(), 0, vrel_value.max()], zorder=0, aspect='auto')
-        cs = ax.contour(X, Y, np.flipud(Z), levels=np.percentile(Z, [kde_percentile]), alpha=0.5, zorder=1)
-        
-        # contour label
-        fmt = {cs.levels[0]: f'{kde_percentile}%'}
-        ax.clabel(cs, cs.levels, inline=True, fmt=fmt, fontsize=10)
-        h3 = Line2D([0], [0], color=cs.collections[0].get_edgecolor()[0])
-        
-        cax = fig.colorbar(im, fraction=0.1, shrink=1, pad=0.03)
-        cax.set_label(label='KDE', size=12, labelpad=10)
-        
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-        
-        handles, labels = ax.get_legend_handles_labels()
-        handles = [h1, (h2, f2), h3, h4]
-        labels = [
-            f'Sources - {model_name} Model',
-            'Running Average',
-            f"KDE's {kde_percentile}-th Percentile"
-        ]
-        
-        labels.append(f'Best Fit:\n$k={k_resample:.2f}\pm{k_e:.2f}$\n$b={b_resample:.2f}\pm{b_e:.2f}$')
-        
-        ax.legend(handles, labels)
-        
-        
-        def sci_notation(number, sig_fig=2):
-            ret_string = "{0:.{1:d}e}".format(number, sig_fig)
-            a, b = ret_string.split("e")
-            # remove leading "+" and strip leading zeros
-            b = int(b)
-            return f'{a}*10^{{{str(b)}}}'
-        
-        at = AnchoredText(
-            f'$p={sci_notation(p)}$\n$R={R_resample:.2f}\pm{R_e:.2f}$', 
-            prop=dict(size=10), frameon=True, loc='lower right'
-        )
-        at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
-        at.patch.set_alpha(0.8)
-        at.patch.set_edgecolor((0.8, 0.8, 0.8))
-        ax.add_artist(at)
-        
-        ax.set_xlabel('Mass $(M_\odot)$', fontsize=12)
-        ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
-        
+        # plot
         if save_path:
-            if save_path.endswith('png'):
-                plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight', transparent=True)
+            ############# Running average #############
+            # equally grouped
+            if bin_method == 'equally grouped':
+                nbins = kwargs.get('nbins', 7)
+                sources_in_bins = [len(mass) // nbins + (1 if x < len(valid_idx) % nbins else 0) for x in range (nbins)]
+                division_idx = np.cumsum(sources_in_bins)[:-1] - 1
+                mass_sorted = np.sort(mass)
+                mass_borders = np.array([np.nanmin(mass).to(u.solMass).value - 1e-3, *(mass_sorted[division_idx] + mass_sorted[division_idx + 1]).to(u.solMass).value/2, np.nanmax(mass).to(u.solMass).value])
+            
+            # equally spaced
+            elif bin_method == 'equally spaced':
+                nbins = kwargs.get('nbins', 5)
+                mass_borders = np.linspace(np.nanmin(mass).to(u.solMass).value - 1e-3, np.nanmax(mass).to(u.solMass).value, nbins + 1)
+            
             else:
-                plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight')
+                raise ValueError("bin_method must be one of the following: ['equally grouped', 'equally spaced']")
+            
+            mass_value      = mass.to(u.solMass).value
+            e_mass_value    = e_mass.to(u.solMass).value
+            vrel_value      = vrel.to(u.km/u.s).value
+            e_vrel_value    = e_vrel.to(u.km/u.s).value
+            mass_binned_avrg    = np.empty(nbins)
+            e_mass_binned       = np.empty(nbins)
+            mass_weight = 1 / e_mass_value**2
+            vrel_binned_avrg    = np.empty(nbins)
+            e_vrel_binned       = np.empty(nbins)
+            vrel_weight = 1 / e_vrel_value**2
+            
+            for i, min_mass, max_mass in zip(range(nbins), mass_borders[:-1]*u.solMass, mass_borders[1:]*u.solMass):
+                idx = (mass > min_mass) & (mass <= max_mass)
+                mass_weight_sum = sum(mass_weight[idx])
+                mass_binned_avrg[i] = np.average(mass_value[idx], weights=mass_weight[idx])
+                e_mass_binned[i] = 1/mass_weight_sum * sum(mass_weight[idx] * e_mass_value[idx])
+                
+                vrel_weight_sum = sum(vrel_weight[idx])
+                vrel_binned_avrg[i] = np.average(vrel_value[idx], weights=vrel_weight[idx])
+                e_vrel_binned[i] = 1/vrel_weight_sum * sum(vrel_weight[idx] * e_vrel_value[idx])
+            
+            
+            ########## Kernel Density Estimation in Linear Space ##########
+            # see https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+            resolution = 200
+            X, Y = np.meshgrid(np.linspace(0, mass_value.max(), resolution), np.linspace(0, vrel_value.max(), resolution))
+            positions = np.vstack([X.T.ravel(), Y.T.ravel()])
+            values = np.vstack([mass_value, vrel_value])
+            kernel = stats.gaussian_kde(values)
+            Z = np.rot90(np.reshape(kernel(positions).T, X.shape))
+            
+            
+            ########## Linear Fit Plot - Original Error ##########
+            xs = np.linspace(mass_value.min(), mass_value.max(), 100)
+            
+            fig, ax = plt.subplots(figsize=(6, 4.5), dpi=300)
+            
+            if model_type=='linear':
+                # Errorbar with uniform transparency
+                h1 = ax.errorbar(
+                    mass_value, vrel_value, xerr=e_mass_value, yerr=e_vrel_value,
+                    fmt='.', 
+                    markersize=6, markeredgecolor='none', markerfacecolor='C0', 
+                    elinewidth=1, ecolor='C0', alpha=0.5,
+                    zorder=2
+                )
+                
+                # Running Average
+                h2 = ax.errorbar(
+                    mass_binned_avrg, vrel_binned_avrg, 
+                    xerr=e_mass_binned, 
+                    yerr=e_vrel_binned, 
+                    fmt='.', 
+                    markersize=8, markeredgecolor='none', markerfacecolor='C3', 
+                    elinewidth=1.2, ecolor='C3', 
+                    alpha=0.8,
+                    zorder=4
+                )
+            
+                # Running Average Fill
+                f2 = ax.fill_between(mass_binned_avrg, vrel_binned_avrg - e_vrel_binned, vrel_binned_avrg + e_vrel_binned, color='C3', edgecolor='none', alpha=0.5)
+                
+                # Model
+                h4, = ax.plot(xs, k_resample*xs + b_resample, color='k', label='Best Fit', zorder=3)
+            
+            
+            elif model_type=='power':
+                mass_log = np.log10(mass_value)
+                vrel_log = np.log10(vrel_value)
+                e_mass_log = 1/(np.log(10) * mass_value) * e_mass_value
+                e_vrel_log = 1/(np.log(10) * vrel_value) * e_vrel_value
+                h1 = ax.errorbar(
+                    mass_value, vrel_value, 
+                    xerr=np.array([mass_value - 10**(mass_log - e_mass_log), 10**(mass_log + e_mass_log) - mass_value]), 
+                    yerr=np.array([vrel_value - 10**(vrel_log - e_vrel_log), 10**(vrel_log + e_vrel_log) - vrel_value]), 
+                    fmt='.', 
+                    markersize=6, markeredgecolor='none', markerfacecolor='C0', 
+                    elinewidth=1, ecolor='C0', alpha=0.5,
+                    zorder=2
+                )
+                
+                mass_avrg_log = np.log10(mass_binned_avrg)
+                vrel_avrg_log = np.log10(vrel_binned_avrg)
+                e_mass_avrg_log = 1/(np.log(10) * mass_binned_avrg) * e_mass_binned
+                e_vrel_avrg_log = 1/(np.log(10) * vrel_binned_avrg) * e_vrel_binned
+                # Running Average
+                h2 = ax.errorbar(
+                    mass_binned_avrg, vrel_binned_avrg, 
+                    xerr=np.array([mass_binned_avrg - 10**(mass_avrg_log - e_mass_avrg_log), 10**(mass_avrg_log + e_mass_avrg_log) - mass_binned_avrg]), 
+                    yerr=np.array([vrel_binned_avrg - 10**(vrel_avrg_log - e_vrel_avrg_log), 10**(vrel_avrg_log + e_vrel_avrg_log) - vrel_binned_avrg]), 
+                    fmt='.', 
+                    markersize=8, markeredgecolor='none', markerfacecolor='C3', 
+                    elinewidth=1.2, ecolor='C3', 
+                    alpha=0.8,
+                    zorder=4
+                )
+                
+                # Running Average Fill
+                f2 = ax.fill_between(mass_binned_avrg, 10**(vrel_avrg_log - e_vrel_avrg_log), 10**(vrel_avrg_log + e_vrel_avrg_log), color='C3', edgecolor='none', alpha=0.5)
+                
+                # Model
+                h4, = ax.plot(xs, 10**b_resample * xs**k_resample, color='k', label='Best Fit', zorder=3)
+                
+                plt.loglog()
+            
+            
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            
+            if model_type=='power':
+                if xlim[0] < 0.018: xlim = (0.018, xlim[1])
+                if ylim[0] < 0.3: ylim = (0.3, ylim[1])
+            
+            # Plot KDE and contours
+            # see https://matplotlib.org/stable/gallery/images_contours_and_fields/contour_demo.html
+            
+            # Choose colormap
+            cmap = plt.cm.Blues
+
+            # set from white to half-blue
+            my_cmap = cmap(np.linspace(0, 0.5, cmap.N))
+
+            # Create new colormap
+            my_cmap = ListedColormap(my_cmap)
+            
+            ax.set_facecolor(cmap(0))
+            im = ax.imshow(Z, cmap=my_cmap, alpha=0.8, extent=[0, mass_value.max(), 0, vrel_value.max()], zorder=0, aspect='auto')
+            cs = ax.contour(X, Y, np.flipud(Z), levels=np.percentile(Z, [kde_percentile]), alpha=0.5, zorder=1)
+            
+            # contour label
+            fmt = {cs.levels[0]: f'{kde_percentile}%'}
+            ax.clabel(cs, cs.levels, inline=True, fmt=fmt, fontsize=10)
+            h3 = Line2D([0], [0], color=cs.collections[0].get_edgecolor()[0])
+            
+            cax = fig.colorbar(im, fraction=0.1, shrink=1, pad=0.03)
+            cax.set_label(label='KDE', size=12, labelpad=10)
+            
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            
+            handles, labels = ax.get_legend_handles_labels()
+            handles = [h1, (h2, f2), h3, h4]
+            labels = [
+                f'Sources - {model_name} Model',
+                'Running Average',
+                f"KDE's {kde_percentile}-th Percentile"
+            ]
+            
+            labels.append(f'Best Fit:\n$k={k_resample:.2f}\pm{e_k_resample:.2f}$\n$b={b_resample:.2f}\pm{e_b_resample:.2f}$')
+            
+            ax.legend(handles, labels)
+            
+            
+            def sci_notation(number, sig_fig=2):
+                ret_string = "{0:.{1:d}e}".format(number, sig_fig)
+                a, b = ret_string.split("e")
+                # remove leading "+" and strip leading zeros
+                b = int(b)
+                return f'{a}*10^{{{str(b)}}}'
+            
+            at = AnchoredText(
+                f'$p={sci_notation(p)}$\n$R={R_resample:.2f}\pm{e_R_resample:.2f}$', 
+                prop=dict(size=10), frameon=True, loc='lower right'
+            )
+            at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+            at.patch.set_alpha(0.8)
+            at.patch.set_edgecolor((0.8, 0.8, 0.8))
+            ax.add_artist(at)
+            
+            ax.set_xlabel('Mass $(M_\odot)$', fontsize=12)
+            ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
+            
+            if save_path:
+                if save_path.endswith('png'):
+                    plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight', transparent=True)
+                else:
+                    plt.savefig(f'{save_path}/{model_name}-{model_type}-{radius.value:.2f}pc.pdf', bbox_inches='tight')
+            
+            if show_figure:
+                plt.show()
+            else:
+                plt.close()
         
-        if show_figure:
-            plt.show()
         else:
-            plt.close()
+            pass    # no plot
         
         ########## Updating the original DataFrame ##########
         if update_self:
@@ -764,7 +815,7 @@ class StarCluster:
         else:
             pass
         
-        return mass, vrel, e_mass, e_vrel
+        return mass, vrel, e_mass, e_vrel, fit_result
 
 
 
@@ -805,6 +856,10 @@ class ONC(StarCluster):
         self.e_mass_Palla = self.data['e_mass_Palla']
         self.mass_Hillenbrand = self.data['mass_Hillenbrand']
         self.sep_to_trapezium = self.data['sep_to_trapezium']
+    
+    
+    def copy(self):
+        return copy.deepcopy(self)
     
     
     def preprocessing(self):
@@ -926,7 +981,14 @@ class ONC(StarCluster):
         # Calculate velocity
         self.calculate_velocity(self.data['pmRA'], self.data['e_pmRA'], self.data['pmDE'], self.data['e_pmDE'], self.data['rv'], self.data['e_rv'], dist=389*u.pc, e_dist=3*u.pc)
         
+        # 2D or 3D SkyCoord
+        # 2D
         super().set_coord(ra=self.data['RAJ2000'], dec=self.data['DEJ2000'], pmRA=self.data['pmRA'], pmDE=self.data['pmDE'], rv=self.data['rv'], distance=389*u.pc)
+        
+        # Gaia distance
+        # self.data = self.data[~np.isnan(self.data['dist'])]
+        # super().set_coord(ra=self.data['RAJ2000'], dec=self.data['DEJ2000'], pmRA=self.data['pmRA'], pmDE=self.data['pmDE'], rv=self.data['rv'], distance=self.data['dist'])
+                
         self.data['sep_to_trapezium'] = self.coord.separation(trapezium)
         
         trapezium_only = (self.data['sci_frames'].mask) & (self.data['APOGEE'].mask)
@@ -1540,11 +1602,11 @@ def vdisp_all(sources, save_path, MCMC=True):
     
     vdisps_all = fit_vdisp(
         sources_new,
-        save_path=f'{save_path}/all/', 
+        save_path=f'{save_path}/all', 
         MCMC=MCMC
     )
     
-    vdisp_1d = [0, 0]
+    vdisp_1d = np.array([0, 0])
     
     vdisp_1d[0] = ((vdisps_all.sigma_RA[0]**2 + vdisps_all.sigma_DE[0]**2 + vdisps_all.sigma_rv[0]**2)/3)**(1/2)
     vdisp_1d[1] = np.sqrt(1 / (3*vdisp_1d[0])**2 * ((vdisps_all.sigma_RA[0] * vdisps_all.sigma_RA[1])**2 + (vdisps_all.sigma_DE[0] * vdisps_all.sigma_DE[1])**2 + (vdisps_all.sigma_rv[0] * vdisps_all.sigma_rv[1])**2))
@@ -1743,9 +1805,10 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
-    fig, axs = plt.subplots(3, 2, figsize=(8, 9), dpi=300, sharex='col', sharey='row')
+    fig, axs = plt.subplots(1, 1, figsize=(4, 3), dpi=300, sharex='col', sharey='row')
     
-    for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
+    # for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
+    for ax, direction, sigma_xx in zip([axs], ['1d'], [sigma_1d]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1756,6 +1819,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
         if direction=='1d':
             ax.set_ylabel(r'$\sigma_{\mathrm{1D, rms}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+            ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
         elif direction=='pm':
             ax.set_ylabel(r'$\sigma_{\mathrm{pm, rms}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         elif direction=='rv':
@@ -1766,7 +1830,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         
         for i in range(len(sources_in_bins)):
             ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
-        ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
+        red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
         
         # pc axis
         ax2 = ax.twiny()
@@ -1774,7 +1838,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
         if direction=='1d':
             ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
-            ax2.set_title('Equally Spaced\n', fontsize=15)
+            # ax2.set_title('Equally Spaced\n', fontsize=15)
         else:
             ax2.tick_params(
                 axis='x',
@@ -1783,74 +1847,79 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
             )
     
     
-    # Right: Equally Grouped
+    # # Right: Equally Grouped
     
-    if MCMC:
-        print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting...')
+    # if MCMC:
+    #     print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting...')
 
-    separation_borders, vdisps = vdisp_vs_sep_equally_grouped(sources, ngroups, save_path, MCMC)    
+    # separation_borders, vdisps = vdisp_vs_sep_equally_grouped(sources, ngroups, save_path, MCMC)    
 
-    if MCMC:
-        print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting finished!')
+    # if MCMC:
+    #     print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting finished!')
 
-    # average separation within each bin.
-    separation_sources = np.array([np.mean(sources['sep_to_trapezium'][(sources['sep_to_trapezium'] > min_sep) & (sources['sep_to_trapezium'] <= max_sep)].to(u.arcmin).value) for min_sep, max_sep in zip(separation_borders[:-1], separation_borders[1:])])
+    # # average separation within each bin.
+    # separation_sources = np.array([np.mean(sources['sep_to_trapezium'][(sources['sep_to_trapezium'] > min_sep) & (sources['sep_to_trapezium'] <= max_sep)].to(u.arcmin).value) for min_sep, max_sep in zip(separation_borders[:-1], separation_borders[1:])])
 
-    sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    # sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
     
-    # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
-    sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
-    sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
-    sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
+    # # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
+    # sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
+    # sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
+    # sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
 
-    sigma_pm = np.empty_like(sigma_RA)
-    sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
-    sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
+    # sigma_pm = np.empty_like(sigma_RA)
+    # sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
+    # sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
 
-    sigma_1d = np.empty_like(sigma_RA)
-    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
-    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
+    # sigma_1d = np.empty_like(sigma_RA)
+    # sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
+    # sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
 
-    for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
-        # arcmin axis
-        ax.set_xlim((0, 4))
-        ax.set_ylim((0.5, 5.5))
-        ax.tick_params(axis='both', labelsize=12)
-        solid_line, = ax.plot(model_separations_arcmin, sigma, color='k')
-        dotted_line, = ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
-        ax.plot(model_separations_arcmin, sigma_lo, color='k', linestyle='dotted')
-        gray_fill = ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
-        if direction=='rv':
-            ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
+    # # for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
+    # for ax, direction, sigma_xx in zip([axs[1]], ['1d'], [sigma_1d]):
+    #     # arcmin axis
+    #     ax.set_xlim((0, 4))
+    #     ax.set_ylim((0.5, 5.5))
+    #     ax.tick_params(axis='both', labelsize=12)
+    #     solid_line, = ax.plot(model_separations_arcmin, sigma, color='k')
+    #     dotted_line, = ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
+    #     ax.plot(model_separations_arcmin, sigma_lo, color='k', linestyle='dotted')
+    #     gray_fill = ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
+    #     if direction=='1d':
+    #         ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
         
-        errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
+    #     errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
         
-        for i in range(len(sources_in_bins)):
-            ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
-        red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
+    #     for i in range(len(sources_in_bins)):
+    #         ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+    #     red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
         
-        # arcmin axis
-        ax2 = ax.twiny()
-        ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
-        ax2.tick_params(axis='both', labelsize=12)
-        if direction=='1d':
-            ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
-            ax2.set_title('Equally Grouped\n', fontsize=15)
-        else:
-            ax2.tick_params(
-                axis='x',
-                top=False,
-                labeltop=False
-            )
+    #     # arcmin axis
+    #     ax2 = ax.twiny()
+    #     ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
+    #     ax2.tick_params(axis='both', labelsize=12)
+    #     if direction=='1d':
+    #         ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
+    #         ax2.set_title('Equally Grouped\n', fontsize=15)
+    #     else:
+    #         ax2.tick_params(
+    #             axis='x',
+    #             top=False,
+    #             labeltop=False
+    #         )
     
-    axs[0, 1].legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
+    # axs[0, 1].legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
+    # axs[-1, 0].set_xticks([0, 1, 2, 3])
+    # axs[-1, 1].set_xticks([0, 1, 2, 3, 4])
     
-    axs[-1, 0].set_xticks([0, 1, 2, 3])
-    axs[-1, 1].set_xticks([0, 1, 2, 3, 4])
+    axs.legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
+    axs.set_xticks([0, 1, 2, 3])
+    axs.set_xticks([0, 1, 2, 3, 4])
+    
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.pdf', bbox_inches='tight')
-    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.png', bbox_inches='tight', transparent=True)
+    # plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.pdf', bbox_inches='tight')
+    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep - 1D.png', bbox_inches='tight', transparent=True)
     plt.show()
 
 
@@ -2327,11 +2396,171 @@ def mean_mass_vs_separation(sources:QTable, nbins:int, ngroups:int, model_name:s
     plt.show()
 
 
+
+
+
+def vrel_vs_mass_simple(cluster, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, min_rv=-np.inf*u.km/u.s, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, update_self=False, save_path=None, suppress_output=True):
+    """Velocity relative to the neighbors of each source within a radius vs mass.
+
+    Parameters
+    ----------
+    model_name : str
+        One of ['MIST', 'BHAC15', 'Feiden', 'Palla']
+    radius : astropy.Quantity, optional
+        Radius within which count as neighbors, by default 0.1*u.pc
+    model_func : str, optional
+        Format of model function: 'linear' or 'power'. V=k*M + b or V=A*M**k, by default 'linear'.
+    self_included : bool, optional
+        Include the source itself or not when calculating the center of mass velocity of its neighbors, by default True
+    min_rv : astropy quantity, optional
+        Maximum radial velocity, by default inf.
+    max_rv : astropy quantity, optional
+        Maximum radial velocity, by default inf.
+    max_rv_error : astropy quantity, optional
+        Maximum radial velocity error, by default 5
+    max_mass_error : astropy quantity, optional
+        Maximum mass error, by default 0.5
+    update_self : bool, optional
+        Update the original sources dataframe or not, by default False
+    save_path : str, optional
+        Save path, by default None
+    suppress_output: bool, optional
+        Suppress output or not, by default False
+
+    Returns
+    -------
+    fit_result
+        fit_result: dict with keys 'k', 'b', 'p', 'R'
+
+    Raises
+    ------
+    ValueError
+        bin_method must be one of 'equally spaced' or 'equally grouped'.
+    """
+    
+    if save_path:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+    
+    mass = cluster.data[f'mass_{model_name}']
+    e_mass = cluster.data[f'e_mass_{model_name}']
+    
+    constraint = \
+        (~np.isnan(cluster.data['pmRA'])) & (~np.isnan(cluster.data['pmDE'])) & \
+        (~np.isnan(mass)) & \
+        (e_mass <= max_mass_error) & \
+        (cluster.data['rv'] >= min_rv) & (cluster.data['rv'] <= max_rv) & \
+        (cluster.data['e_v'] <= max_v_error)
+    
+    sources_coord = cluster.coord[constraint]
+    
+    mass = mass[constraint]
+    e_mass = e_mass[constraint]
+    e_v = cluster.data['e_v'][constraint]
+    
+    ############# calculate vcom within radius #############
+    # v & vcom: n-by-3 velocity in cartesian coordinates
+    v = cluster.v_xyz.T[constraint, :]
+    vcom = np.empty((sum(constraint), 3))*u.km/u.s
+    e_vcom = np.empty(sum(constraint))*u.km/u.s
+    
+    # is_neighbor: boolean symmetric neighborhood matrix
+    is_neighbor = np.empty((len(sources_coord), len(sources_coord)), dtype=bool)
+    
+    for i, star in enumerate(sources_coord):
+        sep = star.separation_3d(sources_coord)
+        is_neighbor[i] = sep < radius
+        if not self_included:
+            is_neighbor[i, i] = False
+        # vel_com[i]: 1-by-3 center of mass velocity
+        vcom[i] = (mass[is_neighbor[i]] @ v[is_neighbor[i]]) / (sum(mass[is_neighbor[i]].to(u.solMass).value) * u.solMass)  # Ensure unit in case is_neighbor is empty
+    
+    n_neighbors = np.sum(is_neighbor, axis=1)
+    
+    # delete those without any neighbors
+    if self_included:
+        has_neighbor = n_neighbors > 1
+    else:
+        has_neighbor = n_neighbors > 0
+        
+    v = v[has_neighbor, :]
+    vcom = vcom[has_neighbor, :]
+    e_vcom = e_vcom[has_neighbor]
+    # is_neighbor = np.delete(is_neighbor, has_neighbor, axis=1)
+    is_neighbor = is_neighbor[has_neighbor, :][:, has_neighbor]
+    n_neighbors = n_neighbors[has_neighbor]
+    valid_idx = np.where(constraint)[0][has_neighbor]
+    
+    sources_coord = sources_coord[has_neighbor]
+    
+    mass = mass[has_neighbor]
+    e_mass = e_mass[has_neighbor]
+    e_v = e_v[has_neighbor]
+    
+    if not suppress_output:
+        print(f'Median neighbors in a group: {np.median(n_neighbors):.0f}')
+    
+    vrel_vector = v - vcom
+    vrel = np.linalg.norm(vrel_vector, axis=1)
+    
+    ############# Calculate vrel error #############
+    for i in range(len(sources_coord)):
+        vcom_e_j = [sum((vrel_vector[is_neighbor[i], j]/sum(mass[is_neighbor[i]]) * e_mass[is_neighbor[i]])**2 + (mass[is_neighbor[i]] / sum(mass[is_neighbor[i]]) * e_v[is_neighbor[i]])**2)**0.5 for j in range(3)]
+        e_vcom[i] = np.sqrt(sum([(vcom[i,j] / np.linalg.norm(vcom[i]) * vcom_e_j[j])**2 for j in range(3)]))
+    
+    e_vrel = np.sqrt(e_v**2 + e_vcom**2)
+    
+    
+    ############# Fit Original Data #############
+    result = linregress(mass, vrel)
+    k = result.slope
+    b = result.intercept
+    
+    ############# Resampling #############
+    R = np.corrcoef(mass.to(u.solMass).value, vrel.to(u.km/u.s).value)[1, 0]   # Pearson's R
+    
+    if model_type=='linear':
+        def model_func(x, k, b):
+            return k*x + b
+    elif model_type=='power':
+        def model_func(x, k, b):
+            return b*x**k
+    else:
+        raise ValueError(f"model_func must be one of 'linear' or 'power', not {model_func}.")
+        
+    # p-value
+    result = linregress(mass, vrel)
+    p = result.pvalue
+    
+    fit_result = {
+        'k': k,
+        'b': b,
+        'p': p,
+        'R': R
+    }
+    
+    
+    ########## Updating the original DataFrame ##########
+    if update_self:
+        print('Updating self...')
+        cluster.data[f'vrel_{model_name}'] = np.nan*vrel.unit
+        cluster.data[f'vrel_{model_name}'][valid_idx] = vrel
+        cluster.data[f'e_vrel_{model_name}'] = np.nan*e_vrel.unit
+        cluster.data[f'e_vrel_{model_name}'][valid_idx] = e_vrel
+        cluster.vrel = cluster.data[f'vrel_{model_name}']
+        cluster.e_vrel = cluster.data[f'e_vrel_{model_name}']
+    else:
+        pass
+    
+    return fit_result
+
+
+
+
 #################################################
 ################# Main Function #################
 #################################################
 MCMC = False
-resampling = False
 
 C0 = '#1f77b4'
 C1 = '#ff7f0e'
@@ -2349,7 +2578,7 @@ orion.set_attr()
 
 trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
-plot_skymaps(orion)
+# plot_skymaps(orion)
 
 # orion.coord_3d = SkyCoord(
 #     ra=orion.ra,
@@ -2374,6 +2603,15 @@ orion.compare_chris(save_path=f'{user_path}/ONC/figures/compare T22.pdf')
 #################################################
 ########### Relative Velocity vs Mass ###########
 #################################################
+resampling = 10000
+
+# distance matrix:
+distances = np.empty((orion.len, orion.len)) * u.pc
+for i in range(orion.len):
+    distances[i, :] = orion.coord[i].separation_3d(orion.coord)
+
+for test_radius in np.array([5, 10, 15, 20])*u.pc:
+    print(f'Median neighbors within {test_radius}: {np.median(np.sum((distances < test_radius) & (distances > 0), axis=1))}')
 
 model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
 radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
@@ -2388,7 +2626,7 @@ print(f'Mean difference in teff: {mean_diff:.2f}.')
 print(f'Maximum difference in teff: {maximum_diff:.2f}.')
 
 # teff offset simulation
-orion_mean_offset = copy.deepcopy(orion)
+orion_mean_offset = orion.copy()
 orion_mean_offset.data['teff_nirspao'] += mean_diff
 orion_mean_offset.teff = fillna(orion_mean_offset.data['teff_nirspao'], orion_mean_offset.data['teff_apogee'])
 
@@ -2402,42 +2640,42 @@ orion_mean_offset.set_attr()
 
 # for radius in radii:
 #     for model_name in model_names:
-        
 #         if radius == 0.1*u.pc:
 #             update_self = True
 #         else:
 #             update_self = False
-        
-#         mass, vrel, e_mass, e_vrel = orion.vrel_vs_mass(
-#             model_name=model_name,
-#             model_type=model_type,
-#             radius=radius,
-#             resampling=resampling,
-#             min_rv=min_rv,
-#             max_rv=max_rv,
-#             update_self=update_self,
-#             kde_percentile=84,
-#             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/{model_type}-{radius.value:.2f}pc'
-#         )
-        
-#         mass, vrel, e_mass, e_vrel = orion_mean_offset.vrel_vs_mass(
-#             model_name=model_name,
-#             model_type=model_type,
-#             radius=radius,
-#             resampling=resampling,
-#             min_rv=min_rv,
-#             max_rv=max_rv,
-#             update_self=False,
-#             kde_percentile=84,
-#             show_figure=False,
-#             save_path=f'{save_path}/vrel_results/{model_type}-mean-offset-{radius.value:.2f}pc'
-#         )
+#             mass, vrel, e_mass, e_vrel, fit_result = orion.vrel_vs_mass(
+#                 model_name=model_name,
+#                 model_type=model_type,
+#                 radius=radius,
+#                 resampling=resampling,
+#                 min_rv=min_rv,
+#                 max_rv=max_rv,
+#                 update_self=update_self,
+#                 kde_percentile=84,
+#                 show_figure=False,
+#                 suppress_output=True,
+#                 save_path=f'{save_path}/vrel_results/uniform_dist/{model_type}-{radius.value:.2f}pc'
+#             )
+            
+#             mass, vrel, e_mass, e_vrel, fit_result = orion_mean_offset.vrel_vs_mass(
+#                 model_name=model_name,
+#                 model_type=model_type,
+#                 radius=radius,
+#                 resampling=resampling,
+#                 min_rv=min_rv,
+#                 max_rv=max_rv,
+#                 update_self=False,
+#                 kde_percentile=84,
+#                 show_figure=False,
+#                 suppress_output=True,
+#                 save_path=f'{save_path}/vrel_results/uniform_dist/{model_type}-mean-offset-{radius.value:.2f}pc'
+#             )
 
 # orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
-
-model_name = 'MIST'
+# Make plot of k vs radius
+model_name = 'BHAC15'
 model_type = 'linear'
 ks = np.empty((2, len(radii)))
 ks_mean_offset = np.empty((2, len(radii)))
@@ -2456,18 +2694,158 @@ for i, radius in enumerate(radii):
 
 
 colors = ['C0', 'C3']
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(6, 4.5))
 blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
 red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
 blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
 red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
 
 hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+ax.set_xticks([0.05, 0.1, 0.15, 0.2, 0.25])
 ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
-ax.set_xlabel('Separation Limits of Neighbors (pc)')
-ax.set_ylabel('Slope of Linear Fit (k)')
-plt.savefig(f'{user_path}/ONC/figures/slope vs sep.pdf', bbox_inches='tight', transparent=True)
+ax.legend(handles=[(blue_errorbar, blue_fill), hline], labels=[f'{model_name} Model', 'Zero Slope'], fontsize=12, loc='lower right')
+ax.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
+ax.set_ylabel('Slope of Linear Fit (k)', fontsize=12)
+plt.savefig(f'{user_path}/ONC/figures/slope vs sep - ksm.pdf', bbox_inches='tight')
 plt.show()
+
+
+
+# Simulate Distance
+model_names = ['MIST']
+radii = [2, 3, 5, 10, 15, 20]*u.pc
+# Inverse CDF of Gaia distance
+valid_dist = orion.data['dist'][~np.isnan(orion.data['dist'])]
+valid_e_dist = orion.data['e_dist'][~np.isnan(orion.data['e_dist'])]
+p_dist = 1. * np.arange(len(valid_dist)) / (len(valid_dist) - 1)
+p_e_dist = 1. * np.arange(len(valid_e_dist)) / (len(valid_e_dist) - 1)
+dist_sorted = np.sort(valid_dist)
+e_dist_sorted = np.sort(valid_e_dist)
+inv_cdf_dist = interp1d(p_dist, dist_sorted)
+inv_cdf_e_dist = interp1d(p_e_dist, e_dist_sorted)
+
+Nsim = 1000
+
+# for radius in radii:
+#     for model_name in model_names:
+#         args_list = []
+#         args_list_offset = []
+#         update_self = False
+        
+#         ks = np.empty(Nsim)
+#         Rs = np.empty(Nsim)
+#         for i in tqdm(range(Nsim)):
+#             dist_simulate = inv_cdf_dist(np.random.uniform(low=0, high=1, size=orion.len)) * valid_dist.unit
+#             orion_simulate = orion.copy()
+#             orion_simulate.set_coord(ra=orion_simulate.data['RAJ2000'], dec=orion_simulate.data['DEJ2000'], pmRA=orion_simulate.data['pmRA'], pmDE=orion_simulate.data['pmDE'], rv=orion_simulate.data['rv'], distance=dist_simulate)
+#             orion_mean_offset_simulate = copy.deepcopy(orion_mean_offset)
+#             orion_mean_offset_simulate.set_coord(ra=orion_mean_offset_simulate.data['RAJ2000'], dec=orion_mean_offset_simulate.data['DEJ2000'], pmRA=orion_mean_offset_simulate.data['pmRA'], pmDE=orion_mean_offset_simulate.data['pmDE'], rv=orion_mean_offset_simulate.data['rv'], distance=dist_simulate)
+#             # cluster, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, min_rv=-np.inf*u.km/u.s, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, update_self=False, save_path=None, suppress_output=True
+#             args_list.append((orion_simulate, model_name, radius, model_type, True, min_rv, max_rv, 5.*u.km/u.s, 0.5*u.solMass, False, None, True))
+#             args_list_offset.append((orion_mean_offset_simulate, model_name, radius, model_type, True, min_rv, max_rv, 5.*u.km/u.s, 0.5*u.solMass, False, None, True))
+        
+#         with Pool(32) as pool:
+#             results = pool.starmap(vrel_vs_mass_simple, args_list)
+#             results_offset = pool.starmap(vrel_vs_mass_simple, args_list_offset)
+
+#         # Save simulate dist k and R: 
+#         if not os.path.exists(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc'):
+#             os.makedirs(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc')
+#         if not os.path.exists(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc'):
+#             os.makedirs(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc')
+        
+#         ks = np.array([result['k'] for result in results])
+#         Rs = np.array([result['R'] for result in results])
+#         ks_offset = np.array([result_offset['k'] for result_offset in results_offset])
+#         Rs_offset = np.array([result_offset['R'] for result_offset in results_offset])
+        
+#         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3))
+#         n, bins, _ = ax1.hist(ks, bins=20, histtype='step', label='k')
+#         ax1.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
+#         ax1.set_xlabel('k')
+#         ax1.set_ylabel('Counts')
+
+#         n, bins, _ = ax2.hist(Rs, bins=20, histtype='step', label='R')
+#         ax2.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
+#         ax2.set_xlabel('R')
+#         ax2.set_ylabel('Counts')
+#         plt.savefig(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc - k and R.pdf', bbox_inches='tight')
+#         plt.show()
+        
+#         # mean offset
+#         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3))
+#         n, bins, _ = ax1.hist(ks_offset, bins=20, histtype='step', label='k')
+#         ax1.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
+#         ax1.set_xlabel('k')
+#         ax1.set_ylabel('Counts')
+
+#         n, bins, _ = ax2.hist(Rs_offset, bins=20, histtype='step', label='R')
+#         ax2.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
+#         ax2.set_xlabel('R')
+#         ax2.set_ylabel('Counts')
+#         plt.savefig(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc - k and R.pdf', bbox_inches='tight')
+#         plt.show()
+
+#         with open(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
+#             file.write(f'k = {np.mean(ks)} ± {np.std(ks)}\n')
+#             file.write(f'R = {np.mean(Rs)} ± {np.std(Rs)}\n')
+#         with open(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
+#             file.write(f'k = {np.mean(ks_offset)} ± {np.std(ks_offset)}\n')
+#             file.write(f'R = {np.mean(Rs_offset)} ± {np.std(Rs_offset)}\n')
+
+
+# # Make plot of k vs radius
+# model_name = 'MIST'
+# model_type = 'linear'
+# radii = np.array([2, 3, 5, 10, 15, 20]) * u.pc
+# ks = np.empty((2, len(radii)))
+# Rs = np.empty((2, len(radii)))
+# ks_offset = np.empty((2, len(radii)))
+# Rs_offset = np.empty((2, len(radii)))
+
+# for i, radius in enumerate(radii):
+#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+#         raw = file.readlines()
+#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+#         raw_offset = file.readlines()
+    
+#     for line in raw:
+#         if line.startswith('k ='):
+#             ks[:, i] = np.array([eval(_) for _ in line.strip('k = \n').split(' ± ')])
+#         elif line.startswith('R ='):
+#             Rs[:, i] = np.array([eval(_) for _ in line.strip('R = \n').split(' ± ')])
+    
+#     for line in raw_offset:
+#         if line.startswith('k ='):
+#             ks_offset[:, i] = np.array([eval(_) for _ in line.strip('k = \n').split(' ± ')])
+#         elif line.startswith('R ='):
+#             Rs_offset[:, i] = np.array([eval(_) for _ in line.strip('R = \n').split(' ± ')])
+
+# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+# k_errorbar  = ax1.errorbar(radii.value, ks[0], yerr=ks[1], color='C0', fmt='o-', markersize=5, capsize=5, zorder=2)
+# k_fill      = ax1.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor='C0', alpha=0.4, zorder=1)
+# R_errorbar  = ax2.errorbar(radii.value, Rs[0], yerr=Rs[1], color='C0', fmt='o-', markersize=5, capsize=5, zorder=2)
+# R_fill      = ax2.fill_between(radii.value, y1=Rs[0]-Rs[1], y2=Rs[0]+Rs[1], edgecolor='none', facecolor='C0', alpha=0.4, zorder=1)
+
+# # k_offset_errorbar  = ax1.errorbar(radii.value, ks_offset[0], yerr=ks_offset[1], color='C3', fmt='o-', markersize=5, capsize=5, zorder=2)
+# # k_offset_fill      = ax1.fill_between(radii.value, y1=ks_offset[0]-ks_offset[1], y2=ks_offset[0]+ks_offset[1], edgecolor='none', facecolor='C3', alpha=0.4, zorder=1)
+# # R_offset_errorbar  = ax2.errorbar(radii.value, Rs_offset[0], yerr=Rs_offset[1], color='C3', fmt='o-', markersize=5, capsize=5, zorder=2)
+# # R_offset_fill      = ax2.fill_between(radii.value, y1=Rs_offset[0]-Rs_offset[1], y2=Rs_offset[0]+Rs_offset[1], edgecolor='none', facecolor='C3', alpha=0.4, zorder=1)
+
+# k_hline = ax1.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+# R_hline = ax2.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+
+# ax1.legend(handles=[(k_errorbar, k_fill), k_hline], labels=[f'{model_name} Model k', 'Zero Slope'], fontsize=12)
+# ax2.legend(handles=[(R_errorbar, R_fill), R_hline], labels=[f'{model_name} Model R', 'Zero Slope'], fontsize=12)
+# ax1.set_xticks([5, 10, 15, 20])
+# ax2.set_xticks([5, 10, 15, 20])
+# ax1.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
+# ax1.set_ylabel('Slope of Linear Fit', fontsize=12)
+# ax2.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
+# ax2.set_ylabel('Correlation Coefficient', fontsize=12)
+# plt.subplots_adjust(wspace=0.3)
+# plt.savefig(f'{user_path}/ONC/figures/slope vs sep - simulate dist.pdf', bbox_inches='tight')
+# plt.show()
 
 
 #################################################
@@ -2502,18 +2880,89 @@ plt.show()
 # # vdisp vs sep
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
-# vdisp vs mass
+# # vdisp vs mass
 # vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
+# # simulate distance
+# # Inverse CDF of Gaia distance
+# valid_dist = orion.data['dist'][~np.isnan(orion.data['dist'])]
+# valid_e_dist = orion.data['e_dist'][~np.isnan(orion.data['e_dist'])]
+# p_dist = 1. * np.arange(len(valid_dist)) / (len(valid_dist) - 1)
+# p_e_dist = 1. * np.arange(len(valid_e_dist)) / (len(valid_e_dist) - 1)
+# dist_sorted = np.sort(valid_dist)
+# e_dist_sorted = np.sort(valid_e_dist)
+# inv_cdf_dist = interp1d(p_dist, dist_sorted)
+# inv_cdf_e_dist = interp1d(p_e_dist, e_dist_sorted)
+
+# Nsim = 1000
+# args_list = []
+# for i in tqdm(range(Nsim)):
+#     orion_simulate = copy.deepcopy(orion)
+#     dist_simulate = inv_cdf_dist(np.random.uniform(low=0, high=1, size=orion.len)) * valid_dist.unit
+#     e_dist_simulate = inv_cdf_e_dist(np.random.uniform(low=0, high=1, size=orion.len)) * valid_e_dist.unit
+#     orion_simulate.calculate_velocity(orion_simulate.data['pmRA'], orion_simulate.data['e_pmRA'], orion_simulate.data['pmDE'], orion_simulate.data['e_pmDE'], orion_simulate.data['rv'], orion_simulate.data['e_rv'], dist=dist_simulate, e_dist=e_dist_simulate)
+#     rv_constraint = ((
+#         abs(orion_simulate.rv - np.nanmean(orion_simulate.rv)) <= 3*np.nanstd(orion_simulate.rv)
+#         ) | (
+#             trapezium_only
+#     ))
+#     args_list.append((orion_simulate.data[rv_constraint], None, True, False, 100, 300))
+
+# with Pool(64) as pool:
+#     results = pool.starmap(fit_vdisp, args_list)
+
+# sigma_RAs = np.array([result['sigma_RA'] for result in results])
+# sigma_DEs = np.array([result['sigma_DE'] for result in results])
+# sigma_rvs = np.array([result['sigma_rv'] for result in results])
+
+# sigma_3ds = np.empty((Nsim, 2))
+# sigma_3ds[:, 0] = np.array([((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)**(1/2) for sigma_RA, sigma_DE, sigma_rv in zip(sigma_RAs, sigma_DEs, sigma_rvs)])
+# sigma_3ds[:, 1] = np.array([np.sqrt(1 / (3*vdisp_3d)**2 * ((sigma_RA[0] * sigma_RA[1])**2 + (sigma_DE[0] * sigma_DE[1])**2 + (sigma_rv[0] * sigma_rv[1])**2)) for vdisp_3d, sigma_RA, sigma_DE, sigma_rv in zip(sigma_3ds[:, 0], sigma_RAs, sigma_DEs, sigma_rvs)])
+
+# if not os.path.exists(f'{save_path}/vdisp_results/simulate_dist'):
+#     os.makedirs(f'{save_path}/vdisp_results/simulate_dist')
+
+# np.save(f'{save_path}/vdisp_results/simulate_dist/sigma_RA.npy', sigma_RAs)
+# np.save(f'{save_path}/vdisp_results/simulate_dist/sigma_DE.npy', sigma_DEs)
+# np.save(f'{save_path}/vdisp_results/simulate_dist/sigma_rv.npy', sigma_rvs)
+# np.save(f'{save_path}/vdisp_results/simulate_dist/sigma_3d.npy', sigma_3ds)
+
+sigma_RAs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_RA.npy')
+sigma_DEs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_DE.npy')
+sigma_rvs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_rv.npy')
+sigma_3ds = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_3d.npy')
+
+with open(f'{save_path}/vdisp_results/simulate_dist/vdisps.txt', 'w') as file:
+    file.write(f'σ_RA = {np.mean(sigma_RAs[:, 0])} ± {np.std(sigma_RAs[:, 0])}\n')
+    file.write(f'σ_DE = {np.mean(sigma_DEs[:, 0])} ± {np.std(sigma_DEs[:, 0])}\n')
+    file.write(f'σ_rv = {np.mean(sigma_rvs[:, 0])} ± {np.std(sigma_rvs[:, 0])}\n')
+    file.write(f'σ_3d = {np.mean(sigma_3ds[:, 0])} ± {np.std(sigma_3ds[:, 0])}')
+
+with open(f'{save_path}/vdisp_results/all/mcmc_params.txt', 'r') as file:
+    raw = file.readlines()
+
+for line in raw:
+    if line.startswith('σ_1D:'):
+        sigma_1d = eval(line.strip('σ_1D:\t\n'))
+
+fig, ax = plt.subplots()
+n, bins, patches = ax.hist(sigma_3ds[:, 0], bins=20, histtype='step')
+red_vline = ax.vlines(sigma_1d[0], ymin=0, ymax=max(n), ls='--', color='C3')
+red_fill = ax.fill_betweenx(np.array([0, max(n)]), x1=np.array([sigma_1d[0]-sigma_1d[1]]*2), x2=np.array([sigma_1d[0]+sigma_1d[1]]*2), color='C3', alpha=0.3)
+ax.set_xlabel(r'$\sigma_{\mathrm{3D}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+ax.set_ylabel('Counts')
+ax.legend([patches[0], (red_vline, red_fill)], ['Simulate Distance', '1D'])
+plt.savefig(f'{user_path}/ONC/figures/vdisp_simulate.pdf', bbox_inches='tight')
+plt.show()
 
 
-# #################################################
-# ################ Mass Segregation ###############
-# #################################################
+# # #################################################
+# # ################ Mass Segregation ###############
+# # #################################################
 
-lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
-lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
+# lambda_msr_with_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=True, save_path=f'{user_path}/ONC/figures/MSR-MIST-all.pdf')
+# lambda_msr_no_trapezium = mass_segregation_ratio(orion.data, model_name='MIST', use_literature_trapezium_mass=False, save_path=f'{user_path}/ONC/figures/MSR-MIST-no trapezium.pdf')
 
-# mean_mass_vs_separation(orion.data[~trapezium_only], nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
+# # mean_mass_vs_separation(orion.data[~trapezium_only], nbins=10, ngroups=10, model_name='MIST', save_path=f'{user_path}/ONC/figures/mass vs separation - MIST.pdf')
 
-print('--------------------Finished--------------------')
+# print('--------------------Finished--------------------')
