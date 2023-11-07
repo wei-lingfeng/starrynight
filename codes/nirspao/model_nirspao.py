@@ -426,7 +426,6 @@ def model_nirspao(infos:dict, orders=[32, 33], initial_mcmc=True, finetune=True,
         sci_spec.flux = ma.average(ma.array([_.flux for _ in sci_abba]), weights=1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
         # noise weighted averaged noise: sqrt(1 / Σ(1/σi^2))
         sci_spec.noise = ma.sqrt(1 / ma.sum(1/ma.array([_.noise for _ in sci_abba])**2, axis=0))
-        # sci_spec.noise = ma.sum(1/ma.array([_.noise for _ in sci_abba]), axis=0) / ma.sum(1/ma.array([_.noise for _ in sci_abba])**2, axis=0)
         sci_spec.pixel.mask = sci_spec.flux.mask
         sci_spec.wave.mask = sci_spec.flux.mask
 
