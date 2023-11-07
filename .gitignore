@@ -35,3 +35,4 @@ temp*
 /models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_basic.iso
 /models/MIST/MIST_v1.2_feh_p0.00_afe_p0.0_vvcrit0.0_UBVRIplus.iso.cmd
 /models/Palla/palla.mass
+catalogs/fix.py
