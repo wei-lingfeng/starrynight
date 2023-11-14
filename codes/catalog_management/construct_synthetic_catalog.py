@@ -576,7 +576,7 @@ def fit_mass(teff, e_teff):
         **DAntona_Fit.fit(teff)
     })
     
-    result = result.round(2)
+    result = result.round(5)
     
     mapping = {key: u.solMass for key in result.keys()}
     result = QTable.from_pandas(result, units=mapping)
@@ -990,6 +990,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         'pmRA_gaia':3, 'e_pmRA_gaia':3, 'pmDE_gaia':3, 'e_pmDE_gaia':3, 
         'plx':4, 'e_plx':4, 'Gmag':6, 'e_Gmag':6
     })
+    # consistent with their original tables. Gaia DR3 consistent with https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=I/355/gaiadr3.
     
     sources_epoch_combined = merge_multiepoch(sources)
     
