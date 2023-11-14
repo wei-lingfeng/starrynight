@@ -8,8 +8,10 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import matplotlib.ticker as mticker
+import matplotlib.patches as mpatches
 from typing import Tuple
 from scipy import stats
+from scipy.stats import norm
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from scipy.sparse import csr_matrix
@@ -2040,7 +2042,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     if MCMC:
         print(f'{ngroups}-binned equally grouped velocity dispersion vs mass fitting...')
 
-    mass_borders, vdisps = vdisp_vs_mass_equally_grouped(sources, model_name, ngroups, save_path, MCMC)    
+    mass_borders, vdisps = vdisp_vs_mass_equally_grouped(sources, model_name, ngroups, save_path, MCMC)
 
     if MCMC:
         print(f'{ngroups}-binned equally grouped velocity dispersion vs mass fitting finished!')
@@ -2052,7 +2054,8 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
         mass_sources.append(np.average(sources[f'mass_{model_name}'][bin_idx].value, weights=1/sources[f'e_mass_{model_name}'][bin_idx].value**2))
     mass_sources = np.array(mass_sources)
     
-    sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    # sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    sources_in_bins = [len(_) for _ in np.array_split(np.arange(len(sources)), ngroups)]
     
     # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
     sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
@@ -2068,13 +2071,13 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
     
-    fig, axs = plt.subplots(1, 3, figsize=(10, 3), sharey=True)
+    fig, axs = plt.subplots(1, 3, figsize=(10, 2.8), sharey=True)
     for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
         if direction=='1d':
-            ax.set_title('$\sigma_{\mathrm{1D, rms}}$', fontsize=15)
+            ax.set_title('$\sigma_\mathrm{1D_{3D}}$', fontsize=15)
             ax.set_ylabel(r'$\sigma$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         elif direction=='pm':
-            ax.set_title('$\sigma_{\mathrm{pm, rms}}$', fontsize=15)
+            ax.set_title('$\sigma_\mathrm{1D_{2D}}$', fontsize=15)
             ax.set_xlabel(f'{model_name} Mass ($M_\odot$)', fontsize=15, labelpad=10)
         elif direction=='rv':
             ax.set_title('$\sigma_{\mathrm{RV}}$', fontsize=15)
@@ -2090,7 +2093,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
         ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
         ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
         ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
-        ax.set_xticks([0.2, 0.4, 0.6, 0.8, 1])
+        # ax.set_xticks([0.3, 0.5, 0.8, 1])
         ax.tick_params(axis='both', which='major', labelsize=12)
 
     axs[0].legend(handles=[(errorbar, fill)], labels=['Measured Velocity Dispersion'], fontsize=12, loc='upper left')
@@ -2594,10 +2597,10 @@ trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 # fig = orion.plot_3d()
 # fig.write_html(f'{user_path}/ONC/figures/sky 3d.html')
 
-orion.plot_pm_rv(save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
-orion.pm_angle_distribution(save_path=f'{user_path}/ONC/figures/pm direction.pdf')
-orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
-orion.compare_chris(save_path=f'{user_path}/ONC/figures/compare T22.pdf')
+# orion.plot_pm_rv(save_path=f'{user_path}/ONC/figures/3D kinematics.pdf')
+# orion.pm_angle_distribution(save_path=f'{user_path}/ONC/figures/pm direction.pdf')
+# orion.compare_mass(save_path=f'{user_path}/ONC/figures/mass comparison.pdf')
+# orion.compare_chris(save_path=f'{user_path}/ONC/figures/compare T22.pdf')
 
 
 #################################################
@@ -2610,8 +2613,8 @@ distances = np.empty((orion.len, orion.len)) * u.pc
 for i in range(orion.len):
     distances[i, :] = orion.coord[i].separation_3d(orion.coord)
 
-for test_radius in np.array([5, 10, 15, 20])*u.pc:
-    print(f'Median neighbors within {test_radius}: {np.median(np.sum((distances < test_radius) & (distances > 0), axis=1))}')
+# for test_radius in np.array([5, 10, 15, 20])*u.pc:
+#     print(f'Median neighbors within {test_radius}: {np.median(np.sum((distances < test_radius) & (distances > 0), axis=1))}')
 
 model_names = ['MIST', 'BHAC15', 'Feiden', 'Palla']
 radii = [0.05, 0.1, 0.15, 0.2, 0.25]*u.pc
@@ -2674,57 +2677,56 @@ orion_mean_offset.set_attr()
 
 # orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
-# Make plot of k vs radius
-model_name = 'BHAC15'
-model_type = 'linear'
-ks = np.empty((2, len(radii)))
-ks_mean_offset = np.empty((2, len(radii)))
+# # Make plot of k vs radius
+# model_name = 'MIST'
+# model_type = 'linear'
+# ks = np.empty((2, len(radii)))
+# ks_mean_offset = np.empty((2, len(radii)))
 
-for i, radius in enumerate(radii):
-    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw = file.readlines()
-    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
-        raw_mean_offset = file.readlines()
+# for i, radius in enumerate(radii):
+#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/uniform_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+#         raw = file.readlines()
+#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/uniform_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+#         raw_mean_offset = file.readlines()
     
-    for line, line_mean_offset in zip(raw, raw_mean_offset):
-        if line.startswith('k_resample:\t'):
-            ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
-        if line_mean_offset.startswith('k_resample:\t'):
-            ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
+#     for line, line_mean_offset in zip(raw, raw_mean_offset):
+#         if line.startswith('k_resample:\t'):
+#             ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
+#         if line_mean_offset.startswith('k_resample:\t'):
+#             ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
 
 
-colors = ['C0', 'C3']
-fig, ax = plt.subplots(figsize=(6, 4.5))
-blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
-red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
-blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
-red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
+# colors = ['C0', 'C3']
+# fig, ax = plt.subplots(figsize=(6, 4.5))
+# blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
+# red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
+# blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
+# red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
 
-hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
-ax.set_xticks([0.05, 0.1, 0.15, 0.2, 0.25])
-ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
-ax.legend(handles=[(blue_errorbar, blue_fill), hline], labels=[f'{model_name} Model', 'Zero Slope'], fontsize=12, loc='lower right')
-ax.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
-ax.set_ylabel('Slope of Linear Fit (k)', fontsize=12)
-plt.savefig(f'{user_path}/ONC/figures/slope vs sep - ksm.pdf', bbox_inches='tight')
-plt.show()
-
+# hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+# ax.set_xticks([0.05, 0.1, 0.15, 0.2, 0.25])
+# ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
+# ax.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
+# ax.set_ylabel('Slope of Linear Fit (k)', fontsize=12)
+# plt.savefig(f'{user_path}/ONC/figures/slope vs sep - ksm.pdf', bbox_inches='tight')
+# plt.show()
 
 
-# Simulate Distance
-model_names = ['MIST']
-radii = [2, 3, 5, 10, 15, 20]*u.pc
-# Inverse CDF of Gaia distance
-valid_dist = orion.data['dist'][~np.isnan(orion.data['dist'])]
-valid_e_dist = orion.data['e_dist'][~np.isnan(orion.data['e_dist'])]
-p_dist = 1. * np.arange(len(valid_dist)) / (len(valid_dist) - 1)
-p_e_dist = 1. * np.arange(len(valid_e_dist)) / (len(valid_e_dist) - 1)
-dist_sorted = np.sort(valid_dist)
-e_dist_sorted = np.sort(valid_e_dist)
-inv_cdf_dist = interp1d(p_dist, dist_sorted)
-inv_cdf_e_dist = interp1d(p_e_dist, e_dist_sorted)
 
-Nsim = 1000
+# # Simulate Distance
+# model_names = ['MIST']
+# radii = [2, 3, 5, 10, 15, 20]*u.pc
+# # Inverse CDF of Gaia distance
+# valid_dist = orion.data['dist'][~np.isnan(orion.data['dist'])]
+# valid_e_dist = orion.data['e_dist'][~np.isnan(orion.data['e_dist'])]
+# p_dist = 1. * np.arange(len(valid_dist)) / (len(valid_dist) - 1)
+# p_e_dist = 1. * np.arange(len(valid_e_dist)) / (len(valid_e_dist) - 1)
+# dist_sorted = np.sort(valid_dist)
+# e_dist_sorted = np.sort(valid_e_dist)
+# inv_cdf_dist = interp1d(p_dist, dist_sorted)
+# inv_cdf_e_dist = interp1d(p_e_dist, e_dist_sorted)
+
+# Nsim = 1000
 
 # for radius in radii:
 #     for model_name in model_names:
@@ -2738,26 +2740,26 @@ Nsim = 1000
 #             dist_simulate = inv_cdf_dist(np.random.uniform(low=0, high=1, size=orion.len)) * valid_dist.unit
 #             orion_simulate = orion.copy()
 #             orion_simulate.set_coord(ra=orion_simulate.data['RAJ2000'], dec=orion_simulate.data['DEJ2000'], pmRA=orion_simulate.data['pmRA'], pmDE=orion_simulate.data['pmDE'], rv=orion_simulate.data['rv'], distance=dist_simulate)
-#             orion_mean_offset_simulate = copy.deepcopy(orion_mean_offset)
-#             orion_mean_offset_simulate.set_coord(ra=orion_mean_offset_simulate.data['RAJ2000'], dec=orion_mean_offset_simulate.data['DEJ2000'], pmRA=orion_mean_offset_simulate.data['pmRA'], pmDE=orion_mean_offset_simulate.data['pmDE'], rv=orion_mean_offset_simulate.data['rv'], distance=dist_simulate)
+#             # orion_mean_offset_simulate = copy.deepcopy(orion_mean_offset)
+#             # orion_mean_offset_simulate.set_coord(ra=orion_mean_offset_simulate.data['RAJ2000'], dec=orion_mean_offset_simulate.data['DEJ2000'], pmRA=orion_mean_offset_simulate.data['pmRA'], pmDE=orion_mean_offset_simulate.data['pmDE'], rv=orion_mean_offset_simulate.data['rv'], distance=dist_simulate)
 #             # cluster, model_name, radius=0.1*u.pc, model_type='linear', self_included=True, min_rv=-np.inf*u.km/u.s, max_rv=np.inf*u.km/u.s, max_v_error=5.*u.km/u.s, max_mass_error=0.5*u.solMass, update_self=False, save_path=None, suppress_output=True
 #             args_list.append((orion_simulate, model_name, radius, model_type, True, min_rv, max_rv, 5.*u.km/u.s, 0.5*u.solMass, False, None, True))
-#             args_list_offset.append((orion_mean_offset_simulate, model_name, radius, model_type, True, min_rv, max_rv, 5.*u.km/u.s, 0.5*u.solMass, False, None, True))
+#             # args_list_offset.append((orion_mean_offset_simulate, model_name, radius, model_type, True, min_rv, max_rv, 5.*u.km/u.s, 0.5*u.solMass, False, None, True))
         
 #         with Pool(32) as pool:
 #             results = pool.starmap(vrel_vs_mass_simple, args_list)
-#             results_offset = pool.starmap(vrel_vs_mass_simple, args_list_offset)
+#             # results_offset = pool.starmap(vrel_vs_mass_simple, args_list_offset)
 
 #         # Save simulate dist k and R: 
 #         if not os.path.exists(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc'):
 #             os.makedirs(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc')
-#         if not os.path.exists(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc'):
-#             os.makedirs(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc')
+#         # if not os.path.exists(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc'):
+#         #     os.makedirs(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc')
         
 #         ks = np.array([result['k'] for result in results])
 #         Rs = np.array([result['R'] for result in results])
-#         ks_offset = np.array([result_offset['k'] for result_offset in results_offset])
-#         Rs_offset = np.array([result_offset['R'] for result_offset in results_offset])
+#         # ks_offset = np.array([result_offset['k'] for result_offset in results_offset])
+#         # Rs_offset = np.array([result_offset['R'] for result_offset in results_offset])
         
 #         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3))
 #         n, bins, _ = ax1.hist(ks, bins=20, histtype='step', label='k')
@@ -2772,26 +2774,26 @@ Nsim = 1000
 #         plt.savefig(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc - k and R.pdf', bbox_inches='tight')
 #         plt.show()
         
-#         # mean offset
-#         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3))
-#         n, bins, _ = ax1.hist(ks_offset, bins=20, histtype='step', label='k')
-#         ax1.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
-#         ax1.set_xlabel('k')
-#         ax1.set_ylabel('Counts')
+#         # # mean offset
+#         # fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3))
+#         # n, bins, _ = ax1.hist(ks_offset, bins=20, histtype='step', label='k')
+#         # ax1.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
+#         # ax1.set_xlabel('k')
+#         # ax1.set_ylabel('Counts')
 
-#         n, bins, _ = ax2.hist(Rs_offset, bins=20, histtype='step', label='R')
-#         ax2.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
-#         ax2.set_xlabel('R')
-#         ax2.set_ylabel('Counts')
-#         plt.savefig(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc - k and R.pdf', bbox_inches='tight')
-#         plt.show()
+#         # n, bins, _ = ax2.hist(Rs_offset, bins=20, histtype='step', label='R')
+#         # ax2.vlines(0, ymin=0, ymax=max(n), color='C3', ls='dashed', lw=2)
+#         # ax2.set_xlabel('R')
+#         # ax2.set_ylabel('Counts')
+#         # plt.savefig(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc - k and R.pdf', bbox_inches='tight')
+#         # plt.show()
 
 #         with open(f'{save_path}/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
 #             file.write(f'k = {np.mean(ks)} ± {np.std(ks)}\n')
 #             file.write(f'R = {np.mean(Rs)} ± {np.std(Rs)}\n')
-#         with open(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
-#             file.write(f'k = {np.mean(ks_offset)} ± {np.std(ks_offset)}\n')
-#             file.write(f'R = {np.mean(Rs_offset)} ± {np.std(Rs_offset)}\n')
+#         # with open(f'{save_path}/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'w') as file:
+#         #     file.write(f'k = {np.mean(ks_offset)} ± {np.std(ks_offset)}\n')
+#         #     file.write(f'R = {np.mean(Rs_offset)} ± {np.std(Rs_offset)}\n')
 
 
 # # Make plot of k vs radius
@@ -2800,14 +2802,14 @@ Nsim = 1000
 # radii = np.array([2, 3, 5, 10, 15, 20]) * u.pc
 # ks = np.empty((2, len(radii)))
 # Rs = np.empty((2, len(radii)))
-# ks_offset = np.empty((2, len(radii)))
-# Rs_offset = np.empty((2, len(radii)))
+# # ks_offset = np.empty((2, len(radii)))
+# # Rs_offset = np.empty((2, len(radii)))
 
 # for i, radius in enumerate(radii):
 #     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/simulate_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
 #         raw = file.readlines()
-#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
-#         raw_offset = file.readlines()
+#     # with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/simulate_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+#     #     raw_offset = file.readlines()
     
 #     for line in raw:
 #         if line.startswith('k ='):
@@ -2815,13 +2817,13 @@ Nsim = 1000
 #         elif line.startswith('R ='):
 #             Rs[:, i] = np.array([eval(_) for _ in line.strip('R = \n').split(' ± ')])
     
-#     for line in raw_offset:
-#         if line.startswith('k ='):
-#             ks_offset[:, i] = np.array([eval(_) for _ in line.strip('k = \n').split(' ± ')])
-#         elif line.startswith('R ='):
-#             Rs_offset[:, i] = np.array([eval(_) for _ in line.strip('R = \n').split(' ± ')])
+#     # for line in raw_offset:
+#     #     if line.startswith('k ='):
+#     #         ks_offset[:, i] = np.array([eval(_) for _ in line.strip('k = \n').split(' ± ')])
+#     #     elif line.startswith('R ='):
+#     #         Rs_offset[:, i] = np.array([eval(_) for _ in line.strip('R = \n').split(' ± ')])
 
-# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 3.5))
 # k_errorbar  = ax1.errorbar(radii.value, ks[0], yerr=ks[1], color='C0', fmt='o-', markersize=5, capsize=5, zorder=2)
 # k_fill      = ax1.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor='C0', alpha=0.4, zorder=1)
 # R_errorbar  = ax2.errorbar(radii.value, Rs[0], yerr=Rs[1], color='C0', fmt='o-', markersize=5, capsize=5, zorder=2)
@@ -2880,8 +2882,8 @@ plt.show()
 # # vdisp vs sep
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
-# # vdisp vs mass
-# vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+# vdisp vs mass
+vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 # # simulate distance
 # # Inverse CDF of Gaia distance
@@ -2930,13 +2932,13 @@ plt.show()
 sigma_RAs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_RA.npy')
 sigma_DEs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_DE.npy')
 sigma_rvs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_rv.npy')
-sigma_3ds = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_3d.npy')
+sigma_1ds = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_3d.npy')
 
 with open(f'{save_path}/vdisp_results/simulate_dist/vdisps.txt', 'w') as file:
     file.write(f'σ_RA = {np.mean(sigma_RAs[:, 0])} ± {np.std(sigma_RAs[:, 0])}\n')
     file.write(f'σ_DE = {np.mean(sigma_DEs[:, 0])} ± {np.std(sigma_DEs[:, 0])}\n')
     file.write(f'σ_rv = {np.mean(sigma_rvs[:, 0])} ± {np.std(sigma_rvs[:, 0])}\n')
-    file.write(f'σ_3d = {np.mean(sigma_3ds[:, 0])} ± {np.std(sigma_3ds[:, 0])}')
+    file.write(f'σ_3d = {np.mean(sigma_1ds[:, 0])} ± {np.std(sigma_1ds[:, 0])}')
 
 with open(f'{save_path}/vdisp_results/all/mcmc_params.txt', 'r') as file:
     raw = file.readlines()
@@ -2944,16 +2946,54 @@ with open(f'{save_path}/vdisp_results/all/mcmc_params.txt', 'r') as file:
 for line in raw:
     if line.startswith('σ_1D:'):
         sigma_1d = eval(line.strip('σ_1D:\t\n'))
+    elif line.startswith('σ_RA:'):
+        sigma_RA = eval(line.strip('σ_RA:\t\n'))
+    elif line.startswith('σ_DE:'):
+        sigma_DE = eval(line.strip('σ_DE:\t\n'))
+    elif line.startswith('σ_rv:'):
+        sigma_rv = eval(line.strip('σ_rv:\t\n'))
 
-fig, ax = plt.subplots()
-n, bins, patches = ax.hist(sigma_3ds[:, 0], bins=20, histtype='step')
-red_vline = ax.vlines(sigma_1d[0], ymin=0, ymax=max(n), ls='--', color='C3')
-red_fill = ax.fill_betweenx(np.array([0, max(n)]), x1=np.array([sigma_1d[0]-sigma_1d[1]]*2), x2=np.array([sigma_1d[0]+sigma_1d[1]]*2), color='C3', alpha=0.3)
-ax.set_xlabel(r'$\sigma_{\mathrm{3D}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
-ax.set_ylabel('Counts')
-ax.legend([patches[0], (red_vline, red_fill)], ['Simulate Distance', '1D'])
-plt.savefig(f'{user_path}/ONC/figures/vdisp_simulate.pdf', bbox_inches='tight')
-plt.show()
+
+
+# sigma plot
+for direction, sigma_fixed, sigma_simulate in zip(['RA', 'DE', 'RV', '1D'], [sigma_RA, sigma_DE, sigma_rv, sigma_1d], [sigma_RAs, sigma_DEs, sigma_rvs, sigma_1ds]):
+    sigma_simulate_avrg = np.average(sigma_simulate[:, 0], weights=1/sigma_simulate[:, 1]**2)
+    if direction == '1D':
+        subscript = '1D_{{3D}}'
+    else:
+        subscript = direction
+    
+    fig, ax = plt.subplots(figsize=(6.4, 4))
+    n, bins, patches = ax.hist(sigma_simulate[:, 0], bins=20, alpha=0.5, zorder=1)
+    blue_vline = ax.vlines(np.mean(sigma_simulate[:, 0]), ymin=0, ymax=max(n), ls='--', color='C0', lw=1.72)
+    red_vline = ax.vlines(sigma_fixed[0], ymin=0, ymax=max(n), ls='--', color='C3', lw=1.72)
+    red_fill = ax.fill_betweenx(np.array([0, max(n)]), x1=np.array([sigma_fixed[0]-sigma_fixed[1]]*2), x2=np.array([sigma_fixed[0]+sigma_fixed[1]]*2), color='C3', alpha=0.25, zorder=0)
+    upper_arrow = round(max(n)*0.6/10)*10
+    lower_arrow = round(max(n)*0.2/10)*10
+    arr1 = mpatches.FancyArrowPatch((sigma_fixed[0] - 0.8*sigma_fixed[1], upper_arrow), (sigma_fixed[0], upper_arrow),
+                                arrowstyle='simple, head_length=0.8', mutation_scale=20,
+                                facecolor='C7', edgecolor='none', alpha=0.7)
+    ax.add_patch(arr1)
+    ax.annotate('$\overline{{\sigma}}_\mathrm{{{subscript}}}={sigma_fixed:.2f}\pm{e_sigma_fixed:.2f}$ km/s\nFixed Distance'.format(subscript=subscript, sigma_fixed=sigma_fixed[0], e_sigma_fixed=sigma_fixed[1]), 
+                xy=(0, 2.5), xycoords=arr1,
+                horizontalalignment='left',
+                verticalalignment='center'
+                )
+
+    arr2 = mpatches.FancyArrowPatch((sigma_fixed[0] - 0.8*sigma_fixed[1], lower_arrow), (sigma_simulate_avrg, lower_arrow),
+                                arrowstyle='simple, head_length=0.8', mutation_scale=20, 
+                                facecolor='C7', edgecolor='none', alpha=0.7)
+    ax.add_patch(arr2)
+    ax.annotate('$\overline{{\sigma}}_\mathrm{{{subscript}}}={sigma_avrg:.2f}$ km/s\nSimulated Parallax'.format(subscript=subscript, sigma_avrg=sigma_simulate_avrg),
+                xy=(0, 2.5), xycoords=arr2,
+                horizontalalignment='left',
+                verticalalignment='center'
+                )
+    ax.set_xlabel(fr'$\sigma_\mathrm{{{subscript}}}$ $\left(\mathrm{{km}}\cdot\mathrm{{s}}^{{-1}}\right)$')
+    ax.set_ylabel('Counts')
+    ax.legend([(blue_vline, patches[0]), (red_vline, red_fill)], ['Simulated Parallax', 'Fixed Distance'])
+    plt.savefig(f'{user_path}/ONC/figures/vdisp_simulate-{direction}.pdf', bbox_inches='tight')
+    plt.show()
 
 
 # # #################################################
