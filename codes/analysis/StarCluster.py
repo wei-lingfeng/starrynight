@@ -2071,7 +2071,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
     
-    fig, axs = plt.subplots(1, 3, figsize=(10, 2.8), sharey=True)
+    fig, axs = plt.subplots(1, 3, figsize=(10, 2.5), sharey=True)
     for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
         if direction=='1d':
             ax.set_title('$\sigma_\mathrm{1D_{3D}}$', fontsize=15)
@@ -2093,7 +2093,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
         ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
         ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
         ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
-        # ax.set_xticks([0.3, 0.5, 0.8, 1])
+        ax.set_xticks([0.2, 0.4, 0.6, 1])
         ax.tick_params(axis='both', which='major', labelsize=12)
 
     axs[0].legend(handles=[(errorbar, fill)], labels=['Measured Velocity Dispersion'], fontsize=12, loc='upper left')
@@ -2883,7 +2883,7 @@ plt.show()
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
 # vdisp vs mass
-vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+# vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 # # simulate distance
 # # Inverse CDF of Gaia distance
@@ -2934,11 +2934,11 @@ sigma_DEs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_DE.npy')
 sigma_rvs = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_rv.npy')
 sigma_1ds = np.load(f'{save_path}/vdisp_results/simulate_dist/sigma_3d.npy')
 
-with open(f'{save_path}/vdisp_results/simulate_dist/vdisps.txt', 'w') as file:
-    file.write(f'σ_RA = {np.mean(sigma_RAs[:, 0])} ± {np.std(sigma_RAs[:, 0])}\n')
-    file.write(f'σ_DE = {np.mean(sigma_DEs[:, 0])} ± {np.std(sigma_DEs[:, 0])}\n')
-    file.write(f'σ_rv = {np.mean(sigma_rvs[:, 0])} ± {np.std(sigma_rvs[:, 0])}\n')
-    file.write(f'σ_3d = {np.mean(sigma_1ds[:, 0])} ± {np.std(sigma_1ds[:, 0])}')
+# with open(f'{save_path}/vdisp_results/simulate_dist/vdisps.txt', 'w') as file:
+#     file.write(f'σ_RA = {np.mean(sigma_RAs[:, 0])} ± {np.std(sigma_RAs[:, 0])}\n')
+#     file.write(f'σ_DE = {np.mean(sigma_DEs[:, 0])} ± {np.std(sigma_DEs[:, 0])}\n')
+#     file.write(f'σ_rv = {np.mean(sigma_rvs[:, 0])} ± {np.std(sigma_rvs[:, 0])}\n')
+#     file.write(f'σ_3d = {np.mean(sigma_1ds[:, 0])} ± {np.std(sigma_1ds[:, 0])}')
 
 with open(f'{save_path}/vdisp_results/all/mcmc_params.txt', 'r') as file:
     raw = file.readlines()
@@ -2956,44 +2956,50 @@ for line in raw:
 
 
 # sigma plot
-for direction, sigma_fixed, sigma_simulate in zip(['RA', 'DE', 'RV', '1D'], [sigma_RA, sigma_DE, sigma_rv, sigma_1d], [sigma_RAs, sigma_DEs, sigma_rvs, sigma_1ds]):
-    sigma_simulate_avrg = np.average(sigma_simulate[:, 0], weights=1/sigma_simulate[:, 1]**2)
-    if direction == '1D':
-        subscript = '1D_{{3D}}'
-    else:
-        subscript = direction
+x_offset = 0
+interval = 12
+fig, ax = plt.subplots(figsize=(4, 4))
+for direction, sigma_fixed, sigma_simulate in zip(['1D', 'RA', 'DE', 'RV'], [sigma_1d, sigma_RA, sigma_DE, sigma_rv], [sigma_1ds, sigma_RAs, sigma_DEs, sigma_rvs]):
     
-    fig, ax = plt.subplots(figsize=(6.4, 4))
-    n, bins, patches = ax.hist(sigma_simulate[:, 0], bins=20, alpha=0.5, zorder=1)
-    blue_vline = ax.vlines(np.mean(sigma_simulate[:, 0]), ymin=0, ymax=max(n), ls='--', color='C0', lw=1.72)
-    red_vline = ax.vlines(sigma_fixed[0], ymin=0, ymax=max(n), ls='--', color='C3', lw=1.72)
-    red_fill = ax.fill_betweenx(np.array([0, max(n)]), x1=np.array([sigma_fixed[0]-sigma_fixed[1]]*2), x2=np.array([sigma_fixed[0]+sigma_fixed[1]]*2), color='C3', alpha=0.25, zorder=0)
-    upper_arrow = round(max(n)*0.6/10)*10
-    lower_arrow = round(max(n)*0.2/10)*10
-    arr1 = mpatches.FancyArrowPatch((sigma_fixed[0] - 0.8*sigma_fixed[1], upper_arrow), (sigma_fixed[0], upper_arrow),
-                                arrowstyle='simple, head_length=0.8', mutation_scale=20,
-                                facecolor='C7', edgecolor='none', alpha=0.7)
-    ax.add_patch(arr1)
-    ax.annotate('$\overline{{\sigma}}_\mathrm{{{subscript}}}={sigma_fixed:.2f}\pm{e_sigma_fixed:.2f}$ km/s\nFixed Distance'.format(subscript=subscript, sigma_fixed=sigma_fixed[0], e_sigma_fixed=sigma_fixed[1]), 
-                xy=(0, 2.5), xycoords=arr1,
-                horizontalalignment='left',
-                verticalalignment='center'
-                )
+    if direction == 'RV':
+        sigma_range = np.linspace(sigma_fixed[0] - 3*sigma_fixed[1], sigma_fixed[0] + 3*sigma_fixed[1], 100)
+    else:
+        sigma_range = np.linspace(sigma_fixed[0] - 4*sigma_fixed[1], sigma_fixed[0] + 4*sigma_fixed[1], 100)
+    # sigma_range = np.linspace(sigma_fixed[0] - 0.5, sigma_fixed[0] + 0.5, 100)
+    
+    simulate_distribution = np.sum(np.array([norm.pdf(sigma_range, mu, std) for mu, std in zip(sigma_simulate[:, 0], sigma_simulate[:, 1])]), axis=0) / len(sigma_simulate)
+    fixed_distribution = norm.pdf(sigma_range, sigma_fixed[0], sigma_fixed[1])
+    
+    def gaussian(x, mu, sigma):
+        return norm.pdf(x, mu, sigma)
+    
+    popt, pcov = curve_fit(gaussian, sigma_range, simulate_distribution)
+    mu, std = popt
+    
+    # plot fixed
+    blue_line, = ax.plot(-fixed_distribution + x_offset, sigma_range, color='C0', label='Fixed Distance Distribution')
+    ax.hlines(sigma_fixed[0], xmin=-norm.pdf(sigma_fixed[0], sigma_fixed[0], sigma_fixed[1]) + x_offset, xmax=x_offset, ls=':', color='C0')
+    blue_fill = ax.fill_betweenx(sigma_range, x1=x_offset, x2=-fixed_distribution + x_offset, color='C0', edgecolor='none', alpha=0.3)
+    # plot simulation
+    red_line, = ax.plot(simulate_distribution + x_offset, sigma_range, color='C3', label='Simulation Distribution')
+    ax.hlines(mu, xmin=x_offset, xmax=norm.pdf(mu, mu, std) + x_offset, ls=':', color='C3')
+    red_fill = ax.fill_betweenx(sigma_range, x1=x_offset, x2=simulate_distribution + x_offset, color='C3', edgecolor='none', alpha=0.3)
 
-    arr2 = mpatches.FancyArrowPatch((sigma_fixed[0] - 0.8*sigma_fixed[1], lower_arrow), (sigma_simulate_avrg, lower_arrow),
-                                arrowstyle='simple, head_length=0.8', mutation_scale=20, 
-                                facecolor='C7', edgecolor='none', alpha=0.7)
-    ax.add_patch(arr2)
-    ax.annotate('$\overline{{\sigma}}_\mathrm{{{subscript}}}={sigma_avrg:.2f}$ km/s\nSimulated Parallax'.format(subscript=subscript, sigma_avrg=sigma_simulate_avrg),
-                xy=(0, 2.5), xycoords=arr2,
-                horizontalalignment='left',
-                verticalalignment='center'
-                )
-    ax.set_xlabel(fr'$\sigma_\mathrm{{{subscript}}}$ $\left(\mathrm{{km}}\cdot\mathrm{{s}}^{{-1}}\right)$')
-    ax.set_ylabel('Counts')
-    ax.legend([(blue_vline, patches[0]), (red_vline, red_fill)], ['Simulated Parallax', 'Fixed Distance'])
-    plt.savefig(f'{user_path}/ONC/figures/vdisp_simulate-{direction}.pdf', bbox_inches='tight')
-    plt.show()
+    x_offset += interval
+    
+    print(f'σ{direction}={mu:.2f} ± {std:.2f} km/s$')
+
+xlim = ax.get_xlim()
+ylim = ax.get_ylim()
+ax.fill_betweenx([ylim[0], ylim[1]], x1=xlim[0], x2=interval/2 + 0.5, color='C7', alpha=0.15, edgecolor='none')
+ax.set_xlim(xlim)
+ax.set_ylim(ylim)
+ax.set_xticks(np.arange(4)*interval)
+ax.set_xticklabels(['$\sigma_\mathrm{1D_{3D}}$', '$\sigma_\mathrm{RA}$', '$\sigma_\mathrm{DE}$', '$\sigma_\mathrm{RV}$'])
+ax.set_ylabel(r'$\sigma\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$')
+ax.legend([(blue_line, blue_fill), (red_line, red_fill)], ['Fixed Distance', 'Simulated Distance'], framealpha=1)
+plt.savefig(f'{user_path}/ONC/figures/vdisp simulate.pdf', bbox_inches='tight')
+plt.show()
 
 
 # # #################################################
