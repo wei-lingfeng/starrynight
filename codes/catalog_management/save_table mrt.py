@@ -9,7 +9,7 @@ user_path = os.path.expanduser('~')
 
 month_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - new.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog.csv')
 hc2000 = sources.loc[~sources.HC2000.isna() & sources.theta_orionis.isna()]
 
 result = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.csv', dtype={'Gaia DR3': str, 'ID_kim': str})
@@ -80,16 +80,31 @@ result_df = pd.DataFrame({
     'e_M_Palla':        result.e_mass_Palla,
 })
 
-rounding = {}
-for key in result_df.keys():
-    if key not in ['HC2000', 'K19 ID', 'APOGEE', 'Gaia DR3', 'RAJ2000', 'DEJ2000', 'Obs. Date']:
-        rounding[key] = 2
-    
+rounding = {
+    'RAJ2000':6, 'DEJ2000':6, 
+    'Teff':1, 'e_Teff':1, 
+    'RVel': 2, 'e_RVel':2, 
+    'pmRA':2, 'e_pmRA':2, 'pmDE':2, 'e_pmDE':2, 
+    'Teff_NIRSPAO':1, 'e_Teff_NIRSPAO':1, 
+    'RVel_NIRSPAO': 2, 'e_RVel_NIRSPAO': 2, 
+    'vsini_NIRSPAO':2, 'e_vsini_NIRSPAO':2, 
+    'SNR O32':2, 'SNR O33':2, 'SNR O35':2, 
+    'Veil Param O32':2, 'Veil Param O33':2, 'Veil Param O35':2, 
+    'Teff_T22':1, 'e_Teff_T22':1, 
+    'RVel_T22':2, 'e_RVel_T22':2,
+    'vsini_T22':2, 'e_vsini_T22':2, 
+    'pmRA_K19':2, 'e_pmRA_K19':2, 'pmDE_K19':2, 'e_pmDE_K19':2, 
+    'pmRA_DR3':3, 'e_pmRA_DR3':3, 'pmDE_DR3':3, 'e_pmDE_DR3':3,
+    'M_MIST':3, 'e_M_MIST':3, 'M_BHAC15':3, 'e_M_BHAC15':3, 
+    'M_Feiden':3, 'e_M_Feiden':3, 'M_Palla':3, 'e_M_Palla':3
+}
+
 result_rounded = result_df.round(rounding)
 result_rounded['K19 ID'] = result_rounded['K19 ID'].fillna('snodata')
 result_rounded['HC2000'] = ma.array([f"HC2000 {result.HC2000[i]:.0f}{result.m_HC2000[i]}" if ~result.m_HC2000.isna()[i] else f"HC2000 {result.HC2000[i]:.0f}" for i in range(len(result))], mask=result.HC2000.isna()).filled('snodata')
 
 # save latex
+# observation latex table
 print('Observation Table:')
 obs_latex = obs_df.to_latex(index=False, header=obs_df.keys().to_list(), na_rep='snodata')
 obs_latex.replace('snodata', r'\nodata')
@@ -98,12 +113,14 @@ print(obs_latex)
 selected_columns = list(result_df.keys())[:15] + ['M_MIST', 'e_M_MIST']
 selected_columns.remove('Obs. Date')
 
+# result latex table
 print('Result Table:')
 result_latex = result_rounded.loc[
-    :20, selected_columns
+    :19, selected_columns
 ].to_latex(index=False, header=selected_columns, na_rep='snodata')
 result_latex = result_latex.replace('snodata', r'\nodata')
 
+# merge value and error columns
 is_err = [True if 'e_' in key else False for key in selected_columns]
 result_latex = result_latex.split('\n')[4:-3]
 for i in range(len(result_latex)):
@@ -134,7 +151,7 @@ print(result_latex)
 # # obs_table.write(f'{user_path}/ONC/starrynight/catalogs/obs_table.dat', format='ascii.mrt', overwrite=True)
 # obs_table.write(sys.stdout, format='ascii.mrt')
 
-
+# mrt table
 result_table = Table()
 result_table['HC2000']          = MaskedColumn(ma.array([f"HC2000 {result.HC2000[i]:.0f}{result.m_HC2000[i]}" if ~result.m_HC2000.isna()[i] else f"HC2000 {result.HC2000[i]:.0f}" for i in range(len(result))], mask=result.HC2000.isna()).filled(''), format=str, description='Identifier in [HC2000], Hillenbrand & Carpenter (2000) [2000ApJ...540..236H]')
 result_table['K19 ID']          = MaskedColumn(result_df['K19 ID'], mask=result_df['K19 ID'].isna(), format=str, description='Identifier in Kim et al. (2019) [2019AJ....157..109K]')
@@ -143,20 +160,20 @@ result_table['Gaia DR3']        = MaskedColumn(result_df['Gaia DR3'], mask=resul
 result_table['RAJ2000']         = MaskedColumn(result_df['RAJ2000'], mask=result_df['RAJ2000'].isna(), unit=u.deg, description='Right ascension in decimal degrees (J2000)')
 result_table['DEJ2000']         = MaskedColumn(result_df['DEJ2000'], mask=result_df['DEJ2000'].isna(), unit=u.deg, description='Declination in decimal degrees (J2000)')
 result_table['Teff']            = MaskedColumn(result_df['Teff'], mask=result_df['Teff'].isna(), unit=u.K, description='Effective temperature adopted for analysis in this study. Teff_NIRSPAO supplemented by Teff_APOGEE where the former is not available')
-result_table['e_Teff']          = MaskedColumn(result_df['e_Teff'], mask=result_df['e_Teff'].isna(), unit=u.K, description='Effective temperature uncertainty adopted for analysis in this study. e_Teff_NIRSPAO supplemented by e_Teff_APOGEE where the former is not available')
+result_table['e_Teff']          = MaskedColumn(result_df['e_Teff'], mask=result_df['e_Teff'].isna(), unit=u.K, description='Uncertainty of effective temperature adopted for analysis in this study. e_Teff_NIRSPAO supplemented by e_Teff_APOGEE where the former is not available')
 result_table['RVel']            = MaskedColumn(result_df['RVel'], mask=result_df['RVel'].isna(), unit=u.km/u.s, description='Radial velocity adopted for analysis in this study. RVel_NIRSPAO supplemented by RVel_APOGEE where the former is not available')
-result_table['e_RVel']          = MaskedColumn(result_df['e_RVel'], mask=result_df['e_RVel'].isna(), unit=u.km/u.s, description='Radial velocity uncertainty adopted for analysis in this study. e_RVel_NIRSPAO supplemented by e_RVel_APOGEE where the former is not available')
+result_table['e_RVel']          = MaskedColumn(result_df['e_RVel'], mask=result_df['e_RVel'].isna(), unit=u.km/u.s, description='Uncertainty of radial velocity adopted for analysis in this study. e_RVel_NIRSPAO supplemented by e_RVel_APOGEE where the former is not available')
 result_table['pmRA']            = MaskedColumn(result_df['pmRA'], mask=result_df['pmRA'].isna(), unit=u.mas/u.yr, description='Proper motion in right ascension adopted for analysis in this study. pmRA_K19 supplemented by pmRA_DR3 where the former is not available')
-result_table['e_pmRA']          = MaskedColumn(result_df['e_pmRA'], mask=result_df['e_pmRA'].isna(), unit=u.mas/u.yr, description='Proper motion uncertainty in right ascension adopted for analysis in this study. e_pmRA_K19 supplemented by e_pmRA_DR3 where the former is not available')
+result_table['e_pmRA']          = MaskedColumn(result_df['e_pmRA'], mask=result_df['e_pmRA'].isna(), unit=u.mas/u.yr, description='Uncertainty of proper motion in right ascension adopted for analysis in this study. e_pmRA_K19 supplemented by e_pmRA_DR3 where the former is not available')
 result_table['pmDE']            = MaskedColumn(result_df['pmDE'], mask=result_df['pmDE'].isna(), unit=u.mas/u.yr, description='Proper motion in declination adopted for analysis in this study. pmDE_K19 supplemented by pmDE_DR3 where the former is not available')
-result_table['e_pmDE']          = MaskedColumn(result_df['e_pmDE'], mask=result_df['e_pmDE'].isna(), unit=u.mas/u.yr, description='Proper motion uncertainty in declination adopted for analysis in this study. e_pmDE_K19 supplemented by e_pmDE_DR3 where the former is not available')
+result_table['e_pmDE']          = MaskedColumn(result_df['e_pmDE'], mask=result_df['e_pmDE'].isna(), unit=u.mas/u.yr, description='Uncertainty of proper motion in declination adopted for analysis in this study. e_pmDE_K19 supplemented by e_pmDE_DR3 where the former is not available')
 
 result_table['Teff_NIRSPAO']    = MaskedColumn(result_df['Teff_NIRSPAO'], mask=result_df['Teff_NIRSPAO'].isna(), unit=u.K, description='Effective temperature derived from NIRSPAO observation in this study')
-result_table['e_Teff_NIRSPAO']  = MaskedColumn(result_df['e_Teff_NIRSPAO'], mask=result_df['e_Teff_NIRSPAO'].isna(), unit=u.K, description='Effective temperature uncertainty from NIRSPAO observation in this study')
+result_table['e_Teff_NIRSPAO']  = MaskedColumn(result_df['e_Teff_NIRSPAO'], mask=result_df['e_Teff_NIRSPAO'].isna(), unit=u.K, description='Uncertainty of effective temperature from NIRSPAO observation in this study')
 result_table['RVel_NIRSPAO']    = MaskedColumn(result_df['RVel_NIRSPAO'], mask=result_df['RVel_NIRSPAO'].isna(), unit=u.km/u.s, description='Radial velocity derived from NIRSPAO observation in this study')
-result_table['e_RVel_NIRSPAO']  = MaskedColumn(result_df['e_RVel_NIRSPAO'], mask=result_df['e_RVel_NIRSPAO'].isna(), unit=u.km/u.s, description='Radial velocity uncertainty derived from NIRSPAO in this study')
+result_table['e_RVel_NIRSPAO']  = MaskedColumn(result_df['e_RVel_NIRSPAO'], mask=result_df['e_RVel_NIRSPAO'].isna(), unit=u.km/u.s, description='Uncertainty of radial velocity derived from NIRSPAO in this study')
 result_table['vsini_NIRSPAO']   = MaskedColumn(result_df['vsini_NIRSPAO'], mask=result_df['vsini_NIRSPAO'].isna(), unit=u.km/u.s, description='Projected rotational velocity derived from NIRSPAO observation in this study')
-result_table['e_vsini_NIRSPAO'] = MaskedColumn(result_df['e_vsini_NIRSPAO'], mask=result_df['e_vsini_NIRSPAO'].isna(), unit=u.km/u.s, description='Projected rotational velocity uncertainty derived from NIRSPAO observation in this study')
+result_table['e_vsini_NIRSPAO'] = MaskedColumn(result_df['e_vsini_NIRSPAO'], mask=result_df['e_vsini_NIRSPAO'].isna(), unit=u.km/u.s, description='Uncertainty of projected rotational velocity derived from NIRSPAO observation in this study')
 result_table['SNR O32']         = MaskedColumn(result_df['SNR O32'], mask=result_df['SNR O32'].isna(), unit=u.dimensionless_unscaled, description='Signal-to-noise ratio in order 32')
 result_table['SNR O33']         = MaskedColumn(result_df['SNR O33'], mask=result_df['SNR O33'].isna(), unit=u.dimensionless_unscaled, description='Signal-to-noise ratio in order 33')
 result_table['SNR O35']         = MaskedColumn(result_df['SNR O35'], mask=result_df['SNR O35'].isna(), unit=u.dimensionless_unscaled, description='Signal-to-noise ratio in order 35')
@@ -165,26 +182,26 @@ result_table['Veil Param O33']  = MaskedColumn(result_df['Veil Param O33'], mask
 result_table['Veil Param O35']  = MaskedColumn(result_df['Veil Param O35'], mask=result_df['Veil Param O35'].isna(), unit=u.dimensionless_unscaled, description='Veiling parameter in order 32. Defined as in Theissen et al. (2022) [2022ApJ...926..141T]')
 
 result_table['Teff_T22']        = MaskedColumn(result_df['Teff_T22'], mask=result_df['Teff_T22'].isna(), unit=u.K, description='Effective temperature from Theissen et al. (2022) [2022ApJ...926..141T]')
-result_table['e_Teff_T22']      = MaskedColumn(result_df['e_Teff_T22'], mask=result_df['e_Teff_T22'].isna(), unit=u.K, description='Effective temperature uncertainty from Theissen et al. (2022) [2022ApJ...926..141T]')
+result_table['e_Teff_T22']      = MaskedColumn(result_df['e_Teff_T22'], mask=result_df['e_Teff_T22'].isna(), unit=u.K, description='Uncertainty of effective temperature from Theissen et al. (2022) [2022ApJ...926..141T]')
 result_table['RVel_T22']        = MaskedColumn(result_df['RVel_T22'], mask=result_df['RVel_T22'].isna(), unit=u.km/u.s, description='Radial velocity from Theissen et al. (2022) [2022ApJ...926..141T]')
-result_table['e_RVel_T22']      = MaskedColumn(result_df['e_RVel_T22'], mask=result_df['e_RVel_T22'].isna(), unit=u.km/u.s, description='Radial velocity uncertainty from Theissen et al. (2022) [2022ApJ...926..141T]')
+result_table['e_RVel_T22']      = MaskedColumn(result_df['e_RVel_T22'], mask=result_df['e_RVel_T22'].isna(), unit=u.km/u.s, description='Uncertainty of radial velocity from Theissen et al. (2022) [2022ApJ...926..141T]')
 result_table['vsini_T22']       = MaskedColumn(result_df['vsini_T22'], mask=result_df['vsini_T22'].isna(), unit=u.km/u.s, description='Projected rotational velocity from Theissen et al. (2022) [2022ApJ...926..141T]')
-result_table['e_vsini_T22']     = MaskedColumn(result_df['e_vsini_T22'], mask=result_df['e_vsini_T22'].isna(), unit=u.km/u.s, description='Projected rotational velocity uncertainty from Theissen et al. (2022) [2022ApJ...926..141T]')
+result_table['e_vsini_T22']     = MaskedColumn(result_df['e_vsini_T22'], mask=result_df['e_vsini_T22'].isna(), unit=u.km/u.s, description='Uncertainty of projected rotational velocity from Theissen et al. (2022) [2022ApJ...926..141T]')
 
 result_table['pmRA_K19']        = MaskedColumn(result_df['pmRA_K19'], mask=result_df['pmRA_K19'].isna(), unit=u.mas/u.yr, description='Proper motion in right ascension from Kim et al. (2019) [2019AJ....157..109K]')
-result_table['e_pmRA_K19']      = MaskedColumn(result_df['e_pmRA_K19'], mask=result_df['e_pmRA_K19'].isna(), unit=u.mas/u.yr, description='Proper motion uncertainty in right ascension from Kim et al. (2019) [2019AJ....157..109K]')
+result_table['e_pmRA_K19']      = MaskedColumn(result_df['e_pmRA_K19'], mask=result_df['e_pmRA_K19'].isna(), unit=u.mas/u.yr, description='Uncertainty of proper motion in right ascension from Kim et al. (2019) [2019AJ....157..109K]')
 result_table['pmDE_K19']        = MaskedColumn(result_df['pmDE_K19'], mask=result_df['pmDE_K19'].isna(), unit=u.mas/u.yr, description='Proper motion in declination from Kim et al. (2019) [2019AJ....157..109K]')
-result_table['e_pmDE_K19']      = MaskedColumn(result_df['e_pmDE_K19'], mask=result_df['e_pmDE_K19'].isna(), unit=u.mas/u.yr, description='Proper motion uncertainty in declination from Kim et al. (2019) [2019AJ....157..109K]')
+result_table['e_pmDE_K19']      = MaskedColumn(result_df['e_pmDE_K19'], mask=result_df['e_pmDE_K19'].isna(), unit=u.mas/u.yr, description='Uncertainty of proper motion in declination from Kim et al. (2019) [2019AJ....157..109K]')
 
 result_table['pmRA_DR3']        = MaskedColumn(result_df['pmRA_DR3'], mask=result_df['pmRA_DR3'].isna(), unit=u.mas/u.yr, description='Proper motion in right ascension from Gaia DR3 [2023A&A...674A...1G]')
-result_table['e_pmRA_DR3']      = MaskedColumn(result_df['e_pmRA_DR3'], mask=result_df['e_pmRA_DR3'].isna(), unit=u.mas/u.yr, description='Proper motion uncertainty in right ascension from Gaia DR3 [2023A&A...674A...1G]')
+result_table['e_pmRA_DR3']      = MaskedColumn(result_df['e_pmRA_DR3'], mask=result_df['e_pmRA_DR3'].isna(), unit=u.mas/u.yr, description='Uncertainty of proper motion in right ascension from Gaia DR3 [2023A&A...674A...1G]')
 result_table['pmDE_DR3']        = MaskedColumn(result_df['pmDE_DR3'], mask=result_df['pmDE_DR3'].isna(), unit=u.mas/u.yr, description='Proper motion in declination from Gaia DR3 [2023A&A...674A...1G]')
-result_table['e_pmDE_DR3']      = MaskedColumn(result_df['e_pmDE_DR3'], mask=result_df['e_pmDE_DR3'].isna(), unit=u.mas/u.yr, description='Proper motion uncertainty in declination from Gaia DR3 [2023A&A...674A...1G]')
+result_table['e_pmDE_DR3']      = MaskedColumn(result_df['e_pmDE_DR3'], mask=result_df['e_pmDE_DR3'].isna(), unit=u.mas/u.yr, description='Uncertainty of proper motion in declination from Gaia DR3 [2023A&A...674A...1G]')
 
 bibcodes = ['2016ApJS..222....8D, 2016ApJ...823..102C', '2015A&A...577A..42B', '2016A&A...593A..99F', '1999ApJ...525..772P']
 for model_name, bibcode in zip(['MIST','BHAC15', 'Feiden', 'Palla'], bibcodes):
     result_table[f'M_{model_name}'] = MaskedColumn(result_df[f'M_{model_name}'], mask=result_df[f'M_{model_name}'].isna(), unit=u.solMass, description=f'Stellar mass based on {model_name} model [{bibcode}]')
-    result_table[f'e_M_{model_name}'] = MaskedColumn(result_df[f'e_M_{model_name}'], mask=result_df[f'e_M_{model_name}'].isna(), unit=u.solMass, description=f'Stellar mass uncertainty based on {model_name} model [{bibcode}]')
+    result_table[f'e_M_{model_name}'] = MaskedColumn(result_df[f'e_M_{model_name}'], mask=result_df[f'e_M_{model_name}'].isna(), unit=u.solMass, description=f'Uncertainty of stellar mass based on {model_name} model [{bibcode}]')
 
 # result_table.write(f'{user_path}/ONC/starrynight/catalogs/result_table.ecsv', overwrite=True)
 # result_table.write(f'{user_path}/ONC/starrynight/catalogs/result_table.dat', format='ascii.mrt', overwrite=True)
