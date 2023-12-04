@@ -1,0 +1,446 @@
+# %ECSV 1.0
+# ---
+# datatype:
+# - {name: HC2000, datatype: string, description: 'Identifier in [HC2000], Hillenbrand & Carpenter (2000) [2000ApJ...540..236H]'}
+# - {name: K19 ID, datatype: int16, description: 'Identifier in Kim et al. (2019) [2019AJ....157..109K]'}
+# - {name: APOGEE, datatype: string, description: 'Identifier in APOGEE-2 DR16 [2020AJ....160..120J]'}
+# - {name: Gaia DR3, datatype: string, description: 'Identifier in Gaia DR3 [2023A&A...674A...1G]'}
+# - {name: RAJ2000, unit: deg, datatype: float64, format: .6f}
+# - {name: DEJ2000, unit: deg, datatype: float64, format: .6f}
+# - {name: Obs. Date, datatype: string}
+# - {name: Teff, unit: K, datatype: float64, format: .1f}
+# - {name: e_Teff, unit: K, datatype: float64, format: .1f}
+# - {name: RV, unit: km / s, datatype: float64, format: .2f}
+# - {name: e_RV, unit: km / s, datatype: float64, format: .2f}
+# - {name: pmRA, unit: mas / yr, datatype: float32, format: .2f}
+# - {name: e_pmRA, unit: mas / yr, datatype: float32, format: .2f}
+# - {name: pmDE, unit: mas / yr, datatype: float32, format: .2f}
+# - {name: e_pmDE, unit: mas / yr, datatype: float64, format: .2f}
+# - {name: Teff_NIRSPAO, unit: K, datatype: float64, format: .1f}
+# - {name: e_Teff_NIRSPAO, unit: K, datatype: float64, format: .1f}
+# - {name: RV_NIRSPAO, unit: km / s, datatype: float64, format: .2f}
+# - {name: e_RV_NIRSPAO, unit: km / s, datatype: float64, format: .2f}
+# - {name: vsini_NIRSPAO, unit: km / s, datatype: float64, format: .2f}
+# - {name: e_vsini_NIRSPAO, unit: km / s, datatype: float64, format: .2f}
+# - {name: SNR O32, datatype: float64, format: .2f, description: Signal-to-noise ratio in order 32}
+# - {name: SNR O33, datatype: float64, format: .2f, description: Signal-to-noise ratio in order 33}
+# - {name: SNR O35, datatype: float64, format: .2f, description: Signal-to-noise ratio in order 35}
+# - {name: Veil Param O32, datatype: float64, format: .2f, description: 'Veiling parameter in order 32. Defined as in Theissen et al.
+#     (2022) [2022ApJ...926..141T]'}
+# - {name: Veil Param O33, datatype: float64, format: .2f, description: 'Veiling parameter in order 33. Defined as in Theissen et al.
+#     (2022) [2022ApJ...926..141T]'}
+# - {name: Veil Param O35, datatype: float64, format: .2f, description: 'Veiling parameter in order 35. Defined as in Theissen et al.
+#     (2022) [2022ApJ...926..141T]'}
+# - {name: Teff_T22, unit: K, datatype: float64, format: .1f}
+# - {name: e_Teff_T22, unit: K, datatype: float64, format: .1f}
+# - {name: RV_T22, unit: km / s, datatype: float64, format: .2f}
+# - {name: e_RV_T22, unit: km / s, datatype: float64, format: .2f}
+# - {name: vsini_T22, unit: km / s, datatype: float64, format: .2f}
+# - {name: e_vsini_T22, unit: km / s, datatype: float64, format: .2f}
+# - {name: pmRA_K19, unit: mas / yr, datatype: float32, format: .2f}
+# - {name: e_pmRA_K19, unit: mas / yr, datatype: float32, format: .2f}
+# - {name: pmDE_K19, unit: mas / yr, datatype: float32, format: .2f}
+# - {name: e_pmDE_K19, unit: mas / yr, datatype: float64, format: .2f}
+# - {name: pmRA_DR3, unit: mas / yr, datatype: float64, format: .3f}
+# - {name: e_pmRA_DR3, unit: mas / yr, datatype: float64, format: .3f}
+# - {name: pmDE_DR3, unit: mas / yr, datatype: float64, format: .3f}
+# - {name: e_pmDE_DR3, unit: mas / yr, datatype: float64, format: .3f}
+# - {name: M_MIST, unit: solMass, datatype: float64, format: .3f}
+# - {name: e_M_MIST, unit: solMass, datatype: float64, format: .3f}
+# - {name: M_BHAC15, unit: solMass, datatype: float64, format: .3f}
+# - {name: e_M_BHAC15, unit: solMass, datatype: float64, format: .3f}
+# - {name: M_Feiden, unit: solMass, datatype: float64, format: .3f}
+# - {name: e_M_Feiden, unit: solMass, datatype: float64, format: .3f}
+# - {name: M_Palla, unit: solMass, datatype: float64, format: .3f}
+# - {name: e_M_Palla, unit: solMass, datatype: float64, format: .3f}
+# meta: !!omap
+# - __serialized_columns__:
+#     DEJ2000:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: &id002 !astropy.units.Unit {unit: deg}
+#       value: !astropy.table.SerializedColumn {name: DEJ2000}
+#     M_BHAC15:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: &id001 !astropy.units.Unit {unit: solMass}
+#       value: !astropy.table.SerializedColumn {name: M_BHAC15}
+#     M_Feiden:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: M_Feiden}
+#     M_MIST:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: M_MIST}
+#     M_Palla:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: M_Palla}
+#     RAJ2000:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id002
+#       value: !astropy.table.SerializedColumn {name: RAJ2000}
+#     RV:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: RV}
+#     RV_NIRSPAO:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: RV_NIRSPAO}
+#     RV_T22:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: RV_T22}
+#     Teff:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: &id003 !astropy.units.Unit {unit: K}
+#       value: !astropy.table.SerializedColumn {name: Teff}
+#     Teff_NIRSPAO:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id003
+#       value: !astropy.table.SerializedColumn {name: Teff_NIRSPAO}
+#     Teff_T22:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id003
+#       value: !astropy.table.SerializedColumn {name: Teff_T22}
+#     e_M_BHAC15:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: e_M_BHAC15}
+#     e_M_Feiden:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: e_M_Feiden}
+#     e_M_MIST:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: e_M_MIST}
+#     e_M_Palla:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id001
+#       value: !astropy.table.SerializedColumn {name: e_M_Palla}
+#     e_RV:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: e_RV}
+#     e_RV_NIRSPAO:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: e_RV_NIRSPAO}
+#     e_RV_T22:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: e_RV_T22}
+#     e_Teff:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id003
+#       value: !astropy.table.SerializedColumn {name: e_Teff}
+#     e_Teff_NIRSPAO:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id003
+#       value: !astropy.table.SerializedColumn {name: e_Teff_NIRSPAO}
+#     e_Teff_T22:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: *id003
+#       value: !astropy.table.SerializedColumn {name: e_Teff_T22}
+#     e_pmDE:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: e_pmDE}
+#     e_pmDE_DR3:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: e_pmDE_DR3}
+#     e_pmDE_K19:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: e_pmDE_K19}
+#     e_pmRA:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: e_pmRA}
+#     e_pmRA_DR3:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: e_pmRA_DR3}
+#     e_pmRA_K19:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: e_pmRA_K19}
+#     e_vsini_NIRSPAO:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: e_vsini_NIRSPAO}
+#     e_vsini_T22:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: e_vsini_T22}
+#     pmDE:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: pmDE}
+#     pmDE_DR3:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: pmDE_DR3}
+#     pmDE_K19:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: pmDE_K19}
+#     pmRA:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: pmRA}
+#     pmRA_DR3:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: pmRA_DR3}
+#     pmRA_K19:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: mas / yr}
+#       value: !astropy.table.SerializedColumn {name: pmRA_K19}
+#     vsini_NIRSPAO:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: vsini_NIRSPAO}
+#     vsini_T22:
+#       __class__: astropy.units.quantity.Quantity
+#       unit: !astropy.units.Unit {unit: km / s}
+#       value: !astropy.table.SerializedColumn {name: vsini_T22}
+# schema: astropy-2.0
+HC2000 "K19 ID" APOGEE "Gaia DR3" RAJ2000 DEJ2000 "Obs. Date" Teff e_Teff RV e_RV pmRA e_pmRA pmDE e_pmDE Teff_NIRSPAO e_Teff_NIRSPAO RV_NIRSPAO e_RV_NIRSPAO vsini_NIRSPAO e_vsini_NIRSPAO "SNR O32" "SNR O33" "SNR O35" "Veil Param O32" "Veil Param O33" "Veil Param O35" Teff_T22 e_Teff_T22 RV_T22 e_RV_T22 vsini_T22 e_vsini_T22 pmRA_K19 e_pmRA_K19 pmDE_K19 e_pmDE_K19 pmRA_DR3 e_pmRA_DR3 pmDE_DR3 e_pmDE_DR3 M_MIST e_M_MIST M_BHAC15 e_M_BHAC15 M_Feiden e_M_Feiden M_Palla e_M_Palla
+"HC2000 322" "" "" 3017364063323188864 83.817875 -5.387944 2015-12-23 3373.5 24.8 24.94 0.57 0.48 0.13 -0.06 0.11 3373.5 24.8 24.94 0.57 37.44 0.79 47.8 72.87 nan 0.06 0.06 nan nan nan nan nan nan nan nan nan nan nan 0.484 0.13 -0.065 0.107 0.286 0.021 0.276 0.018 0.287 0.023 0.217 0.019
+"HC2000 259" "" "" 3017364059023817600 83.821125 -5.392778 2015-12-23 3434.2 33.7 28.02 0.64 nan nan nan nan 3434.2 33.7 28.02 0.64 32.82 1.03 40.14 61.43 nan 0.58 0.51 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 0.321 0.026 0.303 0.025 0.322 0.035 0.262 0.027
+"HC2000 213" "" "" 3017363955944598016 83.816458 -5.397194 2015-12-23 3150.4 143.9 11.97 2.7 nan nan nan nan 3150.4 143.9 11.97 2.7 24.83 4.85 45.94 65.35 nan 5.73 4.87 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 0.167 0.067 0.18 0.071 0.169 0.071 0.127 0.028
+"HC2000 291B" 211 "" "" 83.816 -5.390444 2015-12-24 3171.1 29.0 29.05 0.38 1.1 0.45 -1.63 0.07 3171.1 29.0 29.05 0.38 16.17 0.77 42.85 65.97 nan 0.46 0.39 nan nan nan nan nan nan nan 1.1 0.45 -1.63 0.07 nan nan nan nan 0.176 0.015 0.188 0.016 0.179 0.024 0.135 0.012
+"HC2000 252" 118 "" 3017364063325263360 83.82075 -5.393639 2015-12-24 3162.3 112.5 24.73 1.28 2.97 0.37 2.67 1.38 3162.3 112.5 24.73 1.28 15.57 2.36 59.13 82.37 nan 6.18 5.25 nan nan nan nan nan nan nan 2.97 0.37 2.67 1.38 nan nan nan nan 0.172 0.054 0.184 0.055 0.175 0.058 0.131 0.022
+"HC2000 250" 197 "" 3017363960253005056 83.81625 -5.393889 2015-12-24 2977.7 55.1 30.13 0.42 1.7 0.4 -3.85 1.18 2977.7 55.1 30.13 0.42 15.47 0.8 12.34 20.72 nan 0.43 0.36 nan nan nan nan nan nan nan 1.7 0.4 -3.85 1.18 nan nan nan nan 0.1 0.012 0.102 0.03 nan nan nan nan
+"HC2000 244" 180 "" 3017363960246048384 83.821083 -5.394389 2015-12-24 3392.2 17.7 28.13 0.32 -0.02 0.15 0.83 0.4 3392.2 17.7 28.13 0.32 21.54 0.31 43.61 67.89 nan 0.02 0.02 nan nan nan nan nan nan nan -0.02 0.15 0.83 0.4 -1.363 0.081 -0.064 0.072 0.298 0.016 0.284 0.015 0.298 0.022 0.231 0.016
+"HC2000 261" 206 "" 3017363960251927936 83.814083 -5.392611 2015-12-24 3358.7 17.7 26.29 0.2 -0.72 0.24 0.87 0.12 3358.7 17.7 26.29 0.2 0.58 0.69 16.1 28.92 nan 0.0 0.0 nan nan nan nan nan nan nan -0.72 0.24 0.87 0.12 -1.153 0.282 0.341 0.242 0.277 0.017 0.269 0.015 0.278 0.018 0.206 0.013
+"HC2000 248" 200 "" "" 83.815667 -5.394 2016-12-14 3379.4 40.0 27.06 1.06 1.81 0.43 -2.83 0.2 3379.4 40.0 27.06 1.06 39.14 1.47 19.01 28.18 nan 0.37 0.32 nan nan nan nan nan nan nan 1.81 0.43 -2.83 0.2 nan nan nan nan 0.29 0.03 0.278 0.026 0.29 0.032 0.222 0.029
+"HC2000 223" 164 "" 3017363960241964032 83.814333 -5.395972 2016-12-14 3345.9 20.9 27.35 0.29 1.1 0.08 -0.68 0.23 3345.9 20.9 27.35 0.29 10.62 0.7 30.42 46.01 nan 0.34 0.3 nan nan nan nan nan nan nan 1.1 0.08 -0.68 0.23 1.269 0.094 -1.077 0.076 0.27 0.019 0.264 0.017 0.27 0.018 0.198 0.012
+"HC2000 219" 87 "" 3017363960251388288 83.813167 -5.396306 2016-12-14 3480.2 39.8 23.75 0.6 1.87 0.06 -0.65 0.02 3480.2 39.8 23.75 0.6 20.82 0.93 16.45 27.21 nan 0.46 0.4 nan nan nan nan nan nan nan 1.87 0.06 -0.65 0.02 1.724 0.335 -0.538 0.236 0.348 0.031 0.329 0.03 0.348 0.042 0.296 0.031
+"HC2000 324" 226 "" 3017364028960744704 83.811833 -5.387778 2016-12-14 3435.8 29.3 30.7 0.32 0.7 0.55 -1.87 0.04 3435.8 29.3 30.7 0.32 4.3 1.5 8.52 15.76 nan 0.0 0.0 nan nan nan nan nan nan nan 0.7 0.55 -1.87 0.04 nan nan nan nan 0.322 0.023 0.304 0.022 0.323 0.033 0.264 0.024
+"HC2000 295" "" "" 3017364063325260160 83.823208 -5.39025 2018-02-11 3506.9 65.0 20.69 0.95 nan nan nan nan 3506.9 65.0 20.69 0.95 24.25 1.36 13.12 20.31 nan 0.79 0.69 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 0.364 0.047 0.344 0.044 0.362 0.057 0.316 0.05
+"HC2000 313" 198 "" 3017364063328048000 83.822792 -5.389194 2018-02-11 3564.9 74.1 26.21 0.37 1.07 0.86 3.21 0.2 3564.9 74.1 26.21 0.37 10.41 1.02 13.99 21.76 nan 0.73 0.63 nan nan nan nan nan nan nan 1.07 0.86 3.21 0.2 -0.881 0.162 2.315 0.132 0.398 0.056 0.377 0.054 0.393 0.065 0.359 0.057
+"HC2000 332" 183 2M05353124-0523400 3017364059023821696 83.82425 -5.387667 2018-02-11 3997.3 36.1 25.45 0.27 -1.61 0.17 0.6 0.38 3997.3 36.1 25.45 0.27 16.47 0.4 14.07 23.92 nan 0.0 0.0 nan 4098.6 13.7 25.69 0.55 18.31 0.61 -1.61 0.17 0.6 0.38 -1.451 0.043 0.351 0.042 0.685 0.073 0.672 0.062 0.644 0.073 0.725 0.038
+"HC2000 331" 121 "" 3017364063325254528 83.826042 -5.387694 2018-02-11 3597.6 103.1 31.43 0.7 1.26 0.24 1.03 0.04 3597.6 103.1 31.43 0.7 18.59 1.14 11.77 19.28 nan 0.74 0.64 nan nan nan nan nan nan nan 1.26 0.24 1.03 0.04 0.755 0.165 0.713 0.164 0.418 0.077 0.395 0.074 0.41 0.081 0.383 0.083
+"HC2000 337" "" 2M05353124-0523400 3017364059023825280 83.827792 -5.387222 2018-02-11 4652.1 284.4 31.91 0.28 -0.22 0.04 0.07 0.04 4652.1 284.4 31.91 0.28 20.24 10.44 36.3 50.45 63.83 7.35 6.38 5.48 5103.0 5.0 31.91 0.28 39.12 1.17 nan nan nan nan -0.218 0.04 0.072 0.036 1.252 0.415 1.399 0.205 1.197 0.423 1.593 0.503
+"HC2000 375" 560 2M05353124-0523400 3017364063330453504 83.82075 -5.383611 2018-02-11 4040.9 115.3 32.6 0.56 0.78 0.13 1.15 0.04 4040.9 115.3 32.6 0.56 26.45 0.87 22.25 34.68 nan 0.54 0.48 nan 4228.8 6.2 33.28 0.3 29.65 0.73 0.78 0.13 1.15 0.04 1.421 0.041 1.087 0.037 0.716 0.131 0.707 0.126 0.673 0.128 0.766 0.126
+"HC2000 388" 532 "" 3017364063333454336 83.823167 -5.382444 2018-02-11 4234.5 141.4 30.44 0.44 0.65 0.23 0.35 0.04 4234.5 141.4 30.44 0.44 18.14 0.78 16.94 26.77 nan 0.65 0.57 nan nan nan nan nan nan nan 0.65 0.23 0.35 0.04 nan nan nan nan 0.857 0.163 0.877 0.169 0.81 0.161 0.987 0.188
+"HC2000 425" "" "" 3017364127743299328 83.824792 -5.379306 2018-02-12 3546.2 20.3 24.69 0.33 2.37 0.03 2.67 0.03 3546.2 20.3 24.69 0.33 21.56 0.32 45.96 65.59 nan 0.0 0.0 nan nan nan nan nan nan nan nan nan nan nan 2.368 0.034 2.666 0.03 0.387 0.022 0.366 0.022 0.383 0.037 0.345 0.016
+"HC2000 713" "" "" 3017364063333443328 83.827958 -5.382472 2018-02-12 4698.5 184.7 23.0 0.49 -0.59 0.04 1.89 0.04 4698.5 184.7 23.0 0.49 6.91 1.81 29.19 40.88 nan 2.31 2.04 nan nan nan nan nan nan nan nan nan nan nan -0.587 0.04 1.894 0.035 1.307 0.284 nan nan 1.253 0.28 1.642 0.375
+"HC2000 408" 143 "" 3017364097690179712 83.830083 -5.38075 2018-02-12 3543.6 46.2 22.87 1.09 -1.51 0.71 -1.07 0.1 3543.6 46.2 22.87 1.09 50.45 1.41 19.25 30.77 nan 0.01 0.01 nan nan nan nan nan nan nan -1.51 0.71 -1.07 0.1 -1.105 0.056 -0.14 0.049 0.386 0.038 0.365 0.036 0.382 0.05 0.343 0.036
+"HC2000 410" 62 "" 3017364132041596288 83.821333 -5.380583 2018-02-12 3825.3 101.8 22.17 1.53 -0.85 0.29 0.32 0.12 3825.3 101.8 22.17 1.53 58.78 1.84 10.03 18.01 nan 0.01 0.01 nan nan nan nan nan nan nan -0.85 0.29 0.32 0.12 -0.214 0.091 0.269 0.079 0.564 0.102 0.544 0.096 0.537 0.104 0.57 0.093
+"HC2000 436" "" "" 3017364162103039104 83.826583 -5.377083 2018-02-12 3707.8 65.2 32.6 0.28 0.54 0.03 0.7 0.02 3707.8 65.2 32.6 0.28 16.28 0.67 27.77 42.45 nan 0.15 0.13 nan nan nan nan nan nan nan nan nan nan nan 0.544 0.026 0.705 0.022 0.487 0.063 0.465 0.063 0.466 0.072 0.472 0.058
+"HC2000 354B2" "" "" 3017364132049943680 83.817125 -5.385222 2018-02-13 5017.1 200.5 27.67 1.6 -0.32 0.04 1.2 0.03 5017.1 200.5 27.67 1.6 17.41 2.73 61.79 83.89 nan 3.26 2.87 nan nan nan nan nan nan nan nan nan nan nan -0.323 0.035 1.2 0.028 1.741 0.52 nan nan 1.697 0.546 1.98 0.404
+"HC2000 354B3" "" "" 3017364132049943680 83.817125 -5.385222 2018-02-13 5010.1 213.3 27.8 1.81 -0.32 0.04 1.2 0.03 5010.1 213.3 27.8 1.81 17.84 3.4 61.79 83.89 nan 3.19 2.82 nan nan nan nan nan nan nan nan nan nan nan -0.323 0.035 1.2 0.028 1.731 0.538 nan nan 1.687 0.564 1.973 0.414
+"HC2000 354B1" "" "" 3017364132049943680 83.817125 -5.385222 2018-02-13 6728.7 217.4 49.91 4.88 -0.32 0.04 1.2 0.03 6728.7 217.4 49.91 4.88 27.19 6.72 48.05 66.94 nan 0.28 0.25 nan nan nan nan nan nan nan nan nan nan nan -0.323 0.035 1.2 0.028 2.849 0.619 nan nan 2.937 0.65 2.371 0.31
+"HC2000 354B4" "" "" 3017364132049943680 83.817125 -5.385222 2018-02-13 2666.3 266.2 22.82 2.65 -0.32 0.04 1.2 0.03 2666.3 266.2 22.82 2.65 63.07 3.95 8.42 18.83 nan 0.02 0.01 nan nan nan nan nan nan nan nan nan nan nan -0.323 0.035 1.2 0.028 nan nan 0.027 0.044 nan nan nan nan
+"HC2000 522A" 642 "" 3017364166401422336 83.817875 -5.369556 2019-01-12 3414.9 19.2 25.04 0.47 -0.69 0.11 0.48 0.33 3414.9 19.2 25.04 0.47 33.98 0.72 21.62 30.3 nan 0.34 0.29 nan nan nan nan nan nan nan -0.69 0.11 0.48 0.33 nan nan nan nan 0.31 0.017 0.294 0.016 0.311 0.025 0.248 0.016
+"HC2000 522B" 642 "" 3017364166401422336 83.817875 -5.369556 2019-01-12 3134.4 37.8 24.26 0.65 -0.69 0.11 0.48 0.33 3134.4 37.8 24.26 0.65 21.84 1.26 12.46 20.0 nan 1.0 0.85 nan nan nan nan nan nan nan -0.69 0.11 0.48 0.33 nan nan nan nan 0.159 0.019 0.173 0.018 0.161 0.027 0.121 0.015
+"HC2000 145" 286 "" 3017363960254402560 83.816292 -5.404972 2019-01-12 3422.4 202.7 23.44 2.5 0.2 0.32 -1.0 0.15 3422.4 202.7 23.44 2.5 14.49 7.65 1.97 4.7 nan 0.67 0.58 nan nan nan nan nan nan nan 0.2 0.32 -1.0 0.15 nan nan nan nan 0.314 0.124 0.298 0.116 0.315 0.125 0.254 0.127
+"HC2000 202" 615 "" 3017363960246056064 83.816667 -5.398056 2019-01-12 3397.4 23.6 25.72 0.64 2.8 0.06 -1.56 0.08 3397.4 23.6 25.72 0.64 40.41 0.99 27.22 36.42 nan 0.67 0.58 nan nan nan nan nan nan nan 2.8 0.06 -1.56 0.08 1.275 0.061 -1.053 0.049 0.301 0.02 0.286 0.018 0.301 0.026 0.235 0.02
+"HC2000 188" 559 "" 3017361108392966912 83.83175 -5.39925 2019-01-12 3524.3 24.1 29.52 0.22 0.41 0.52 -0.83 0.18 3524.3 24.1 29.52 0.22 7.49 0.41 9.65 19.04 nan 0.0 0.0 nan nan nan nan nan nan nan 0.41 0.52 -0.83 0.18 0.654 0.097 -1.777 0.069 0.374 0.023 0.354 0.023 0.371 0.037 0.329 0.019
+"HC2000 302" 221 "" 3017364028961454080 83.811333 -5.389694 2019-01-13 3560.2 14.3 29.19 0.17 -0.24 0.4 0.71 0.13 3560.2 14.3 29.19 0.17 14.22 0.52 33.53 33.74 nan 0.55 0.48 nan nan nan nan nan nan nan -0.24 0.4 0.71 0.13 nan nan nan nan 0.396 0.02 0.374 0.019 0.39 0.034 0.356 0.012
+"HC2000 275" 65 "" 3017363955944591872 83.812208 -5.391417 2019-01-13 3874.4 16.5 30.84 0.12 -1.18 0.14 1.19 0.06 3874.4 16.5 30.84 0.12 17.83 0.2 52.35 56.58 nan 0.0 0.0 nan nan nan nan nan nan nan -1.18 0.14 1.19 0.06 nan nan nan nan 0.599 0.051 0.578 0.041 0.568 0.056 0.611 0.025
+"HC2000 245" "" "" 3017363960237919616 83.812292 -5.39425 2019-01-13 3917.0 21.7 31.22 0.13 -0.73 0.04 -0.44 0.04 3917.0 21.7 31.22 0.13 17.36 0.22 37.9 40.76 nan 0.0 0.0 nan nan nan nan nan nan nan nan nan nan nan -0.734 0.044 -0.439 0.037 0.629 0.058 0.609 0.047 0.594 0.06 0.651 0.029
+"HC2000 258" 521 2M05353124-0523400 3017364028970884864 83.81 -5.392694 2019-01-13 3587.8 17.4 28.03 0.14 -0.11 0.23 -1.65 0.03 3587.8 17.4 28.03 0.14 7.54 0.43 42.77 45.38 nan 0.97 0.84 nan 4131.0 25.3 26.01 0.79 27.82 0.55 -0.11 0.23 -1.65 0.03 0.294 0.051 -1.645 0.039 0.412 0.023 0.39 0.023 0.405 0.038 0.376 0.014
+"HC2000 220" 23 "" 3017363960254400128 83.81175 -5.39625 2019-01-13 3505.3 12.6 33.54 0.12 -1.66 0.4 0.08 0.13 3505.3 12.6 33.54 0.12 9.35 0.68 22.48 25.2 nan 0.03 0.03 nan nan nan nan nan nan nan -1.66 0.4 0.08 0.13 nan nan nan nan 0.363 0.016 0.343 0.016 0.361 0.03 0.315 0.011
+"HC2000 344" "" "" 3017364127743288704 83.815708 -5.386083 2019-01-13 3764.9 103.1 -3.12 1.12 -0.26 0.02 1.11 0.02 3764.9 103.1 -3.12 1.12 97.98 1.25 127.17 134.32 nan 1.14 1.0 nan nan nan nan nan nan nan nan nan nan nan -0.258 0.016 1.108 0.015 0.524 0.095 0.501 0.092 0.5 0.1 0.52 0.091
+"HC2000 370" 227 "" 3017364132046212224 83.816167 -5.383889 2019-01-16 3848.7 28.6 31.16 0.17 0.01 0.74 -0.46 0.09 3848.7 28.6 31.16 0.17 14.74 0.44 33.45 35.24 nan 0.77 0.67 nan nan nan nan nan nan nan 0.01 0.74 -0.46 0.09 -0.013 0.074 -1.813 0.052 0.581 0.056 0.56 0.048 0.552 0.062 0.589 0.034
+"HC2000 389" "" 2M05353124-0523400 3017364127743288320 83.815167 -5.382333 2019-01-16 3576.1 17.8 30.89 0.34 -0.5 0.03 1.45 0.02 3576.1 17.8 30.89 0.34 27.58 0.51 90.45 93.99 nan 0.75 0.65 nan 4468.0 6.0 30.29 1.22 28.65 0.32 nan nan nan nan -0.496 0.026 1.446 0.021 0.405 0.023 0.383 0.022 0.399 0.037 0.367 0.014
+"HC2000 386" "" "" 3017364127743285376 83.813625 -5.382417 2019-01-16 3684.9 15.0 27.94 0.14 0.67 0.03 -0.07 0.02 3684.9 15.0 27.94 0.14 12.53 0.13 41.02 45.2 nan 0.08 0.07 nan nan nan nan nan nan nan nan nan nan nan 0.671 0.03 -0.066 0.025 0.473 0.03 0.45 0.029 0.453 0.041 0.454 0.015
+"HC2000 398" 161 "" 3017364132042663936 83.813333 -5.381778 2019-01-16 4478.4 223.7 25.07 0.73 1.61 0.2 0.29 0.42 4478.4 223.7 25.07 0.73 26.4 1.76 64.34 64.91 nan 5.67 4.99 nan nan nan nan nan nan nan 1.61 0.2 0.29 0.42 0.536 0.054 -0.115 0.04 1.067 0.253 1.161 0.152 1.008 0.258 1.35 0.41
+"HC2000 413" 35 "" 3017364127743287680 83.814542 -5.380167 2019-01-16 3660.1 27.7 25.6 0.3 -0.43 0.04 -0.27 0.74 3660.1 27.7 25.6 0.3 28.56 0.52 19.87 21.73 nan 0.05 0.05 nan nan nan nan nan nan nan -0.43 0.04 -0.27 0.74 0.154 0.044 -0.319 0.037 0.457 0.036 0.434 0.036 0.441 0.047 0.433 0.025
+"HC2000 253" "" "" 3017364063330467072 83.825875 -5.393306 2019-01-16 4084.4 153.3 28.61 0.33 -0.03 0.03 -0.11 0.03 4084.4 153.3 28.61 0.33 6.39 1.32 26.2 25.61 nan 3.06 2.67 nan nan nan nan nan nan nan nan nan nan nan -0.033 0.034 -0.111 0.028 0.747 0.16 0.743 0.161 0.702 0.157 0.808 0.173
+"HC2000 288" 71 "" 3017364059023827968 83.829667 -5.390861 2019-01-17 3707.0 26.4 26.33 0.25 -0.42 0.04 -0.52 0.41 3707.0 26.4 26.33 0.25 18.69 0.5 24.25 25.31 nan 0.26 0.23 nan nan nan nan nan nan nan -0.42 0.04 -0.52 0.41 -0.738 0.061 -0.992 0.051 0.487 0.039 0.464 0.037 0.465 0.05 0.472 0.026
+"HC2000 420" 154 "" 3017364132049929984 83.816 -5.379417 2019-01-17 3525.9 10.7 25.86 0.18 -0.38 0.31 -1.82 0.25 3525.9 10.7 25.86 0.18 24.78 0.24 35.09 38.58 nan 0.0 0.0 nan nan nan nan nan nan nan -0.38 0.31 -1.82 0.25 -0.357 0.069 -2.438 0.059 0.375 0.015 0.355 0.016 0.372 0.03 0.33 0.009
+"HC2000 412" 151 "" 3017364132052934656 83.818083 -5.380306 2019-01-17 3565.8 22.2 32.47 0.4 1.21 0.2 0.51 0.27 3565.8 22.2 32.47 0.4 32.3 0.71 36.6 37.76 nan 0.93 0.8 nan nan nan nan nan nan nan 1.21 0.2 0.51 0.27 1.181 0.068 -0.458 0.06 0.399 0.025 0.377 0.024 0.393 0.039 0.36 0.017
+"HC2000 282" 44 "" 3017364063333461376 83.828667 -5.391361 2019-01-17 3410.2 25.0 26.86 0.24 -0.85 0.24 1.35 0.03 3410.2 25.0 26.86 0.24 6.27 1.35 20.02 21.48 nan 1.25 1.08 nan nan nan nan nan nan nan -0.85 0.24 1.35 0.03 nan nan nan nan 0.307 0.021 0.292 0.019 0.308 0.028 0.245 0.021
+"HC2000 228" "" 2M05353124-0523400 3017364028971010432 83.8025 -5.395611 2020-01-19 3804.4 45.6 27.14 0.62 0.83 0.02 -1.37 0.02 3804.4 45.6 27.14 0.62 40.59 0.82 70.17 73.14 nan 0.53 0.46 nan 4445.0 8.0 27.42 1.27 41.44 0.64 nan nan nan nan 0.833 0.018 -1.367 0.015 0.549 0.062 0.529 0.056 0.524 0.07 0.552 0.045
+"HC2000 224" "" "" 3017363994611283840 83.79475 -5.39575 2020-01-19 3887.5 32.5 25.83 0.19 nan nan nan nan 3887.5 32.5 25.83 0.19 25.06 0.35 93.01 100.6 nan 0.0 0.0 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 0.608 0.063 0.587 0.053 0.576 0.066 0.624 0.039
+"HC2000 135" "" 2M05353124-0523400 3017363921584733312 83.8095 -5.406861 2020-01-19 3651.2 37.6 28.62 0.98 nan nan nan nan 3651.2 37.6 28.62 0.98 49.65 1.2 20.79 22.92 nan 0.3 0.26 nan 4285.0 20.0 27.94 0.8 50.89 0.46 nan nan nan nan nan nan nan nan 0.451 0.041 0.429 0.041 0.436 0.051 0.426 0.032
+"HC2000 440" "" 2M05353124-0523400 3017364132048869248 83.822333 -5.376611 2020-01-20 3717.8 54.4 27.82 0.7 nan nan nan nan 3717.8 54.4 27.82 0.7 24.64 1.07 24.04 23.41 nan 1.45 1.26 nan 4504.0 71.0 28.46 2.12 32.52 2.03 nan nan nan nan nan nan nan nan 0.494 0.057 0.471 0.056 0.471 0.067 0.481 0.049
+"HC2000 450" "" "" 3017364127743294080 83.820875 -5.375861 2020-01-20 3667.6 21.0 25.88 0.18 0.1 0.03 0.88 0.03 3667.6 21.0 25.88 0.18 13.22 0.29 18.81 20.21 nan 0.0 0.0 nan nan nan nan nan nan nan nan nan nan nan 0.1 0.032 0.877 0.026 0.462 0.032 0.439 0.032 0.445 0.044 0.439 0.019
+"HC2000 204" "" 2M05353124-0523400 3017361108392950016 83.840875 -5.398306 2020-01-20 3728.4 36.4 23.95 0.65 -0.35 0.02 1.4 0.02 3728.4 36.4 23.95 0.65 47.35 1.1 29.83 30.96 nan 0.31 0.27 nan 4535.9 8.9 25.79 1.28 48.97 0.5 nan nan nan nan -0.352 0.021 1.402 0.019 0.5 0.047 0.478 0.045 0.478 0.058 0.49 0.035
+"HC2000 214" 148 2M05353124-0523400 3017361108392968064 83.829458 -5.397111 2020-01-20 3761.8 178.3 36.93 1.05 1.86 0.36 -1.37 1.24 3761.8 178.3 36.93 1.05 15.88 2.79 16.27 15.46 nan 4.05 3.53 nan 4429.3 17.6 45.52 1.25 53.25 3.39 1.86 0.36 -1.37 1.24 nan nan nan nan 0.522 0.143 0.499 0.14 0.498 0.141 0.517 0.153
+"HC2000 215" "" 2M05353124-0523400 3017363990304314496 83.801167 -5.396694 2020-01-21 3674.4 31.5 28.14 0.26 nan nan nan nan 3674.4 31.5 28.14 0.26 10.04 0.63 13.39 14.32 nan 0.22 0.19 nan 4216.0 6.0 27.37 0.23 12.34 0.31 nan nan nan nan nan nan nan nan 0.466 0.039 0.444 0.039 0.448 0.05 0.445 0.028
+"HC2000 240" "" "" 3017364024664059264 83.806042 -5.394556 2020-01-21 3667.1 75.1 26.74 0.6 nan nan nan nan 3667.1 75.1 26.74 0.6 15.86 1.31 43.02 42.44 nan 4.31 3.75 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 0.462 0.065 0.439 0.064 0.444 0.073 0.439 0.064
+"HC2000 504" 64 "" 3017364127743286400 83.813958 -5.371 2020-01-21 3497.0 90.1 29.86 1.33 -0.29 0.15 -0.32 0.02 3497.0 90.1 29.86 1.33 32.0 2.39 97.16 96.95 nan 4.04 3.5 nan nan nan nan nan nan nan -0.29 0.15 -0.32 0.02 nan nan nan nan 0.358 0.062 0.339 0.057 0.357 0.069 0.309 0.069
+"HC2000 703" 137 "" 3017364338208357120 83.8075 -5.368639 2020-01-21 3536.3 30.5 32.75 0.31 -1.51 0.9 -1.03 0.52 3536.3 30.5 32.75 0.31 11.02 0.71 79.74 81.3 nan 1.46 1.26 nan nan nan nan nan nan nan -1.51 0.9 -1.03 0.52 -1.462 0.032 -0.432 0.026 0.381 0.028 0.361 0.027 0.378 0.041 0.338 0.024
+"HC2000 431" 700 "" 3017364127743283584 83.812167 -5.377528 2020-01-21 3623.1 27.0 32.98 0.28 1.68 0.6 0.05 0.94 3623.1 27.0 32.98 0.28 19.86 0.58 42.16 43.2 nan 0.75 0.65 nan nan nan nan nan nan nan 1.68 0.6 0.05 0.94 0.322 0.039 -0.47 0.033 0.434 0.032 0.411 0.032 0.423 0.045 0.402 0.022
+"HC2000 229" 536 "" 3017361104086337536 83.839042 -5.395944 2020-01-21 3637.6 23.1 28.25 0.24 0.12 0.08 0.67 0.16 3637.6 23.1 28.25 0.24 13.36 0.48 19.28 20.0 nan 0.17 0.14 nan nan nan nan nan nan nan 0.12 0.08 0.67 0.16 0.433 0.029 1.663 0.026 0.443 0.031 0.42 0.031 0.43 0.043 0.414 0.02
+"HC2000 484" "" "" 3017364162103031424 83.820417 -5.372917 2021-02-01 3979.0 23.3 30.66 0.24 -0.53 0.04 -0.68 0.03 3979.0 23.3 30.66 0.24 25.15 0.19 33.41 37.15 nan 0.0 0.0 nan nan nan nan nan nan nan nan nan nan nan -0.526 0.035 -0.678 0.03 0.673 0.063 0.657 0.051 0.633 0.064 0.708 0.027
+"HC2000 476" 246 "" 3017364127743286272 83.813958 -5.373667 2021-02-01 3447.0 29.4 31.38 0.38 0.87 0.43 -1.51 0.47 3447.0 29.4 31.38 0.38 9.92 1.09 15.9 17.14 nan 1.31 1.14 nan nan nan nan nan nan nan 0.87 0.43 -1.51 0.47 nan nan nan nan 0.329 0.024 0.311 0.023 0.329 0.034 0.272 0.024
+"HC2000 546" 567 2M05353124-0523400 3017364372568087808 83.8125 -5.366667 2021-10-20 3759.9 23.6 24.52 0.17 2.25 0.06 0.96 0.08 3759.9 23.6 24.52 0.17 15.12 0.31 39.32 46.13 nan 0.27 0.23 nan 4417.6 6.1 29.14 0.27 21.56 0.04 2.25 0.06 0.96 0.08 2.862 0.021 1.001 0.017 0.521 0.042 0.498 0.039 0.496 0.053 0.516 0.025
+"HC2000 217" "" 2M05353124-0523400 3017361108393637120 83.837708 -5.396944 2021-10-20 3642.8 15.5 29.44 0.32 nan nan nan nan 3642.8 15.5 29.44 0.32 46.99 0.42 67.17 74.9 nan 0.3 0.26 nan 4503.0 5.8 31.25 0.13 54.8 0.18 nan nan nan nan nan nan nan nan 0.446 0.027 0.423 0.027 0.432 0.04 0.419 0.014
+"HC2000 277" 530 "" 3017361104086334080 83.83525 -5.391583 2021-10-20 3475.4 15.3 25.57 0.21 -0.81 0.08 0.14 0.04 3475.4 15.3 25.57 0.21 12.94 0.42 67.09 74.91 nan 0.9 0.78 nan nan nan nan nan nan nan -0.81 0.08 0.14 0.04 -1.046 0.042 0.943 0.04 0.345 0.016 0.327 0.017 0.345 0.029 0.293 0.013
+"HC2000 435" 40 "" 3017364132052912768 83.8175 -5.377083 2021-10-20 3242.6 16.4 27.83 0.29 -0.64 0.17 0.23 0.07 3242.6 16.4 27.83 0.29 29.86 0.35 24.89 30.6 nan 0.0 0.0 nan nan nan nan nan nan nan -0.64 0.17 0.23 0.07 nan nan nan nan 0.211 0.011 0.218 0.015 0.21 0.014 0.161 0.007
+"HC2000 457" 175 2M05353124-0523400 3017364132052912640 83.81975 -5.375361 2022-01-18 3373.1 15.2 27.94 0.14 0.65 0.11 1.33 0.18 3373.1 15.2 27.94 0.14 8.23 0.66 23.02 25.76 nan 0.27 0.23 nan 3659.3 26.9 29.02 0.28 11.82 1.24 0.65 0.11 1.33 0.18 nan nan nan nan 0.286 0.016 0.276 0.014 0.286 0.018 0.217 0.014
+"HC2000 479" 349 "" 3017364132052919296 83.817958 -5.373333 2022-01-18 3656.9 74.5 30.35 0.58 -0.5 0.08 -0.73 0.2 3656.9 74.5 30.35 0.58 14.9 1.41 13.81 14.63 nan 1.5 1.31 nan nan nan nan nan nan nan -0.5 0.08 -0.73 0.2 nan nan nan nan 0.455 0.064 0.432 0.063 0.439 0.072 0.43 0.063
+"HC2000 490" 60 "" 3017364127743289600 83.816458 -5.372528 2022-01-18 3822.7 30.6 26.07 0.21 -2.44 0.34 0.34 0.38 3822.7 30.6 26.07 0.21 17.63 0.13 52.73 58.77 nan 0.24 0.21 nan nan nan nan nan nan nan -2.44 0.34 0.34 0.38 -1.882 0.064 -0.938 0.052 0.562 0.055 0.542 0.048 0.536 0.062 0.567 0.034
+"HC2000 478" 22 "" 3017364132040203520 83.813375 -5.373361 2022-01-18 3823.4 21.3 30.92 0.25 -1.26 0.05 0.38 0.11 3823.4 21.3 30.92 0.25 22.83 0.35 45.65 51.89 nan 0.0 0.0 nan nan nan nan nan nan nan -1.26 0.05 0.38 0.11 -1.195 0.036 0.082 0.027 0.563 0.049 0.542 0.041 0.536 0.057 0.568 0.026
+"HC2000 456" 244 "" 3017364132038060032 83.812667 -5.375333 2022-01-18 3186.5 18.3 25.86 0.24 -1.54 0.15 -2.19 0.07 3186.5 18.3 25.86 0.24 17.19 0.26 22.93 26.73 nan 0.04 0.03 nan nan nan nan nan nan nan -1.54 0.15 -2.19 0.07 nan nan nan nan 0.184 0.009 0.194 0.012 0.185 0.019 0.14 0.008
+"HC2000 170" "" "" 3017363955944478976 83.819875 -5.401194 2022-01-18 3565.1 27.8 32.7 1.62 nan nan nan nan 3565.1 27.8 32.7 1.62 99.66 0.35 32.53 36.45 nan 0.02 0.02 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 0.398 0.028 0.377 0.027 0.393 0.042 0.359 0.022
+"HC2000 453" 94 "" 3017364132052221824 83.811958 -5.375472 2022-01-19 3480.0 21.7 26.22 0.24 0.31 0.1 0.7 0.04 3480.0 21.7 26.22 0.24 10.74 0.77 17.76 19.06 nan 0.45 0.39 nan nan nan nan nan nan nan 0.31 0.1 0.7 0.04 nan nan nan nan 0.348 0.02 0.329 0.02 0.348 0.033 0.296 0.018
+"HC2000 438" 32 "" 3017364132041551744 83.808708 -5.376833 2022-01-19 3536.3 24.5 29.87 0.36 -0.47 0.38 0.23 0.23 3536.3 24.5 29.87 0.36 18.21 0.57 11.49 12.78 nan 0.0 0.0 nan nan nan nan nan nan nan -0.47 0.38 0.23 0.23 -0.206 0.083 0.412 0.062 0.381 0.024 0.361 0.024 0.378 0.038 0.338 0.019
+"HC2000 287" 210 "" 3017363960255208704 83.815833 -5.390722 2022-01-19 3390.3 39.4 27.07 0.55 1.3 0.51 1.68 0.07 3390.3 39.4 27.07 0.55 13.36 1.16 18.99 19.63 nan 2.05 1.77 nan nan nan nan nan nan nan 1.3 0.51 1.68 0.07 nan nan nan nan 0.297 0.029 0.283 0.026 0.297 0.033 0.23 0.031
+"HC2000 171" "" "" 3017363960251408640 83.81825 -5.400944 2022-01-19 3627.9 24.2 31.22 0.58 1.17 0.04 -0.33 0.04 3627.9 24.2 31.22 0.58 53.31 0.84 33.51 35.16 nan 0.01 0.01 nan nan nan nan nan nan nan nan nan nan nan 1.17 0.04 -0.33 0.035 0.437 0.031 0.414 0.031 0.425 0.043 0.406 0.02
+"HC2000 238" 79 "" 3017363994598986496 83.798833 -5.394583 2022-01-20 3126.0 41.5 26.27 0.36 -0.32 0.53 2.45 0.18 3126.0 41.5 26.27 0.36 25.02 0.57 16.66 20.53 nan 0.0 0.0 nan nan nan nan nan nan nan -0.32 0.53 2.45 0.18 -0.32 0.081 2.794 0.063 0.156 0.02 0.17 0.02 0.157 0.028 0.118 0.016
+"HC2000 266" 163 "" 3017364028973922432 83.806375 -5.391917 2022-01-20 3455.3 13.8 25.05 0.16 -0.55 0.14 -0.16 0.02 3455.3 13.8 25.05 0.16 1.02 0.75 21.54 26.24 nan 0.0 0.0 nan nan nan nan nan nan nan -0.55 0.14 -0.16 0.02 0.024 0.091 0.428 0.069 0.334 0.015 0.315 0.015 0.334 0.027 0.278 0.012
+"HC2000 247" 507 2M05353124-0523400 3017363960251335424 83.808542 -5.394028 2022-01-20 3809.7 19.6 26.2 0.59 0.07 0.12 0.44 0.01 3809.7 19.6 26.2 0.59 55.69 0.71 47.07 53.7 nan 0.0 0.0 nan 3921.8 8.7 24.91 0.33 60.27 0.44 0.07 0.12 0.44 0.01 0.953 0.047 0.883 0.036 0.553 0.046 0.533 0.039 0.528 0.055 0.557 0.024
+"HC2000 172" 37 2M05353124-0523400 3017363960251436032 83.815083 -5.400861 2022-01-20 3882.5 36.7 23.36 0.29 0.54 0.11 -1.8 0.02 3882.5 36.7 23.36 0.29 24.77 0.44 50.11 55.71 nan 0.21 0.18 nan 4389.1 10.2 29.62 1.23 60.37 0.94 0.54 0.11 -1.8 0.02 -0.19 0.034 -1.646 0.029 0.605 0.065 0.584 0.055 0.573 0.069 0.619 0.042
+"HC2000 165" 90 "" 3017363960241957760 83.819083 -5.401694 2022-01-20 3237.2 16.6 23.02 0.23 -1.12 0.07 0.81 0.17 3237.2 16.6 23.02 0.23 21.16 0.29 33.07 39.86 nan 0.0 0.0 nan nan nan nan nan nan nan -1.12 0.07 0.81 0.17 -1.454 0.143 1.137 0.121 0.208 0.011 0.216 0.015 0.207 0.015 0.159 0.007
+"HC2000 177" 174 "" 3017361005306507264 83.825333 -5.400333 2022-01-20 3350.1 10.2 24.2 0.16 -1.06 0.27 0.41 0.49 3350.1 10.2 24.2 0.16 7.5 0.3 26.06 31.59 nan 0.0 0.0 nan nan nan nan nan nan nan -1.06 0.27 0.41 0.49 -0.386 0.1 0.445 0.094 0.272 0.013 0.266 0.011 0.273 0.013 0.2 0.007
+"HC2000 163" 506 2M05353124-0523400 3017361001006985216 83.827 -5.401944 2022-01-20 3486.1 22.6 29.65 0.5 -0.17 0.42 0.43 0.17 3486.1 22.6 29.65 0.5 31.31 0.88 29.32 32.93 nan 0.64 0.55 nan 3849.7 9.2 27.13 0.21 19.76 0.22 -0.17 0.42 0.43 0.17 -0.323 0.067 0.667 0.056 0.352 0.021 0.333 0.021 0.351 0.034 0.301 0.018
+"" 663 2M05353124-0523400 3017363788456073344 83.754208 -5.402861 "" 3825.0 12.5 31.46 0.19 0.16 0.07 -0.62 0.14 nan nan nan nan nan nan nan nan nan nan nan nan 3825.0 12.5 31.46 0.19 38.23 0.92 0.16 0.07 -0.62 0.14 nan nan nan nan 0.564 0.043 0.543 0.035 0.537 0.051 0.569 0.019
+"" "" 2M05353124-0523400 3017363852865232896 83.754875 -5.401861 "" 3979.0 6.0 25.59 0.18 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 3979.0 6.0 25.59 0.18 5.4 1.0 nan nan nan nan nan nan nan nan 0.673 0.051 0.657 0.038 0.633 0.053 0.708 0.01
+"" 655 2M05353124-0523400 3017363788453009792 83.756667 -5.402806 "" 2908.0 9.2 27.82 0.24 1.21 0.29 0.25 0.27 nan nan nan nan nan nan nan nan nan nan nan nan 2908.0 9.2 27.82 0.24 35.18 0.88 1.21 0.29 0.25 0.27 nan nan nan nan nan nan 0.072 0.013 nan nan nan nan
+"" 140 2M05353124-0523400 3017365025403440896 83.761833 -5.368944 "" 5100.4 1.6 25.49 0.14 -0.96 0.15 -1.85 0.31 nan nan nan nan nan nan nan nan nan nan nan nan 5100.4 1.6 25.49 0.14 27.43 0.36 -0.96 0.15 -1.85 0.31 nan nan nan nan 1.865 0.218 nan nan 1.91 0.242 2.014 0.239
+"" 190 2M05353124-0523400 3017364269489305472 83.762875 -5.377167 "" 3057.6 30.7 29.98 1.67 -0.2 0.38 1.01 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 3057.6 30.7 29.98 1.67 15.65 0.39 -0.2 0.38 1.01 0.05 nan nan nan nan 0.129 0.015 0.141 0.019 0.123 0.019 nan nan
+"" 189 2M05353124-0523400 3017364269489305344 83.765417 -5.379361 "" 3138.9 23.4 31.37 0.57 -0.13 0.48 -0.16 0.19 nan nan nan nan nan nan nan nan nan nan nan nan 3138.9 23.4 31.37 0.57 12.69 0.5 -0.13 0.48 -0.16 0.19 nan nan nan nan 0.162 0.013 0.175 0.012 0.164 0.021 0.123 0.01
+"" 11 2M05353124-0523400 3017363887225070336 83.768208 -5.387167 "" 4107.2 63.6 24.65 1.29 0.42 0.16 0.95 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 4107.2 63.6 24.65 1.29 17.67 1.21 0.42 0.16 0.95 0.05 nan nan nan nan 0.763 0.099 0.762 0.087 0.718 0.099 0.835 0.076
+"" "" 2M05353124-0523400 3017363822812730112 83.76875 -5.399028 "" 4591.0 7.0 33.82 0.92 0.2 0.04 -0.13 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4591.0 7.0 33.82 0.92 27.77 1.63 nan nan nan nan 0.196 0.044 -0.127 0.034 1.183 0.039 1.314 0.021 1.124 0.047 1.528 0.103
+"" 657 2M05353124-0523400 3017363582294577280 83.769208 -5.411778 "" 3988.0 9.0 26.44 0.44 0.12 0.1 -0.86 0.08 nan nan nan nan nan nan nan nan nan nan nan nan 3988.0 9.0 26.44 0.44 16.79 0.4 0.12 0.1 -0.86 0.08 nan nan nan nan 0.679 0.054 0.665 0.04 0.638 0.055 0.717 0.012
+"" 67 2M05353124-0523400 3017364269489201024 83.770042 -5.377417 "" 3544.4 5.6 26.95 1.16 0.63 0.01 1.26 0.11 nan nan nan nan nan nan nan nan nan nan nan nan 3544.4 5.6 26.95 1.16 10.52 2.27 0.63 0.01 1.26 0.11 nan nan nan nan 0.386 0.013 0.365 0.014 0.382 0.029 0.344 0.005
+"" 542 2M05353124-0523400 3017365231561828480 83.770292 -5.349278 "" 3733.7 7.9 29.34 0.57 0.25 0.15 -0.23 0.25 nan nan nan nan nan nan nan nan nan nan nan nan 3733.7 7.9 29.34 0.57 11.91 0.53 0.25 0.15 -0.23 0.25 nan nan nan nan 0.504 0.03 0.481 0.027 0.481 0.041 0.494 0.011
+"" 3 2M05353124-0523400 3017365059755682432 83.770625 -5.352556 "" 4119.2 13.2 29.75 0.41 -0.43 0.06 2.12 0.18 nan nan nan nan nan nan nan nan nan nan nan nan 4119.2 13.2 29.75 0.41 13.71 1.44 -0.43 0.06 2.12 0.18 nan nan nan nan 0.771 0.063 0.772 0.043 0.727 0.064 0.849 0.021
+"" 564 2M05353124-0523400 3017365231561559040 83.771375 -5.340111 "" 4126.2 10.0 26.75 0.28 -0.38 0.46 -0.42 0.18 nan nan nan nan nan nan nan nan nan nan nan nan 4126.2 10.0 26.75 0.28 9.15 0.44 -0.38 0.46 -0.42 0.18 -0.408 0.053 -0.578 0.044 0.776 0.061 0.778 0.041 0.732 0.063 0.858 0.018
+"" 77 2M05353124-0523400 3017363822812730880 83.772375 -5.402917 "" 4249.9 50.4 26.33 0.87 0.14 0.36 -0.19 0.08 nan nan nan nan nan nan nan nan nan nan nan nan 4249.9 50.4 26.33 0.87 16.2 0.36 0.14 0.36 -0.19 0.08 0.082 0.067 -0.309 0.049 0.87 0.095 0.891 0.081 0.82 0.094 1.007 0.081
+"" 176 2M05353124-0523400 3017363822815780992 83.7725 -5.404167 "" 3686.0 23.1 24.4 0.28 0.95 0.25 1.04 0.23 nan nan nan nan nan nan nan nan nan nan nan nan 3686.0 23.1 24.4 0.28 4.84 1.85 0.95 0.25 1.04 0.23 nan nan nan nan 0.474 0.035 0.451 0.034 0.454 0.046 0.454 0.022
+"" "" 2M05353124-0523400 3017363582294583936 83.773458 -5.422083 "" 4582.0 10.0 28.83 0.52 0.05 0.02 -0.22 0.02 nan nan nan nan nan nan nan nan nan nan nan nan 4582.0 10.0 28.83 0.52 42.24 0.81 nan nan nan nan 0.045 0.02 -0.216 0.015 1.173 0.044 1.301 0.026 1.114 0.051 1.519 0.107
+"" "" 2M05353124-0523400 3017363582294579456 83.773667 -5.418278 "" 4205.5 8.8 27.17 0.29 -1.13 0.04 -0.39 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4205.5 8.8 27.17 0.29 99.0 0.87 nan nan nan nan -1.13 0.044 -0.386 0.033 0.835 0.063 0.85 0.04 0.789 0.064 0.953 0.024
+"" 39 2M05353124-0523400 3017363818505597696 83.773792 -5.398333 "" 3029.6 6.4 23.77 0.22 -1.04 0.47 -0.84 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 3029.6 6.4 23.77 0.22 21.64 0.16 -1.04 0.47 -0.84 0.05 -1.139 0.072 -1.039 0.054 0.119 0.006 0.128 0.012 0.11 0.006 nan nan
+"" 264 2M05353124-0523400 3017364303851923456 83.775708 -5.370111 "" 3828.1 7.3 29.26 0.24 -0.85 0.39 -0.75 0.16 nan nan nan nan nan nan nan nan nan nan nan nan 3828.1 7.3 29.26 0.24 9.69 1.16 -0.85 0.39 -0.75 0.16 nan nan nan nan 0.566 0.04 0.546 0.032 0.539 0.048 0.572 0.015
+"" 129 2M05353124-0523400 3017364303848915072 83.776125 -5.367417 "" 4450.9 6.2 27.96 0.23 -0.32 0.24 0.11 0.34 nan nan nan nan nan nan nan nan nan nan nan nan 4450.9 6.2 27.96 0.23 27.39 0.27 -0.32 0.24 0.11 0.34 nan nan nan nan 1.04 0.054 1.125 0.029 0.983 0.057 1.301 0.068
+"" "" 2M05353124-0523400 3017363612347069440 83.777125 -5.4115 "" 4269.0 7.0 25.72 0.22 1.94 0.04 0.92 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4269.0 7.0 25.72 0.22 21.56 0.07 nan nan nan nan 1.937 0.04 0.921 0.031 0.886 0.062 0.911 0.037 0.834 0.062 1.032 0.032
+"" 131 2M05353124-0523400 3017364303848916480 83.780292 -5.374056 "" 3163.1 37.5 25.99 0.27 0.24 0.09 -0.66 0.78 nan nan nan nan nan nan nan nan nan nan nan nan 3163.1 37.5 25.99 0.27 13.13 0.47 0.24 0.09 -0.66 0.78 -0.061 0.065 -1.255 0.052 0.173 0.019 0.185 0.019 0.175 0.028 0.132 0.015
+"" 585 2M05353124-0523400 3017363513575089664 83.780792 -5.430028 "" 2815.0 17.3 25.8 0.3 -0.16 0.06 0.27 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 2815.0 17.3 25.8 0.3 9.62 0.98 -0.16 0.06 0.27 0.05 nan nan nan nan nan nan 0.047 0.005 nan nan nan nan
+"" 629 2M05353124-0523400 3017365162841655168 83.782208 -5.350389 "" 4326.5 15.2 28.7 0.3 -0.56 0.16 -1.3 0.13 nan nan nan nan nan nan nan nan nan nan nan nan 4326.5 15.2 28.7 0.3 24.86 0.97 -0.56 0.16 -1.3 0.13 nan nan nan nan 0.931 0.068 0.974 0.044 0.877 0.069 1.11 0.047
+"" 679 2M05353124-0523400 3017363616654282752 83.78425 -5.400889 "" 3168.5 7.8 26.43 0.26 1.14 0.13 1.47 0.22 nan nan nan nan nan nan nan nan nan nan nan nan 3168.5 7.8 26.43 0.26 6.48 1.3 1.14 0.13 1.47 0.22 nan nan nan nan 0.175 0.005 0.187 0.007 0.177 0.014 0.134 0.004
+"" 17 2M05353124-0523400 3017363616654297088 83.784542 -5.409667 "" 3065.0 8.2 25.05 0.29 -0.57 0.46 0.12 0.01 nan nan nan nan nan nan nan nan nan nan nan nan 3065.0 8.2 25.05 0.29 7.43 0.69 -0.57 0.46 0.12 0.01 nan nan nan nan 0.132 0.007 0.145 0.008 0.127 0.009 nan nan
+"" 171 2M05353124-0523400 3017363616641707136 83.785542 -5.411417 "" 3048.4 28.9 31.54 1.53 -1.82 0.73 -0.07 0.18 nan nan nan nan nan nan nan nan nan nan nan nan 3048.4 28.9 31.54 1.53 10.95 0.62 -1.82 0.73 -0.07 0.18 nan nan nan nan 0.126 0.014 0.137 0.019 0.118 0.018 nan nan
+"" "" 2M05353124-0523400 3017363513575095680 83.785542 -5.421639 "" 4016.0 8.0 23.35 0.19 -1.19 0.06 -1.14 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 4016.0 8.0 23.35 0.19 5.69 0.5 nan nan nan nan -1.186 0.06 -1.143 0.045 0.698 0.055 0.687 0.039 0.656 0.056 0.743 0.01
+"" "" 2M05353124-0523400 3017360558637610880 83.785792 -5.438722 "" 2977.0 11.0 26.43 0.43 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 2977.0 11.0 26.43 0.43 14.62 0.66 nan nan nan nan nan nan nan nan 0.1 0.004 0.102 0.015 nan nan nan nan
+"" 50 2M05353124-0523400 3017364235129441280 83.786375 -5.382389 "" 4198.1 10.6 26.21 0.26 1.05 0.42 -1.26 0.26 nan nan nan nan nan nan nan nan nan nan nan nan 4198.1 10.6 26.21 0.26 71.75 0.89 1.05 0.42 -1.26 0.26 nan nan nan nan 0.829 0.064 0.843 0.042 0.784 0.065 0.944 0.026
+"" 58 2M05353124-0523400 3017364406927024256 83.790667 -5.357833 "" 4372.2 6.8 27.32 0.4 -1.15 0.21 -2.57 0.29 nan nan nan nan nan nan nan nan nan nan nan nan 4372.2 6.8 27.32 0.4 27.2 0.14 -1.15 0.21 -2.57 0.29 nan nan nan nan 0.969 0.059 1.027 0.034 0.914 0.061 1.172 0.038
+"" 359 2M05353124-0523400 3017364406927044224 83.791333 -5.362028 "" 4131.5 32.8 28.57 0.71 -1.17 0.06 -0.23 0.48 nan nan nan nan nan nan nan nan nan nan nan nan 4131.5 32.8 28.57 0.71 14.92 1.73 -1.17 0.06 -0.23 0.48 nan nan nan nan 0.78 0.078 0.782 0.061 0.735 0.079 0.864 0.045
+"" 46 2M05353124-0523400 3017364235132386176 83.79225 -5.375722 "" 4021.6 10.8 28.82 0.27 -1.02 0.2 0.73 0.26 nan nan nan nan nan nan nan nan nan nan nan nan 4021.6 10.8 28.82 0.27 24.02 1.33 -1.02 0.2 0.73 0.26 -1.047 0.062 0.632 0.05 0.702 0.057 0.691 0.041 0.66 0.058 0.748 0.012
+"" 169 2M05353124-0523400 3017363994614283520 83.792542 -5.389306 "" 4329.2 7.6 25.51 0.34 1.31 0.63 -0.86 0.43 nan nan nan nan nan nan nan nan nan nan nan nan 4329.2 7.6 25.51 0.34 15.92 0.45 1.31 0.63 -0.86 0.43 nan nan nan nan 0.933 0.061 0.977 0.036 0.879 0.063 1.114 0.037
+"" 550 2M05353124-0523400 3017366743390014720 83.792875 -5.332306 "" 3449.8 9.3 26.54 0.32 -1.68 0.11 1.67 0.1 nan nan nan nan nan nan nan nan nan nan nan nan 3449.8 9.3 26.54 0.32 24.33 0.54 -1.68 0.11 1.67 0.1 nan nan nan nan 0.33 0.012 0.312 0.012 0.331 0.024 0.274 0.009
+"" 519 2M05353124-0523400 3017364406930491136 83.792958 -5.353611 "" 4165.0 7.1 27.14 0.15 1.14 0.07 -0.36 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 4165.0 7.1 27.14 0.15 8.73 1.04 1.14 0.07 -0.36 0.12 0.678 0.054 -0.014 0.043 0.805 0.06 0.811 0.038 0.76 0.062 0.904 0.019
+"" 552 2M05353124-0523400 3017366743390012032 83.793375 -5.331194 "" 3445.1 44.0 27.39 0.55 0.82 0.12 -1.53 0.17 nan nan nan nan nan nan nan nan nan nan nan nan 3445.1 44.0 27.39 0.55 19.36 0.24 0.82 0.12 -1.53 0.17 nan nan nan nan 0.328 0.032 0.31 0.031 0.328 0.041 0.27 0.035
+"" 595 2M05353124-0523400 3017360554330360064 83.793625 -5.433417 "" 2722.4 220.0 27.74 2.66 -0.59 0.35 -0.2 0.52 nan nan nan nan nan nan nan nan nan nan nan nan 2722.4 220.0 27.74 2.66 19.91 1.37 -0.59 0.35 -0.2 0.52 nan nan nan nan nan nan 0.032 0.044 nan nan nan nan
+"" "" 2M05353124-0523400 3017364235129434624 83.79375 -5.379306 "" 4125.8 7.8 24.86 0.29 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4125.8 7.8 24.86 0.29 44.03 0.13 nan nan nan nan nan nan nan nan 0.776 0.06 0.777 0.039 0.731 0.061 0.857 0.016
+"" "" 2M05353124-0523400 3017360554330360320 83.79375 -5.438417 "" 4504.0 8.0 22.61 0.26 -0.02 0.02 -0.68 0.02 nan nan nan nan nan nan nan nan nan nan nan nan 4504.0 8.0 22.61 0.26 23.52 0.23 nan nan nan nan -0.023 0.021 -0.675 0.016 1.092 0.052 1.195 0.027 1.033 0.056 1.394 0.09
+"" 262 2M05353124-0523400 3017364235118751232 83.793875 -5.371278 "" 3728.3 8.8 27.55 0.28 -0.91 0.25 0.89 0.1 nan nan nan nan nan nan nan nan nan nan nan nan 3728.3 8.8 27.55 0.28 23.61 0.36 -0.91 0.25 0.89 0.1 nan nan nan nan 0.5 0.03 0.478 0.027 0.478 0.042 0.489 0.012
+"" 251 2M05353124-0523400 "" 83.794208 -5.382194 "" 4244.4 76.7 26.01 1.01 -0.37 0.15 -0.24 0.1 nan nan nan nan nan nan nan nan nan nan nan nan 4244.4 76.7 26.01 1.01 22.11 1.01 -0.37 0.15 -0.24 0.1 nan nan nan nan 0.866 0.115 0.886 0.106 0.816 0.114 0.999 0.112
+"" "" 2M05353124-0523400 3017360554330360832 83.794708 -5.441111 "" 3804.0 9.0 28.03 0.26 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 3804.0 9.0 28.03 0.26 18.25 0.47 nan nan nan nan nan nan nan nan 0.549 0.038 0.529 0.032 0.524 0.048 0.552 0.015
+"" 594 2M05353124-0523400 3017360554330361344 83.795125 -5.432472 "" 2924.9 41.4 27.93 0.96 0.58 0.3 2.74 0.45 nan nan nan nan nan nan nan nan nan nan nan nan 2924.9 41.4 27.93 0.96 15.96 1.17 0.58 0.3 2.74 0.45 nan nan nan nan nan nan 0.081 0.025 nan nan nan nan
+"" 489 2M05353124-0523400 3017363547934810112 83.795583 -5.4135 "" 3717.0 51.7 24.98 1.48 2.04 0.72 1.94 0.31 nan nan nan nan nan nan nan nan nan nan nan nan 3717.0 51.7 24.98 1.48 28.31 0.28 2.04 0.72 1.94 0.31 1.121 0.175 -0.225 0.129 0.493 0.056 0.471 0.054 0.471 0.065 0.48 0.047
+"" "" 2M05353124-0523400 3017360554330362752 83.797875 -5.433972 "" 4370.0 6.0 19.04 0.18 -0.0 0.03 -1.23 0.02 nan nan nan nan nan nan nan nan nan nan nan nan 4370.0 6.0 19.04 0.18 42.42 1.6 nan nan nan nan -0.001 0.033 -1.229 0.025 0.967 0.059 1.024 0.033 0.912 0.061 1.169 0.037
+"" 75 2M05353124-0523400 3017364235132349952 83.798458 -5.380972 "" 3054.1 16.4 25.36 0.24 -0.04 0.79 -0.2 0.24 nan nan nan nan nan nan nan nan nan nan nan nan 3054.1 16.4 25.36 0.24 11.06 1.01 -0.04 0.79 -0.2 0.24 nan nan nan nan 0.128 0.01 0.14 0.013 0.121 0.012 nan nan
+"" 191 2M05353124-0523400 3017363925891918720 83.798542 -5.405917 "" 3029.6 7.2 25.25 0.14 0.34 0.13 -0.52 0.14 nan nan nan nan nan nan nan nan nan nan nan nan 3029.6 7.2 25.25 0.14 12.41 0.51 0.34 0.13 -0.52 0.14 nan nan nan nan 0.119 0.006 0.128 0.012 0.11 0.006 nan nan
+"" 150 2M05353124-0523400 3017364338207717632 83.799083 -5.365417 "" 2929.7 8.1 26.84 1.28 -0.03 0.66 -0.3 0.94 nan nan nan nan nan nan nan nan nan nan nan nan 2929.7 8.1 26.84 1.28 12.07 1.17 -0.03 0.66 -0.3 0.94 nan nan nan nan nan nan 0.086 0.012 nan nan nan nan
+"" 38 2M05353124-0523400 3017364441286745728 83.7995 -5.350889 "" 4293.0 5.9 27.48 0.24 -0.25 0.15 0.33 0.52 nan nan nan nan nan nan nan nan nan nan nan nan 4293.0 5.9 27.48 0.24 10.65 0.48 -0.25 0.15 0.33 0.52 nan nan nan nan 0.905 0.06 0.937 0.036 0.851 0.061 1.065 0.033
+"" 526 2M05353124-0523400 3017364436980913152 83.801125 -5.345889 "" 3351.5 12.0 28.05 1.13 1.26 0.34 0.46 0.36 nan nan nan nan nan nan nan nan nan nan nan nan 3351.5 12.0 28.05 1.13 7.51 0.52 1.26 0.34 0.46 0.36 nan nan nan nan 0.273 0.014 0.266 0.012 0.274 0.014 0.201 0.008
+"" "" 2M05353124-0523400 3017366674670235264 83.802875 -5.326472 "" 3713.0 13.0 30.15 0.19 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 3713.0 13.0 30.15 0.19 7.39 0.87 nan nan nan nan nan nan nan nan 0.491 0.032 0.468 0.029 0.469 0.043 0.477 0.015
+"" 56 2M05353124-0523400 3017364441287008256 83.803208 -5.343028 "" 3054.2 12.1 21.73 0.65 0.71 0.15 0.71 0.2 nan nan nan nan nan nan nan nan nan nan nan nan 3054.2 12.1 21.73 0.65 13.47 0.89 0.71 0.15 0.71 0.2 nan nan nan nan 0.128 0.008 0.14 0.011 0.121 0.01 nan nan
+"" 554 2M05353124-0523400 3017365918755641216 83.804333 -5.341722 "" 4249.7 6.8 30.84 0.43 -1.3 0.19 1.12 0.31 nan nan nan nan nan nan nan nan nan nan nan nan 4249.7 6.8 30.84 0.43 19.38 0.23 -1.3 0.19 1.12 0.31 nan nan nan nan 0.87 0.062 0.891 0.037 0.82 0.062 1.006 0.028
+"" 261 2M05353124-0523400 3017364338210647424 83.804375 -5.364778 "" 3825.2 14.5 29.92 0.24 -1.65 0.05 -1.42 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 3825.2 14.5 29.92 0.24 9.99 1.21 -1.65 0.05 -1.42 0.04 nan nan nan nan 0.564 0.044 0.543 0.037 0.537 0.053 0.57 0.021
+"" "" 2M05353124-0523400 3017363925891922688 83.804958 -5.415389 "" 4296.0 9.0 25.21 0.33 0.19 0.04 -0.7 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4296.0 9.0 25.21 0.33 26.69 0.38 nan nan nan nan 0.19 0.044 -0.7 0.033 0.907 0.063 0.941 0.039 0.853 0.064 1.069 0.037
+"" 109 2M05353124-0523400 3017366674670532608 83.805417 -5.338583 "" 4048.6 5.5 29.6 0.21 -0.02 0.26 1.56 2.06 nan nan nan nan nan nan nan nan nan nan nan nan 4048.6 5.5 29.6 0.21 42.23 0.23 -0.02 0.26 1.56 2.06 nan nan nan nan 0.721 0.055 0.713 0.037 0.678 0.056 0.773 0.007
+"" 53 2M05353124-0523400 3017364333901704320 83.805667 -5.373917 "" 3632.0 60.9 25.87 1.45 2.45 0.36 1.29 0.33 nan nan nan nan nan nan nan nan nan nan nan nan 3632.0 60.9 25.87 1.45 13.81 1.69 2.45 0.36 1.29 0.33 nan nan nan nan 0.44 0.054 0.417 0.052 0.427 0.062 0.41 0.05
+"" 377 2M05353124-0523400 3017364441286758016 83.805958 -5.352028 "" 3814.0 12.6 30.99 0.22 0.88 0.05 -0.94 0.07 nan nan nan nan nan nan nan nan nan nan nan nan 3814.0 12.6 30.99 0.22 3.85 1.61 0.88 0.05 -0.94 0.07 nan nan nan nan 0.556 0.042 0.536 0.035 0.53 0.051 0.56 0.019
+"" 146 2M05353124-0523400 3017364338208367360 83.806333 -5.372083 "" 4058.3 17.6 31.09 0.54 -0.7 0.14 -1.02 0.32 nan nan nan nan nan nan nan nan nan nan nan nan 4058.3 17.6 31.09 0.54 16.49 0.39 -0.7 0.14 -1.02 0.32 -0.549 0.053 -0.369 0.04 0.728 0.064 0.721 0.047 0.684 0.064 0.782 0.019
+"" "" 2M05353124-0523400 3017366674673206400 83.80675 -5.331889 "" 4405.0 30.0 30.67 1.39 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4405.0 30.0 30.67 1.39 23.53 0.87 nan nan nan nan nan nan nan nan 0.998 0.078 1.067 0.059 0.941 0.081 1.221 0.09
+"" "" 2M05353124-0523400 3017366709032962304 83.807458 -5.323722 "" 2838.0 7.0 23.99 0.24 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 2838.0 7.0 23.99 0.24 15.29 0.92 nan nan nan nan nan nan nan nan nan nan 0.052 0.003 nan nan nan nan
+"" 117 2M05353124-0523400 3017364441289907840 83.808208 -5.356472 "" 4053.2 13.7 24.02 0.21 1.21 0.49 -0.58 0.23 nan nan nan nan nan nan nan nan nan nan nan nan 4053.2 13.7 24.02 0.21 9.09 0.41 1.21 0.49 -0.58 0.23 nan nan nan nan 0.725 0.061 0.717 0.044 0.681 0.061 0.777 0.015
+"" "" 2M05353124-0523400 3017366670363916928 83.808542 -5.331111 "" 4267.0 7.0 23.78 0.15 0.27 0.02 1.19 0.02 nan nan nan nan nan nan nan nan nan nan nan nan 4267.0 7.0 23.78 0.15 12.32 0.28 nan nan nan nan 0.268 0.025 1.192 0.02 0.884 0.062 0.909 0.037 0.832 0.062 1.03 0.031
+"" "" 2M05353124-0523400 3017366674659583616 83.809208 -5.3345 "" 4091.0 12.0 26.68 0.3 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4091.0 12.0 26.68 0.3 12.38 0.4 nan nan nan nan nan nan nan nan 0.751 0.061 0.748 0.043 0.707 0.062 0.816 0.018
+"" 236 2M05353124-0523400 3017364132050195072 83.811042 -5.383833 "" 4038.5 12.7 30.78 0.31 1.17 0.69 -0.94 0.35 nan nan nan nan nan nan nan nan nan nan nan nan 4038.5 12.7 30.78 0.31 14.62 0.46 1.17 0.69 -0.94 0.35 nan nan nan nan 0.714 0.059 0.705 0.043 0.671 0.06 0.763 0.013
+"" 319 2M05353124-0523400 3017364441287283328 83.811292 -5.35175 "" 4354.1 28.4 29.72 0.85 -0.58 0.02 -0.82 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 4354.1 28.4 29.72 0.85 17.89 0.69 -0.58 0.02 -0.82 0.05 nan nan nan nan 0.954 0.078 1.005 0.058 0.899 0.079 1.147 0.067
+"" "" 2M05353124-0523400 3017360966647238272 83.81475 -5.420556 "" 4277.0 9.0 36.71 1.67 -0.07 0.05 1.3 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 4277.0 9.0 36.71 1.67 95.71 0.6 nan nan nan nan -0.071 0.049 1.296 0.04 0.892 0.063 0.92 0.039 0.84 0.064 1.043 0.036
+"" 616 2M05353124-0523400 3017360902234947328 83.815292 -5.425861 "" 3951.4 9.3 25.57 0.48 0.09 0.2 -0.74 0.11 nan nan nan nan nan nan nan nan nan nan nan nan 3951.4 9.3 25.57 0.48 22.09 0.74 0.09 0.2 -0.74 0.11 0.765 0.037 0.431 0.03 0.653 0.052 0.636 0.04 0.616 0.054 0.683 0.015
+"" "" 2M05353124-0523400 3017360524277847168 83.815458 -5.441194 "" 3875.0 37.0 25.79 1.34 -0.73 0.08 -0.89 0.06 nan nan nan nan nan nan nan nan nan nan nan nan 3875.0 37.0 25.79 1.34 8.89 1.08 nan nan nan nan -0.728 0.075 -0.89 0.056 0.6 0.065 0.578 0.055 0.568 0.069 0.612 0.042
+"" 241 2M05353124-0523400 3017364132052914560 83.816125 -5.375778 "" 3022.4 39.1 30.63 1.45 0.24 0.15 1.21 0.17 nan nan nan nan nan nan nan nan nan nan nan nan 3022.4 39.1 30.63 1.45 8.83 1.63 0.24 0.15 1.21 0.17 nan nan nan nan 0.117 0.018 0.124 0.024 0.106 0.019 nan nan
+"" 517 2M05353124-0523400 3017365914449685888 83.816917 -5.343417 "" 4163.8 8.7 23.56 0.22 0.55 0.25 1.44 0.24 nan nan nan nan nan nan nan nan nan nan nan nan 4163.8 8.7 23.56 0.22 16.04 1.49 0.55 0.25 1.44 0.24 nan nan nan nan 0.804 0.062 0.81 0.04 0.759 0.063 0.903 0.02
+"" 173 2M05353124-0523400 3017363960238504320 83.817042 -5.403111 "" 3463.7 13.2 23.01 0.24 -1.73 0.13 -0.79 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 3463.7 13.2 23.01 0.24 33.2 0.69 -1.73 0.13 -0.79 0.12 nan nan nan nan 0.338 0.015 0.32 0.015 0.339 0.027 0.284 0.012
+"" "" 2M05353124-0523400 3017366709030057600 83.819208 -5.326583 "" 4098.0 11.0 28.54 0.36 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4098.0 11.0 28.54 0.36 19.85 0.33 nan nan nan nan nan nan nan nan 0.756 0.061 0.754 0.042 0.712 0.062 0.824 0.017
+"" 451 2M05353124-0523400 3017360902223932544 83.820583 -5.429694 "" 3660.9 13.8 29.4 0.37 0.31 0.04 -0.91 0.06 nan nan nan nan nan nan nan nan nan nan nan nan 3660.9 13.8 29.4 0.37 54.77 1.18 0.31 0.04 -0.91 0.06 0.724 0.064 -0.251 0.05 0.458 0.027 0.435 0.027 0.441 0.04 0.434 0.013
+"" "" 2M05353124-0523400 3017364372568073472 83.820708 -5.362556 "" 6998.0 2.0 47.39 3.56 -0.75 0.01 1.52 0.01 nan nan nan nan nan nan nan nan nan nan nan nan 6998.0 2.0 47.39 3.56 299.48 0.88 nan nan nan nan -0.752 0.014 1.523 0.012 2.877 0.598 nan nan 2.966 0.628 2.43 0.288
+"" 331 2M05353124-0523400 3017360970946141952 83.821333 -5.41625 "" 3023.5 7.8 26.6 0.25 -0.8 0.29 -0.85 0.07 nan nan nan nan nan nan nan nan nan nan nan nan 3023.5 7.8 26.6 0.25 15.66 0.29 -0.8 0.29 -0.85 0.07 nan nan nan nan 0.117 0.006 0.124 0.013 0.107 0.006 nan nan
+"" 529 2M05353124-0523400 3017365918755884672 83.82175 -5.341028 "" 3812.7 11.9 24.01 1.76 -0.22 0.09 -0.27 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 3812.7 11.9 24.01 1.76 13.15 1.46 -0.22 0.09 -0.27 0.12 0.114 0.045 1.04 0.037 0.555 0.041 0.535 0.035 0.529 0.05 0.559 0.018
+"" 505 2M05353124-0523400 3017365953118751232 83.822333 -5.337472 "" 4078.6 11.4 27.15 0.44 -0.71 0.16 -0.31 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 4078.6 11.4 27.15 0.44 7.13 0.85 -0.71 0.16 -0.31 0.12 nan nan nan nan 0.742 0.06 0.738 0.042 0.698 0.061 0.801 0.015
+"" 619 2M05353124-0523400 3017360897927766016 83.822333 -5.429056 "" 4098.0 10.5 27.12 0.4 0.93 0.1 0.24 0.1 nan nan nan nan nan nan nan nan nan nan nan nan 4098.0 10.5 27.12 0.4 8.37 1.64 0.93 0.1 0.24 0.1 nan nan nan nan 0.756 0.06 0.754 0.041 0.712 0.061 0.824 0.016
+"" 618 2M05353124-0523400 3017360902234944000 83.823083 -5.428528 "" 4185.2 10.9 24.34 0.25 -1.0 0.15 -0.39 0.17 nan nan nan nan nan nan nan nan nan nan nan nan 4185.2 10.9 24.34 0.25 23.47 0.32 -1.0 0.15 -0.39 0.17 -0.127 0.049 -0.128 0.039 0.82 0.064 0.83 0.042 0.775 0.065 0.928 0.025
+"" 453 2M05353124-0523400 3017360902234838528 83.82475 -5.426056 "" 3638.9 8.8 26.73 0.5 0.5 0.04 1.11 2.8 nan nan nan nan nan nan nan nan nan nan nan nan 3638.9 8.8 26.73 0.5 27.37 0.38 0.5 0.04 1.11 2.8 nan nan nan nan 0.444 0.022 0.421 0.023 0.43 0.036 0.415 0.008
+"" "" 2M05353124-0523400 3017360318119414784 83.824875 -5.447389 "" 2961.0 14.0 25.16 0.32 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 2961.0 14.0 25.16 0.32 7.41 0.63 nan nan nan nan nan nan nan nan nan nan 0.097 0.015 nan nan nan nan
+"" 112 2M05353124-0523400 3017361005314028800 83.825833 -5.408389 "" 2858.1 13.4 25.21 1.62 0.79 0.19 2.27 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 2858.1 13.4 25.21 1.62 39.54 0.91 0.79 0.19 2.27 0.12 nan nan nan nan nan nan 0.058 0.005 nan nan nan nan
+"" 88 2M05353124-0523400 3017361005316981120 83.8265 -5.407417 "" 3120.8 10.1 25.5 0.26 -1.0 0.31 0.31 0.1 nan nan nan nan nan nan nan nan nan nan nan nan 3120.8 10.1 25.5 0.26 2.44 1.38 -1.0 0.31 0.31 0.1 nan nan nan nan 0.153 0.008 0.168 0.006 0.155 0.014 0.116 0.005
+"" 119 2M05353124-0523400 3017365850029113856 83.827125 -5.345194 "" 3685.3 15.2 31.06 1.62 -1.7 0.12 0.6 0.22 nan nan nan nan nan nan nan nan nan nan nan nan 3685.3 15.2 31.06 1.62 50.66 0.6 -1.7 0.12 0.6 0.22 nan nan nan nan 0.473 0.03 0.451 0.029 0.454 0.042 0.454 0.015
+"" 20 2M05353124-0523400 3017364162103041536 83.8285 -5.373028 "" 3721.3 235.6 23.73 0.91 0.14 0.2 -0.04 0.15 nan nan nan nan nan nan nan nan nan nan nan nan 3721.3 235.6 23.73 0.91 15.83 7.06 0.14 0.2 -0.04 0.15 nan nan nan nan 0.496 0.176 0.473 0.17 0.473 0.169 0.484 0.198
+"" 549 2M05353124-0523400 3017365850036801024 83.828917 -5.347833 "" 4035.0 13.8 24.41 0.15 1.72 0.29 -0.99 0.15 nan nan nan nan nan nan nan nan nan nan nan nan 4035.0 13.8 24.41 0.15 11.85 1.22 1.72 0.29 -0.99 0.15 nan nan nan nan 0.712 0.06 0.702 0.044 0.669 0.06 0.76 0.014
+"" "" 2M05353124-0523400 3017365953115811968 83.830417 -5.3355 "" 6273.0 91.0 32.9 1.78 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 6273.0 91.0 32.9 1.78 117.19 10.98 nan nan nan nan nan nan nan nan 2.801 0.61 nan nan 2.865 0.632 2.271 0.285
+"" 573 2M05353124-0523400 3017361001006988416 83.831875 -5.407389 "" 3946.4 9.2 23.19 0.2 0.33 0.34 -0.29 0.09 nan nan nan nan nan nan nan nan nan nan nan nan 3946.4 9.2 23.19 0.2 18.18 0.34 0.33 0.34 -0.29 0.09 -0.226 0.046 -1.075 0.038 0.65 0.051 0.632 0.04 0.612 0.054 0.678 0.015
+"" "" 2M05353124-0523400 3017365850036800896 83.8335 -5.351639 "" 4437.0 7.0 37.13 0.21 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4437.0 7.0 37.13 0.21 48.9 0.42 nan nan nan nan nan nan nan nan 1.028 0.056 1.107 0.03 0.97 0.059 1.277 0.064
+"" "" 2M05353124-0523400 3017360902234822016 83.8335 -5.427083 "" 4135.0 33.0 26.74 0.66 -0.12 0.05 -0.45 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 4135.0 33.0 26.74 0.66 11.75 0.79 nan nan nan nan -0.122 0.046 -0.453 0.04 0.783 0.078 0.785 0.061 0.738 0.079 0.868 0.045
+"" "" 2M05353124-0523400 3017360313812222720 83.834 -5.444167 "" 4422.0 8.0 29.18 1.03 -0.03 0.02 1.81 0.02 nan nan nan nan nan nan nan nan nan nan nan nan 4422.0 8.0 29.18 1.03 53.5 1.09 nan nan nan nan -0.034 0.022 1.813 0.018 1.014 0.058 1.088 0.032 0.956 0.061 1.251 0.06
+"" 441 2M05353124-0523400 3017364097682700672 83.834042 -5.385694 "" 3867.8 12.5 29.24 1.64 -2.14 0.69 -0.87 0.29 nan nan nan nan nan nan nan nan nan nan nan nan 3867.8 12.5 29.24 1.64 40.21 1.46 -2.14 0.69 -0.87 0.29 nan nan nan nan 0.594 0.048 0.573 0.037 0.564 0.053 0.605 0.021
+"" 104 2M05353124-0523400 3017361108393218816 83.835583 -5.405778 "" 3572.3 50.8 27.47 0.21 -0.58 0.2 -0.92 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 3572.3 50.8 27.47 0.21 7.87 1.48 -0.58 0.2 -0.92 0.05 nan nan nan nan 0.403 0.042 0.381 0.041 0.397 0.054 0.365 0.039
+"" 192 2M05353124-0523400 3017365884399265280 83.835667 -5.345306 "" 3498.7 252.7 29.39 1.53 -0.29 0.05 0.28 0.82 nan nan nan nan nan nan nan nan nan nan nan nan 3498.7 252.7 29.39 1.53 17.07 1.19 -0.29 0.05 0.28 0.82 nan nan nan nan 0.359 0.162 0.34 0.152 0.358 0.154 0.31 0.177
+"" 72 2M05353124-0523400 3017361104086334976 83.836125 -5.398083 "" 2978.4 7.1 25.7 0.2 0.09 0.12 0.31 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 2978.4 7.1 25.7 0.2 10.68 1.18 0.09 0.12 0.31 0.05 nan nan nan nan 0.101 0.003 0.103 0.014 nan nan nan nan
+"" "" 2M05353124-0523400 3017365643870379008 83.8365 -5.365278 "" 4288.0 14.0 25.24 1.53 -0.98 0.04 0.03 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4288.0 14.0 25.24 1.53 10.22 0.71 nan nan nan nan -0.985 0.043 0.034 0.034 0.901 0.067 0.932 0.044 0.848 0.068 1.058 0.043
+"" 34 2M05353124-0523400 3017365643880749824 83.83675 -5.356 "" 4020.8 16.3 32.46 0.26 0.7 2.17 0.83 0.91 nan nan nan nan nan nan nan nan nan nan nan nan 4020.8 16.3 32.46 0.26 35.5 1.37 0.7 2.17 0.83 0.91 nan nan nan nan 0.702 0.061 0.69 0.046 0.66 0.061 0.747 0.017
+"" 86 2M05353124-0523400 3017364093383574784 83.837625 -5.373611 "" 3725.5 8.1 27.16 0.18 -1.02 0.09 1.41 0.72 nan nan nan nan nan nan nan nan nan nan nan nan 3725.5 8.1 27.16 0.18 16.62 0.72 -1.02 0.09 1.41 0.72 nan nan nan nan 0.499 0.03 0.476 0.026 0.476 0.041 0.487 0.011
+"" 612 2M05353124-0523400 3017360696076379392 83.838125 -5.432472 "" 4107.0 7.6 22.19 0.23 1.04 0.26 -0.11 0.16 nan nan nan nan nan nan nan nan nan nan nan nan 4107.0 7.6 22.19 0.23 29.68 0.54 1.04 0.26 -0.11 0.16 1.25 0.053 -0.11 0.045 0.763 0.059 0.762 0.038 0.718 0.06 0.835 0.014
+"" "" 2M05353124-0523400 3017360627357038592 83.839125 -5.445528 "" 4386.0 7.0 26.03 0.21 -1.24 0.04 0.56 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4386.0 7.0 26.03 0.21 19.74 0.17 nan nan nan nan -1.24 0.038 0.561 0.03 0.981 0.059 1.044 0.033 0.925 0.061 1.191 0.043
+"" "" 2M05353124-0523400 3017360249399919616 83.840083 -5.449333 "" 3061.0 9.0 30.06 1.01 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 3061.0 9.0 30.06 1.01 72.25 0.95 nan nan nan nan nan nan nan nan 0.131 0.007 0.143 0.009 0.125 0.009 nan nan
+"" "" 2M05353124-0523400 3017360726129086848 83.84025 -5.424 "" 4209.0 12.0 25.74 0.18 0.21 0.09 0.13 0.07 nan nan nan nan nan nan nan nan nan nan nan nan 4209.0 12.0 25.74 0.18 12.44 1.36 nan nan nan nan 0.213 0.086 0.13 0.072 0.838 0.065 0.853 0.043 0.792 0.066 0.957 0.028
+"" 617 2M05353124-0523400 3017360627357037696 83.8405 -5.445639 "" 3749.1 8.6 26.49 0.63 1.05 0.06 1.38 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 3749.1 8.6 26.49 0.63 16.95 0.86 1.05 0.06 1.38 0.03 nan nan nan nan 0.514 0.032 0.491 0.028 0.49 0.043 0.507 0.013
+"" 89 2M05353124-0523400 3017365570852327936 83.841 -5.368944 "" 4067.7 11.0 26.71 0.27 0.15 0.29 1.13 0.13 nan nan nan nan nan nan nan nan nan nan nan nan 4067.7 11.0 26.71 0.27 23.87 0.5 0.15 0.29 1.13 0.13 nan nan nan nan 0.735 0.06 0.729 0.042 0.691 0.06 0.79 0.013
+"" 145 2M05353124-0523400 3017361039673740672 83.842 -5.409083 "" 3258.0 8.2 23.37 0.2 1.36 0.47 -1.32 0.33 nan nan nan nan nan nan nan nan nan nan nan nan 3258.0 8.2 23.37 0.2 12.89 0.68 1.36 0.47 -1.32 0.33 nan nan nan nan 0.22 0.007 0.225 0.011 0.219 0.008 0.166 0.004
+"" "" 2M05353124-0523400 3017360623049874176 83.842458 -5.443694 "" 4246.0 7.0 29.56 0.31 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4246.0 7.0 29.56 0.31 34.67 0.1 nan nan nan nan nan nan nan nan 0.867 0.062 0.888 0.037 0.818 0.063 1.001 0.028
+"" "" 2M05353124-0523400 3017365880089976064 83.84275 -5.341444 "" 4526.0 6.0 23.37 0.34 -0.1 0.01 -0.41 0.01 nan nan nan nan nan nan nan nan nan nan nan nan 4526.0 6.0 23.37 0.34 13.41 0.83 nan nan nan nan -0.098 0.014 -0.408 0.013 1.115 0.047 1.225 0.023 1.055 0.052 1.433 0.092
+"" 558 2M05353124-0523400 3017365575158623360 83.8435 -5.366944 "" 4467.6 7.6 22.86 0.29 0.03 0.09 -1.2 0.11 nan nan nan nan nan nan nan nan nan nan nan nan 4467.6 7.6 22.86 0.29 19.88 1.08 0.03 0.09 -1.2 0.11 0.645 0.049 -0.335 0.042 1.057 0.054 1.147 0.03 0.998 0.058 1.331 0.076
+"" 652 2M05353124-0523400 3017360726129090176 83.843583 -5.429194 "" 3544.1 12.5 30.53 0.41 -2.23 0.31 -1.26 0.45 nan nan nan nan nan nan nan nan nan nan nan nan 3544.1 12.5 30.53 0.41 14.72 0.88 -2.23 0.31 -1.26 0.45 nan nan nan nan 0.386 0.017 0.365 0.018 0.382 0.032 0.344 0.01
+"" "" 2M05353124-0523400 "" 83.84475 -5.329944 "" 4292.0 12.0 30.2 0.22 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4292.0 12.0 30.2 0.22 31.28 0.39 nan nan nan nan nan nan nan nan 0.904 0.065 0.936 0.042 0.851 0.066 1.064 0.041
+"" 551 2M05353124-0523400 3017364097690157952 83.845667 -5.378194 "" 4477.9 8.3 28.32 1.53 -0.59 0.13 2.26 0.07 nan nan nan nan nan nan nan nan nan nan nan nan 4477.9 8.3 28.32 1.53 66.41 0.82 -0.59 0.13 2.26 0.07 nan nan nan nan 1.067 0.054 1.16 0.029 1.008 0.058 1.349 0.081
+"" 623 2M05353124-0523400 3017365570852334336 83.846542 -5.374528 "" 3933.3 12.1 25.57 0.31 -0.28 0.19 -0.09 0.21 nan nan nan nan nan nan nan nan nan nan nan nan 3933.3 12.1 25.57 0.31 3.56 1.35 -0.28 0.19 -0.09 0.21 nan nan nan nan 0.641 0.053 0.621 0.041 0.604 0.055 0.666 0.019
+"" 535 2M05353124-0523400 3017365643877689728 83.846708 -5.359917 "" 3132.1 14.4 47.65 0.56 -1.26 0.21 -1.92 0.2 nan nan nan nan nan nan nan nan nan nan nan nan 3132.1 14.4 47.65 0.56 53.83 1.35 -1.26 0.21 -1.92 0.2 nan nan nan nan 0.158 0.01 0.172 0.008 0.16 0.017 0.12 0.007
+"" 556 2M05353124-0523400 3017365678237816960 83.847167 -5.357056 "" 4235.7 10.6 29.54 0.34 1.51 0.23 -0.34 0.22 nan nan nan nan nan nan nan nan nan nan nan nan 4235.7 10.6 29.54 0.34 11.89 1.41 1.51 0.23 -0.34 0.22 nan nan nan nan 0.858 0.064 0.878 0.04 0.81 0.065 0.989 0.03
+"" "" 2M05353124-0523400 3017365987477952384 83.847875 -5.333778 "" 4058.0 27.0 26.49 1.78 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4058.0 27.0 26.49 1.78 53.43 1.19 nan nan nan nan nan nan nan nan 0.728 0.07 0.721 0.055 0.684 0.07 0.781 0.029
+"" 98 2M05353124-0523400 3017365570852340352 83.851375 -5.375611 "" 4290.4 48.9 25.14 1.61 -1.58 0.25 0.12 0.08 nan nan nan nan nan nan nan nan nan nan nan nan 4290.4 48.9 25.14 1.61 16.0 0.59 -1.58 0.25 0.12 0.08 nan nan nan nan 0.903 0.095 0.934 0.08 0.849 0.094 1.061 0.086
+"" 342 2M05353124-0523400 3017360661716647552 83.851375 -5.433417 "" 2822.5 9.2 26.95 1.57 -0.65 0.36 -0.46 0.28 nan nan nan nan nan nan nan nan nan nan nan nan 2822.5 9.2 26.95 1.57 31.32 3.75 -0.65 0.36 -0.46 0.28 nan nan nan nan nan nan 0.049 0.003 nan nan nan nan
+"" 508 2M05353124-0523400 3017361035366738688 83.851792 -5.411056 "" 4178.6 9.6 23.5 0.28 0.85 0.07 -1.81 0.17 nan nan nan nan nan nan nan nan nan nan nan nan 4178.6 9.6 23.5 0.28 39.41 0.55 0.85 0.07 -1.81 0.17 0.645 0.046 -1.04 0.04 0.815 0.063 0.824 0.041 0.77 0.064 0.92 0.023
+"" 269 2M05353124-0523400 3017361074033059712 83.851875 -5.400278 "" 2761.7 21.2 31.09 0.39 -0.97 0.24 2.31 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 2761.7 21.2 31.09 0.39 20.71 1.05 -0.97 0.24 2.31 0.04 nan nan nan nan nan nan 0.037 0.003 nan nan nan nan
+"" "" 2M05353124-0523400 3017360627356913280 83.851875 -5.442056 "" 3260.0 197.0 24.08 1.2 -0.08 0.07 -1.67 0.06 nan nan nan nan nan nan nan nan nan nan nan nan 3260.0 197.0 24.08 1.2 19.86 0.92 nan nan nan nan -0.083 0.067 -1.674 0.056 0.221 0.105 0.226 0.097 0.22 0.112 0.167 0.057
+"" 194 2M05353124-0523400 3017362615914842368 83.852708 -5.378472 "" 3737.8 46.0 32.95 0.96 -0.26 0.12 -0.13 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 3737.8 46.0 32.95 0.96 2.23 2.43 -0.26 0.12 -0.13 0.03 nan nan nan nan 0.507 0.054 0.484 0.052 0.483 0.064 0.497 0.043
+"" 177 2M05353124-0523400 3017361035366739328 83.852875 -5.409917 "" 4270.4 7.7 24.77 0.34 0.18 0.65 1.11 0.32 nan nan nan nan nan nan nan nan nan nan nan nan 4270.4 7.7 24.77 0.34 35.59 0.49 0.18 0.65 1.11 0.32 -0.301 0.042 1.832 0.036 0.887 0.062 0.913 0.037 0.835 0.063 1.034 0.033
+"" 450 2M05353124-0523400 3017360833518069888 83.853667 -5.419472 "" 2889.5 65.1 25.83 1.74 -0.34 0.25 -0.39 0.2 nan nan nan nan nan nan nan nan nan nan nan nan 2889.5 65.1 25.83 1.74 13.39 0.66 -0.34 0.25 -0.39 0.2 nan nan nan nan nan nan 0.066 0.031 nan nan nan nan
+"" "" 2M05353124-0523400 3017362620221405440 83.854375 -5.382917 "" 4431.0 7.0 29.88 0.21 -0.49 0.1 1.96 0.09 nan nan nan nan nan nan nan nan nan nan nan nan 4431.0 7.0 29.88 0.21 27.19 0.08 nan nan nan nan -0.49 0.104 1.956 0.089 1.022 0.057 1.099 0.03 0.964 0.059 1.267 0.062
+"" "" 2M05353124-0523400 3017361074033139200 83.8545 -5.396306 "" 4325.0 7.0 31.86 0.29 -1.27 0.03 -2.4 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4325.0 7.0 31.86 0.29 109.87 0.77 nan nan nan nan -1.267 0.033 -2.396 0.03 0.929 0.061 0.973 0.035 0.875 0.062 1.108 0.036
+"" 504 2M05353124-0523400 3017362620221397248 83.854667 -5.373667 "" 3029.0 7.8 25.85 0.97 -0.02 0.22 -0.32 0.28 nan nan nan nan nan nan nan nan nan nan nan nan 3029.0 7.8 25.85 0.97 8.51 0.82 -0.02 0.22 -0.32 0.28 nan nan nan nan 0.119 0.006 0.127 0.012 0.109 0.006 nan nan
+"" "" 2M05353124-0523400 "" 83.854875 -5.398222 "" 3980.3 58.6 27.14 1.76 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 3980.3 58.6 27.14 1.76 15.5 2.19 nan nan nan nan nan nan nan nan 0.673 0.088 0.658 0.078 0.634 0.086 0.71 0.06
+"" 325 2M05353124-0523400 3017360730430635520 83.855583 -5.424861 "" 2861.3 8.2 30.22 0.24 -1.16 0.08 -1.66 0.38 nan nan nan nan nan nan nan nan nan nan nan nan 2861.3 8.2 30.22 0.24 16.46 0.49 -1.16 0.08 -1.66 0.38 nan nan nan nan nan nan 0.058 0.003 nan nan nan nan
+"" 13 2M05353124-0523400 3017361069726478976 83.855708 -5.403167 "" 4223.5 17.4 27.17 1.0 -0.14 0.69 -0.42 0.08 nan nan nan nan nan nan nan nan nan nan nan nan 4223.5 17.4 27.17 1.0 18.93 2.36 -0.14 0.69 -0.42 0.08 nan nan nan nan 0.848 0.069 0.866 0.047 0.802 0.07 0.974 0.036
+"" "" 2M05353124-0523400 3017365609521331968 83.855958 -5.364306 "" 4188.0 9.0 28.4 0.23 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4188.0 9.0 28.4 0.23 29.41 0.72 nan nan nan nan nan nan nan nan 0.822 0.062 0.833 0.04 0.777 0.064 0.932 0.023
+"" 91 2M05353124-0523400 3017365609510857344 83.856125 -5.359694 "" 4379.4 7.2 31.67 0.25 0.3 0.15 -1.08 0.17 nan nan nan nan nan nan nan nan nan nan nan nan 4379.4 7.2 31.67 0.25 16.07 0.31 0.3 0.15 -1.08 0.17 nan nan nan nan 0.976 0.06 1.036 0.034 0.92 0.061 1.182 0.041
+"" 111 2M05353124-0523400 3017362620221405824 83.857125 -5.385944 "" 4349.1 5.5 26.37 0.31 -0.15 0.17 0.53 0.09 nan nan nan nan nan nan nan nan nan nan nan nan 4349.1 5.5 26.37 0.31 17.91 0.2 -0.15 0.17 0.53 0.09 nan nan nan nan 0.949 0.059 0.999 0.033 0.895 0.061 1.141 0.035
+"" 436 2M05353124-0523400 3017360657409619328 83.858333 -5.429917 "" 4151.8 5.9 26.44 0.19 -0.02 0.08 -0.33 0.06 nan nan nan nan nan nan nan nan nan nan nan nan 4151.8 5.9 26.44 0.19 16.04 0.25 -0.02 0.08 -0.33 0.06 nan nan nan nan 0.795 0.059 0.799 0.037 0.75 0.06 0.888 0.016
+"" "" 2M05353124-0523400 3017365609517617408 83.858542 -5.355833 "" 4392.0 7.0 31.2 0.19 -0.26 0.07 0.81 0.06 nan nan nan nan nan nan nan nan nan nan nan nan 4392.0 7.0 31.2 0.19 66.77 1.61 nan nan nan nan -0.257 0.067 0.81 0.059 0.987 0.059 1.051 0.033 0.93 0.061 1.199 0.046
+"" 106 2M05353124-0523400 3017362620221401856 83.858958 -5.3825 "" 3812.1 8.3 26.5 0.26 0.72 0.13 1.17 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 3812.1 8.3 26.5 0.26 12.48 0.58 0.72 0.13 1.17 0.03 nan nan nan nan 0.555 0.039 0.534 0.032 0.529 0.048 0.559 0.015
+"" 350 2M05353124-0523400 3017360833518064768 83.859083 -5.422306 "" 3519.4 47.1 28.33 0.28 0.68 0.08 0.91 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 3519.4 47.1 28.33 0.28 25.72 0.63 0.68 0.08 0.91 0.12 nan nan nan nan 0.371 0.037 0.351 0.035 0.369 0.049 0.325 0.036
+"" "" 2M05353124-0523400 3017360661716621696 83.85975 -5.427806 "" 4616.0 10.0 29.74 1.79 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4616.0 10.0 29.74 1.79 104.47 1.27 nan nan nan nan nan nan nan nan 1.211 0.038 1.349 0.023 1.151 0.049 1.555 0.112
+"" 182 2M05353124-0523400 3017361074033190528 83.862333 -5.400139 "" 3345.3 16.2 26.47 0.42 1.23 0.38 -0.27 0.02 nan nan nan nan nan nan nan nan nan nan nan nan 3345.3 16.2 26.47 0.42 10.65 0.85 1.23 0.38 -0.27 0.02 nan nan nan nan 0.269 0.016 0.263 0.014 0.27 0.015 0.198 0.009
+"" "" 2M05353124-0523400 3017361074033180928 83.86375 -5.3935 "" 4284.0 8.0 29.7 0.34 -0.41 0.05 0.12 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 4284.0 8.0 29.7 0.34 30.96 0.15 nan nan nan nan -0.412 0.046 0.118 0.04 0.898 0.062 0.927 0.038 0.845 0.063 1.053 0.035
+"" 120 2M05353124-0523400 3017362551501920640 83.867208 -5.385111 "" 3670.8 9.5 26.61 0.89 0.19 0.35 1.16 0.12 nan nan nan nan nan nan nan nan nan nan nan nan 3670.8 9.5 26.61 0.89 58.01 1.07 0.19 0.35 1.16 0.12 nan nan nan nan 0.464 0.026 0.441 0.025 0.446 0.038 0.442 0.01
+"" "" 2M05353124-0523400 3017360829208313728 83.86825 -5.417583 "" 3910.0 11.0 25.7 0.23 0.79 0.05 1.3 0.05 nan nan nan nan nan nan nan nan nan nan nan nan 3910.0 11.0 25.7 0.23 11.07 0.38 nan nan nan nan 0.793 0.053 1.3 0.048 0.624 0.05 0.603 0.039 0.59 0.054 0.644 0.019
+"" "" 2M05353124-0523400 3017362345343294464 83.874375 -5.39875 "" 3978.0 18.0 26.93 0.18 -1.02 0.05 0.3 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 3978.0 18.0 26.93 0.18 19.56 0.53 nan nan nan nan -1.024 0.047 0.305 0.041 0.672 0.06 0.657 0.047 0.632 0.06 0.707 0.022
+"" "" 2M05353124-0523400 3017362345346401664 83.874417 -5.396778 "" 3873.0 12.0 27.24 0.2 -0.56 0.05 1.62 0.04 nan nan nan nan nan nan nan nan nan nan nan nan 3873.0 12.0 27.24 0.2 14.21 0.38 nan nan nan nan -0.562 0.052 1.617 0.045 0.598 0.048 0.577 0.037 0.567 0.053 0.61 0.021
+"" "" 2M05353124-0523400 3017360863568054528 83.877 -5.406389 "" 4319.0 8.0 33.13 0.36 nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan nan 4319.0 8.0 33.13 0.36 83.73 0.62 nan nan nan nan nan nan nan nan 0.924 0.062 0.966 0.036 0.871 0.063 1.1 0.037
+"" 654 2M05353124-0523400 3017360863568055040 83.877958 -5.408667 "" 2879.9 20.0 28.3 1.35 -2.04 1.86 1.68 1.63 nan nan nan nan nan nan nan nan nan nan nan nan 2879.9 20.0 28.3 1.35 19.93 0.42 -2.04 1.86 1.68 1.63 nan nan nan nan nan nan 0.064 0.012 nan nan nan nan
+"" 548 2M05353124-0523400 3017362753353814272 83.878083 -5.362944 "" 4033.2 43.2 24.72 0.3 0.15 0.43 1.1 0.53 nan nan nan nan nan nan nan nan nan nan nan nan 4033.2 43.2 24.72 0.3 8.04 1.48 0.15 0.43 1.1 0.53 nan nan nan nan 0.71 0.08 0.7 0.068 0.668 0.08 0.758 0.044
+"" 538 2M05353124-0523400 3017362757659330816 83.879125 -5.367028 "" 4273.8 42.8 34.11 2.61 -1.19 0.08 -1.41 0.36 nan nan nan nan nan nan nan nan nan nan nan nan 4273.8 42.8 34.11 2.61 80.53 9.56 -1.19 0.08 -1.41 0.36 nan nan nan nan 0.89 0.09 0.916 0.073 0.837 0.089 1.039 0.076
+"" "" 2M05353124-0523400 3017362345343488128 83.880167 -5.394444 "" 4288.0 5.0 24.73 0.17 0.32 0.03 0.86 0.03 nan nan nan nan nan nan nan nan nan nan nan nan 4288.0 5.0 24.73 0.17 12.28 0.15 nan nan nan nan 0.315 0.034 0.864 0.03 0.901 0.06 0.932 0.035 0.848 0.061 1.058 0.031
