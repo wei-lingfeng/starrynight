@@ -19,7 +19,7 @@ from scipy.interpolate import interp1d
 from scipy.sparse.csgraph import minimum_spanning_tree
 from astroquery.gaia import Gaia
 from astroquery.vizier import Vizier
-from astropy.io import fits
+from astropy.io import fits, ascii
 from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.coordinates import SkyCoord
@@ -67,6 +67,9 @@ class StarCluster:
     def len(self):
         return len(self.data)    
     
+    @property
+    def df(self):
+        return self.data.to_pandas()
     
     def set_coord(self, ra, dec, pmRA, pmDE, rv, distance=None):
         """Set astropy SkyCoord with attributes: coord (and velocity, if distance is not None)
@@ -177,6 +180,16 @@ class StarCluster:
         self.data['e_vt'] = e_vt
         self.data['v'] = v
         self.data['e_v'] = e_v
+        self.data.round({'vRA':2, 'e_vRA':2, 'e_vDE':2, 'vt':2, 'e_vt':2, 'v':2, 'e_v':2})
+        self.data['vRA'].info.format    = '.2f'
+        self.data['e_vRA'].info.format  = '.2f'
+        self.data['vDE'].info.format    = '.2f'
+        self.data['e_vDE'].info.format  = '.2f'
+        self.data['vt'].info.format     = '.2f'
+        self.data['e_vt'].info.format   = '.2f'
+        self.data['v'].info.format      = '.2f'
+        self.data['e_v'].info.format    = '.2f'
+        
 
 
     def plot_skymap(self, background_path=None, show_figure=True, save_path=None, ra_offset=0, dec_offset=0, label='Sources', color='C6', lw=1, zorder=1, constraint=None):
@@ -383,7 +396,7 @@ class StarCluster:
         save_path : str, optional
             Save path, by default None
         read_path : str, optional
-            Read saved vrel_vs_mass.npy, by default None
+            Read saved k_resample, b_resample and their uncertainties, so that there's no need to resample again, by default None
         bin_method: str, optional
             Binning method when calculating running average, 'equally spaced' or 'equally grouped', by default 'equally grouped'
         suppress_output: bool, optional
@@ -555,7 +568,7 @@ class StarCluster:
             
             with open(f'{read_path}/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
                 raw = file.readlines()
-                    
+            
             for line in raw:
                 if line.startswith('k_resample:'):
                     k_resample, e_k_resample = eval(', '.join(line.strip('k_resample:\t\n').split('± ')))
@@ -597,7 +610,7 @@ class StarCluster:
                 file.write(f'R_resample:\t{R_resample} ± {e_R_resample}\n')
                 file.write(f'R:\t{R}\n')
             
-            with open(f'{read_path}/mass_vrel.pkl', 'wb') as file:
+            with open(f'{save_path}/{model_name}-mass_vrel.pkl', 'wb') as file:
                 pickle.dump([mass, vrel, e_mass, e_vrel], file)
         
         # plot
@@ -606,7 +619,7 @@ class StarCluster:
             # equally grouped
             if bin_method == 'equally grouped':
                 nbins = kwargs.get('nbins', 7)
-                sources_in_bins = [len(mass) // nbins + (1 if x < len(valid_idx) % nbins else 0) for x in range (nbins)]
+                sources_in_bins = [len(_) for _ in np.array_split(np.arange(len(mass)), nbins)]
                 division_idx = np.cumsum(sources_in_bins)[:-1] - 1
                 mass_sorted = np.sort(mass)
                 mass_borders = np.array([np.nanmin(mass).to(u.solMass).value - 1e-3, *(mass_sorted[division_idx] + mass_sorted[division_idx + 1]).to(u.solMass).value/2, np.nanmax(mass).to(u.solMass).value])
@@ -826,7 +839,38 @@ class StarCluster:
 class ONC(StarCluster):
     def __init__(self, table) -> None:
         super().__init__(table)
-    
+        rounding = {
+            'RAJ2000':6, 'DEJ2000':6, 
+            'teff':1, 'e_teff':1, 
+            'teff_nirspao':1, 'e_teff_nirspao':1, 
+            'vsini_nirspao':2, 'e_vsini_nirspao':2, 
+            'rv_nirspao':2, 'e_rv_nirspao':2, 'rv_helio':2, 
+            'airmass':2, 'e_airmass':2, 
+            'pwv':2, 'e_pwv':2, 
+            'veiling':2, 'e_veiling':2, 'veiling_param_O32':2, 'veiling_param_O33_nirspao':2, 'veiling_param_O35':2, 
+            'lsf':2, 'e_lsf':2,
+            'noise':2, 'e_noise':2,
+            'model_dip_O32':2, 'model_std_O32':2,
+            'model_dip_O33':2, 'model_std_O33':2,
+            'model_dip_O35':2, 'model_std_O35':2,
+            'wave_offset_O32':5, 'e_wave_offset_O32':5,
+            'wave_offset_O33':5, 'e_wave_offset_O33':5,
+            'wave_offset_O35':5, 'e_wave_offset_O35':5,
+            'snr_O32':2, 'snr_O33':2, 'snr_O35':2,
+            'Kmag':6, 'e_Kmag':6, 'Hmag':6, 'e_Hmag':6,
+            'rv_chris':2, 'e_rv_chris':2, 'vsini_chris':2, 'e_vsini_chris':2,
+            'pmRA_kim':2, 'e_pmRA_kim':2, 'pmDE_kim':2, 'e_pmDE_kim':2,
+            'pmRA_gaia':3, 'e_pmRA_gaia':3, 'pmDE_gaia':3, 'e_pmDE_gaia':3, 
+            'plx':4, 'e_plx':4, 'Gmag':6, 'e_Gmag':6
+        }
+        
+        for key, precision in rounding.items():
+            self.data[key].info.format=f'.{precision}f'
+        
+        for key in self.data.keys():
+            if ('MIST' in key) | ('BHAC15' in key) | ('Feiden' in key) | ('Palla' in key):
+                self.data[key].info.format='.5f'
+        
     def set_attr(self) -> None:
         """Set attributes of ra, dec, pmRA, pmDE rv, coord, teff, teff, mass of MIST, BHAC15, Feiden, Palla, and corresponding errors.
         """
@@ -923,7 +967,7 @@ class ONC(StarCluster):
         self.data['e_rv_nirspao'][rv_use_apogee] = self.data['e_rv_apogee'][rv_use_apogee]
         
         # Apply gaia constraint
-        gaia_columns = [key for key in self.data.keys() if (key.endswith('gaia') | key.startswith('plx') | key.startswith('Gmag') | key.startswith('astrometric') | (key=='ruwe') | (key=='bp_rp'))]
+        gaia_columns = [key for key in self.data.keys() if (('gaia' in key) | ('plx' in key) | ('Gmag' in key) | ('astrometric' in key) | (key=='ruwe') | (key=='bp_rp'))]
         gaia_filter = (self.data['astrometric_gof_al'] < 16) & (self.data['Gmag'] < 16*u.mag)
         self.data['astrometric_n_good_obs_al'] = MaskedColumn([float(_) for _ in self.data['astrometric_n_good_obs_al']])
         for col in gaia_columns:
@@ -973,6 +1017,11 @@ class ONC(StarCluster):
         self.data['e_rv']   = merge(self.data['e_rv_nirspao'], self.data['e_rv_apogee'])
         self.data['dist']   = (1000/self.data['plx'].to(u.mas).value) * u.pc
         self.data['e_dist'] = self.data['e_plx'] / self.data['plx'] * self.data['dist']
+        self.data.round({'rv':2, 'e_rv':2, 'dist':2, 'e_dist':2})
+        self.data['rv'].info.format     = '.2f'
+        self.data['e_rv'].info.format   = '.2f'
+        self.data['dist'].info.format   = '.2f'
+        self.data['e_dist'].info.format = '.2f'
         
         dist_constraint = distance_cut(self.data['dist'], self.data['e_dist'])
         unique_HC2000_after_dist, counts_HC2000_after_dist = np.unique(self.data['HC2000'][dist_constraint & ~self.data['HC2000'].mask], return_counts=True)
@@ -1007,7 +1056,7 @@ class ONC(StarCluster):
             self.len - sum(trapezium_only) - (sum(counts_HC2000[counts_HC2000 > 1]) - len(counts_HC2000[counts_HC2000 > 1])),
             self.len - sum(trapezium_only)
         ))
-
+        
         self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.csv', overwrite=True)
         self.data.write(f'{user_path}/ONC/starrynight/catalogs/sources post-processing.ecsv', overwrite=True)
     
@@ -1739,7 +1788,7 @@ def vdisp_vs_sep_equally_grouped(sources:pd.DataFrame, ngroups:int, save_path:st
     # filter nans.
     sources = sources[~(np.isnan(sources['vRA']) | np.isnan(sources['vDE']) | np.isnan(sources['rv']))]
 
-    sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    sources_in_bins = [len(_) for _ in np.array_split(np.arange(len(sources)), ngroups)]
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
     separation_sorted = np.sort(sources['sep_to_trapezium'])
     separation_borders = np.array([0, *(separation_sorted[division_idx] + separation_sorted[division_idx+1]).value/2, 4]) * separation_sorted.unit
@@ -1807,10 +1856,10 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
-    fig, axs = plt.subplots(1, 1, figsize=(4, 3), dpi=300, sharex='col', sharey='row')
+    fig, axs = plt.subplots(3, 2, figsize=(8, 9), dpi=300, sharex='col', sharey='row')
     
-    # for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
-    for ax, direction, sigma_xx in zip([axs], ['1d'], [sigma_1d]):
+    for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
+    # for ax, direction, sigma_xx in zip([axs], ['1d'], [sigma_1d]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1820,10 +1869,10 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
         ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
         if direction=='1d':
-            ax.set_ylabel(r'$\sigma_{\mathrm{1D, rms}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+            ax.set_ylabel(r'$\sigma_{\mathrm{1D_{3D}}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
             ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
         elif direction=='pm':
-            ax.set_ylabel(r'$\sigma_{\mathrm{pm, rms}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+            ax.set_ylabel(r'$\sigma_{\mathrm{1D_{pm}}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         elif direction=='rv':
             ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
             ax.set_ylabel(r'$\sigma_{\mathrm{RV}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
@@ -1840,7 +1889,7 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
         ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
         if direction=='1d':
             ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
-            # ax2.set_title('Equally Spaced\n', fontsize=15)
+            ax2.set_title('Equally Spaced\n', fontsize=15)
         else:
             ax2.tick_params(
                 axis='x',
@@ -1849,79 +1898,79 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
             )
     
     
-    # # Right: Equally Grouped
+    # Right: Equally Grouped
     
-    # if MCMC:
-    #     print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting...')
+    if MCMC:
+        print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting...')
 
-    # separation_borders, vdisps = vdisp_vs_sep_equally_grouped(sources, ngroups, save_path, MCMC)    
+    separation_borders, vdisps = vdisp_vs_sep_equally_grouped(sources, ngroups, save_path, MCMC)    
 
-    # if MCMC:
-    #     print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting finished!')
+    if MCMC:
+        print(f'{ngroups}-binned equally grouped velocity dispersion vs separation fitting finished!')
 
-    # # average separation within each bin.
-    # separation_sources = np.array([np.mean(sources['sep_to_trapezium'][(sources['sep_to_trapezium'] > min_sep) & (sources['sep_to_trapezium'] <= max_sep)].to(u.arcmin).value) for min_sep, max_sep in zip(separation_borders[:-1], separation_borders[1:])])
+    # average separation within each bin.
+    separation_sources = np.array([np.mean(sources['sep_to_trapezium'][(sources['sep_to_trapezium'] > min_sep) & (sources['sep_to_trapezium'] <= max_sep)].to(u.arcmin).value) for min_sep, max_sep in zip(separation_borders[:-1], separation_borders[1:])])
 
-    # sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    sources_in_bins = [len(_) for _ in np.array_split(np.arange(len(sources)), ngroups)]
     
-    # # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
-    # sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
-    # sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
-    # sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
+    # sigma_xx: 2*N array. sigma_xx[0] = value, sigma_xx[1] = error.
+    sigma_RA = np.array([vdisp.sigma_RA for vdisp in vdisps]).transpose()
+    sigma_DE = np.array([vdisp.sigma_DE for vdisp in vdisps]).transpose()
+    sigma_rv = np.array([vdisp.sigma_rv for vdisp in vdisps]).transpose()
 
-    # sigma_pm = np.empty_like(sigma_RA)
-    # sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
-    # sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
+    sigma_pm = np.empty_like(sigma_RA)
+    sigma_pm[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2)/2)
+    sigma_pm[1] = np.sqrt(1/4*((sigma_RA[0]/sigma_pm[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_pm[0]*sigma_DE[1])**2))
 
-    # sigma_1d = np.empty_like(sigma_RA)
-    # sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
-    # sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
+    sigma_1d = np.empty_like(sigma_RA)
+    sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
+    sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
 
-    # # for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
+    for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
     # for ax, direction, sigma_xx in zip([axs[1]], ['1d'], [sigma_1d]):
-    #     # arcmin axis
-    #     ax.set_xlim((0, 4))
-    #     ax.set_ylim((0.5, 5.5))
-    #     ax.tick_params(axis='both', labelsize=12)
-    #     solid_line, = ax.plot(model_separations_arcmin, sigma, color='k')
-    #     dotted_line, = ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
-    #     ax.plot(model_separations_arcmin, sigma_lo, color='k', linestyle='dotted')
-    #     gray_fill = ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
-    #     if direction=='1d':
-    #         ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
+        # arcmin axis
+        ax.set_xlim((0, 4))
+        ax.set_ylim((0.5, 5.5))
+        ax.tick_params(axis='both', labelsize=12)
+        solid_line, = ax.plot(model_separations_arcmin, sigma, color='k')
+        dotted_line, = ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
+        ax.plot(model_separations_arcmin, sigma_lo, color='k', linestyle='dotted')
+        gray_fill = ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
+        if direction=='rv':
+            ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
         
-    #     errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
+        errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
         
-    #     for i in range(len(sources_in_bins)):
-    #         ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
-    #     red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
+        for i in range(len(sources_in_bins)):
+            ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+        red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
         
-    #     # arcmin axis
-    #     ax2 = ax.twiny()
-    #     ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
-    #     ax2.tick_params(axis='both', labelsize=12)
-    #     if direction=='1d':
-    #         ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
-    #         ax2.set_title('Equally Grouped\n', fontsize=15)
-    #     else:
-    #         ax2.tick_params(
-    #             axis='x',
-    #             top=False,
-    #             labeltop=False
-    #         )
+        # arcmin axis
+        ax2 = ax.twiny()
+        ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
+        ax2.tick_params(axis='both', labelsize=12)
+        if direction=='1d':
+            ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
+            ax2.set_title('Equally Grouped\n', fontsize=15)
+        else:
+            ax2.tick_params(
+                axis='x',
+                top=False,
+                labeltop=False
+            )
     
-    # axs[0, 1].legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
-    # axs[-1, 0].set_xticks([0, 1, 2, 3])
-    # axs[-1, 1].set_xticks([0, 1, 2, 3, 4])
+    axs[0, 1].legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
+    axs[-1, 0].set_xticks([0, 1, 2, 3])
+    axs[-1, 1].set_xticks([0, 1, 2, 3, 4])
     
-    axs.legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
-    axs.set_xticks([0, 1, 2, 3])
-    axs.set_xticks([0, 1, 2, 3, 4])
+    # axs.legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
+    # axs.set_xticks([0, 1, 2, 3])
+    # axs.set_xticks([0, 1, 2, 3, 4])
     
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
-    # plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.pdf', bbox_inches='tight')
-    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep - 1D.png', bbox_inches='tight', transparent=True)
+    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.pdf', bbox_inches='tight')
+    # plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep - 1D.png', bbox_inches='tight', transparent=True)
     plt.show()
 
 
@@ -2003,7 +2052,7 @@ def vdisp_vs_mass_equally_grouped(sources:QTable, model_name:str, ngroups:int, s
     # filter nans.
     sources = sources[~(np.isnan(sources['vRA']) | np.isnan(sources['vDE']) | np.isnan(sources['rv']))]
 
-    sources_in_bins = [len(sources) // ngroups + (1 if x < len(sources) % ngroups else 0) for x in range (ngroups)]
+    sources_in_bins = [len(_) for _ in np.array_split(np.arange(len(sources)), ngroups)]
     division_idx = np.cumsum(sources_in_bins)[:-1] - 1
     mass_sorted = np.sort(sources[f'mass_{model_name}'])
     mass_borders = np.array([0, *(mass_sorted[division_idx] + mass_sorted[division_idx+1]).value/2, 4])*mass_sorted.unit
@@ -2077,7 +2126,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
             ax.set_title('$\sigma_\mathrm{1D_{3D}}$', fontsize=15)
             ax.set_ylabel(r'$\sigma$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
         elif direction=='pm':
-            ax.set_title('$\sigma_\mathrm{1D_{2D}}$', fontsize=15)
+            ax.set_title('$\sigma_\mathrm{1D_{pm}}$', fontsize=15)
             ax.set_xlabel(f'{model_name} Mass ($M_\odot$)', fontsize=15, labelpad=10)
         elif direction=='rv':
             ax.set_title('$\sigma_{\mathrm{RV}}$', fontsize=15)
@@ -2647,33 +2696,34 @@ orion_mean_offset.set_attr()
 #             update_self = True
 #         else:
 #             update_self = False
-#             mass, vrel, e_mass, e_vrel, fit_result = orion.vrel_vs_mass(
-#                 model_name=model_name,
-#                 model_type=model_type,
-#                 radius=radius,
-#                 resampling=resampling,
-#                 min_rv=min_rv,
-#                 max_rv=max_rv,
-#                 update_self=update_self,
-#                 kde_percentile=84,
-#                 show_figure=False,
-#                 suppress_output=True,
-#                 save_path=f'{save_path}/vrel_results/uniform_dist/{model_type}-{radius.value:.2f}pc'
-#             )
-            
-#             mass, vrel, e_mass, e_vrel, fit_result = orion_mean_offset.vrel_vs_mass(
-#                 model_name=model_name,
-#                 model_type=model_type,
-#                 radius=radius,
-#                 resampling=resampling,
-#                 min_rv=min_rv,
-#                 max_rv=max_rv,
-#                 update_self=False,
-#                 kde_percentile=84,
-#                 show_figure=False,
-#                 suppress_output=True,
-#                 save_path=f'{save_path}/vrel_results/uniform_dist/{model_type}-mean-offset-{radius.value:.2f}pc'
-#             )
+        
+#         mass, vrel, e_mass, e_vrel, fit_result = orion.vrel_vs_mass(
+#             model_name=model_name,
+#             model_type=model_type,
+#             radius=radius,
+#             resampling=resampling,
+#             min_rv=min_rv,
+#             max_rv=max_rv,
+#             update_self=update_self,
+#             kde_percentile=84,
+#             show_figure=True,
+#             suppress_output=True,
+#             save_path=f'{save_path}/vrel_results/uniform_dist/{model_type}-{radius.value:.2f}pc'
+#         )
+        
+#         mass, vrel, e_mass, e_vrel, fit_result = orion_mean_offset.vrel_vs_mass(
+#             model_name=model_name,
+#             model_type=model_type,
+#             radius=radius,
+#             resampling=resampling,
+#             min_rv=min_rv,
+#             max_rv=max_rv,
+#             update_self=False,
+#             kde_percentile=84,
+#             show_figure=True,
+#             suppress_output=True,
+#             save_path=f'{save_path}/vrel_results/uniform_dist/{model_type}-mean-offset-{radius.value:.2f}pc'
+#         )
 
 # orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
@@ -2883,7 +2933,7 @@ plt.show()
 # vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
 # vdisp vs mass
-# vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
+vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
 
 # # simulate distance
 # # Inverse CDF of Gaia distance
@@ -2899,7 +2949,7 @@ plt.show()
 # Nsim = 1000
 # args_list = []
 # for i in tqdm(range(Nsim)):
-#     orion_simulate = copy.deepcopy(orion)
+#     orion_simulate = orion.copy()
 #     dist_simulate = inv_cdf_dist(np.random.uniform(low=0, high=1, size=orion.len)) * valid_dist.unit
 #     e_dist_simulate = inv_cdf_e_dist(np.random.uniform(low=0, high=1, size=orion.len)) * valid_e_dist.unit
 #     orion_simulate.calculate_velocity(orion_simulate.data['pmRA'], orion_simulate.data['e_pmRA'], orion_simulate.data['pmDE'], orion_simulate.data['e_pmDE'], orion_simulate.data['rv'], orion_simulate.data['e_rv'], dist=dist_simulate, e_dist=e_dist_simulate)
@@ -2908,6 +2958,7 @@ plt.show()
 #         ) | (
 #             trapezium_only
 #     ))
+#     # sources, save_path, MCMC, multiprocess, nwalkers, steps
 #     args_list.append((orion_simulate.data[rv_constraint], None, True, False, 100, 300))
 
 # with Pool(64) as pool:

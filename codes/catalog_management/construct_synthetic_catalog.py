@@ -993,7 +993,12 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     # consistent with their original tables. Gaia DR3 consistent with https://vizier.cds.unistra.fr/viz-bin/VizieR-3?-source=I/355/gaiadr3.
     
     sources_epoch_combined = merge_multiepoch(sources)
-    
+    sources_epoch_combined.round({
+        'rv_chris':2, 'e_rv_chris':2, 'vsini_chris':2, 'e_vsini_chris':2,
+        'pmRA_kim':2, 'e_pmRA_kim':2, 'pmDE_kim':2, 'e_pmDE_kim':2,
+        'pmRA_gaia':3, 'e_pmRA_gaia':3, 'pmDE_gaia':3, 'e_pmDE_gaia':3, 
+        'plx':4, 'e_plx':4, 'Gmag':6, 'e_Gmag':6
+    })
     
     ###############################################
     ################### Fit Mass ##################

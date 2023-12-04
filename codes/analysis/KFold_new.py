@@ -57,12 +57,11 @@ for fold in range(nfold):
     e_b_fold[fold]  = np.diff(np.percentile(bs, [16, 84]))[0]/2
 
 
+xs = np.linspace(mass.min(), mass.max(), 2)
 fig, ax = plt.subplots()
 ax.errorbar(mass, vrel, xerr=e_mass, yerr=e_vrel, fmt='.', alpha=0.5)
-
-linear_model = lambda k, b, x: k*x + b
 for fold in range(nfold):
-    ax.plot([min(mass), max(mass)], [linear_model(k_fold[fold], b_fold[fold], min(mass)), linear_model(k_fold[fold], b_fold[fold], max(mass))], label=f'$k_{fold+1}={k_fold[fold]:.2f}\pm{e_k_fold[fold]:.2f}$')
+    ax.plot(xs, k_fold[fold]*xs + b_fold[fold], label=f'$k_{fold+1}={k_fold[fold]:.2f}\pm{e_k_fold[fold]:.2f}$')
 
 ax.set_xlabel('Mass $(M_\odot)$', fontsize=12)
 ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
