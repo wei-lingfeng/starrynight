@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import astropy.units as u
+import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
@@ -1856,10 +1857,64 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
+    # plot
+    # 1D plot
+    fig, ax = plt.subplots(1, 1, figsize=(4, 3), dpi=300, sharex='col', sharey='row')
+    
+    direction = '1d'
+    sigma_xx = sigma_1d
+    # arcmin axis
+    ax.set_xlim((0, 4))
+    ax.set_ylim((0.5, 5.5))
+    ax.tick_params(axis='both', labelsize=12)
+    solid_line, = ax.plot(model_separations_arcmin, sigma, color='k')
+    dotted_line, = ax.plot(model_separations_arcmin, sigma_lo, color='k', linestyle='dotted')
+    ax.plot(model_separations_arcmin, sigma_hi, color='k', linestyle='dotted')
+    ax.fill_between(model_separations_arcmin, y1=sigma_lo, y2=sigma_hi, edgecolor='none', facecolor='C7', alpha=0.4)
+    if direction=='1d':
+        ax.set_ylabel(r'$\sigma_{\mathrm{1D_{3D}}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+        ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
+    elif direction=='pm':
+        ax.set_ylabel(r'$\sigma_{\mathrm{1D_{pm}}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+    elif direction=='rv':
+        ax.set_xlabel('Separation from Trapezium (arcmin)', fontsize=15, labelpad=10)
+        ax.set_ylabel(r'$\sigma_{\mathrm{RV}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+    
+    errorbar = ax.errorbar(separation_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
+    
+    for i in range(len(sources_in_bins)):
+        ax.annotate(f'{sources_in_bins[i]}', (separation_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+    red_fill = ax.fill_between(separation_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
+    
+    # pc axis
+    ax2 = ax.twiny()
+    ax2.tick_params(axis='both', labelsize=12)
+    ax2.set_xlim((0, 4/60 * np.pi/180 * 389))
+    if direction=='1d':
+        ax2.set_xlabel('Separation from Trapezium (pc)', fontsize=15, labelpad=10)
+        # ax2.set_title('Equally Spaced\n', fontsize=15)
+    else:
+        ax2.tick_params(
+            axis='x',
+            top=False,
+            labeltop=False
+        )
+        
+    ax.legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
+    ax.set_xticks([0, 1, 2, 3])
+    ax.set_xticks([0, 1, 2, 3, 4])
+    
+    fig.tight_layout()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep - 1D.png', bbox_inches='tight', transparent=True)
+    plt.show()
+    
+    
+    
+    # 3 directions plots
     fig, axs = plt.subplots(3, 2, figsize=(8, 9), dpi=300, sharex='col', sharey='row')
     
     for ax, direction, sigma_xx in zip(axs[:, 0], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
-    # for ax, direction, sigma_xx in zip([axs], ['1d'], [sigma_1d]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1927,7 +1982,6 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
 
     for ax, direction, sigma_xx in zip(axs[:, 1], ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
-    # for ax, direction, sigma_xx in zip([axs[1]], ['1d'], [sigma_1d]):
         # arcmin axis
         ax.set_xlim((0, 4))
         ax.set_ylim((0.5, 5.5))
@@ -1963,14 +2017,9 @@ def vdisp_vs_sep(sources, nbins, ngroups, save_path, MCMC):
     axs[-1, 0].set_xticks([0, 1, 2, 3])
     axs[-1, 1].set_xticks([0, 1, 2, 3, 4])
     
-    # axs.legend(handles=[(errorbar, red_fill), solid_line, dotted_line], labels=['Measured Velocity Dispersion', 'Virial Equilibrium Model', '30% Total Mass Error'], fontsize=12)
-    # axs.set_xticks([0, 1, 2, 3])
-    # axs.set_xticks([0, 1, 2, 3, 4])
-    
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep.pdf', bbox_inches='tight')
-    # plt.savefig(f'{user_path}/ONC/figures/vdisp vs sep - 1D.png', bbox_inches='tight', transparent=True)
     plt.show()
 
 
@@ -2046,7 +2095,7 @@ def vdisp_vs_mass_equally_grouped(sources:QTable, model_name:str, ngroups:int, s
     masses : np.array
         Dividing masses. e.g., [0, 1, 2, 3, 4]*u.solMass.
     vdisps : list
-        List of velocity dispersion fitting results of length nbins.
+        List of velocity dispersion fitting results of length ngroups.
         Each element is a dictionary with keys ['mu_RA', 'mu_DE', 'mu_rv', 'sigma_RA', 'sigma_DE', 'sigma_rv', 'rho_RA', 'rho_DE', 'rho_rv'].
     """
     # filter nans.
@@ -2119,7 +2168,35 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     sigma_1d[0] = np.sqrt((sigma_RA[0]**2 + sigma_DE[0]**2 + sigma_rv[0]**2)/3)
     sigma_1d[1] = np.sqrt(1/9*((sigma_RA[0]/sigma_1d[0]*sigma_RA[1])**2 + (sigma_DE[0]/sigma_1d[0]*sigma_DE[1])**2 + (sigma_rv[0]/sigma_1d[0]*sigma_rv[1])**2))    
     
+    # 1D plot
+    fig, ax = plt.subplots(1, 1, figsize=(4, 3))
+    direction = '1d'
+    sigma_xx = sigma_1d
     
+    ax.set_ylabel(r'$\sigma_\mathrm{1D_{3D}}$ $\left(\mathrm{km}\cdot\mathrm{s}^{-1}\right)$', fontsize=15)
+    ax.set_xlabel(f'{model_name} Mass ($M_\odot$)', fontsize=15, labelpad=10)
+    
+    errorbar = ax.errorbar(mass_sources, sigma_xx[0], yerr=sigma_xx[1], color='C3', fmt='o-', markersize=5, capsize=5)
+    
+    for i in range(len(sources_in_bins)):
+        ax.annotate(f'{sources_in_bins[i]}', (mass_sources[i], sigma_xx[0, i] + sigma_xx[1, i] + 0.15), fontsize=12, horizontalalignment='center')
+    fill = ax.fill_between(mass_sources, y1=sigma_xx[0]-sigma_xx[1], y2=sigma_xx[0]+sigma_xx[1], edgecolor='none', facecolor='C3', alpha=0.4)
+
+    ax.set_ylim((1.3, 5.2))
+    ax.loglog()
+    ax.xaxis.set_major_formatter(mticker.ScalarFormatter()) # set to regular format
+    ax.yaxis.set_major_formatter(mticker.ScalarFormatter())
+    ax.yaxis.set_minor_formatter(mticker.ScalarFormatter())
+    ax.set_xticks([0.2, 0.4, 0.6, 1])
+    ax.tick_params(axis='both', which='major', labelsize=12)
+
+    ax.legend(handles=[(errorbar, fill)], labels=['Measured Velocity Dispersion'], fontsize=12, loc='upper left')
+    fig.tight_layout()
+    plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    plt.savefig(f'{user_path}/ONC/figures/vdisp vs mass - 1D.png', bbox_inches='tight', transparent=True)
+    plt.show()
+    
+    # 3D plot
     fig, axs = plt.subplots(1, 3, figsize=(10, 2.5), sharey=True)
     for ax, direction, sigma_xx in zip(axs, ['1d', 'pm', 'rv'], [sigma_1d, sigma_pm, sigma_rv]):
         if direction=='1d':
@@ -2149,7 +2226,7 @@ def vdisp_vs_mass(sources, model_name, ngroups, save_path, MCMC):
     fig.tight_layout()
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     plt.savefig(f'{user_path}/ONC/figures/vdisp vs mass.pdf', bbox_inches='tight')
-    plt.savefig(f'{user_path}/ONC/figures/vdisp vs mass.png', bbox_inches='tight', transparent=True)
+    # plt.savefig(f'{user_path}/ONC/figures/vdisp vs mass.png', bbox_inches='tight', transparent=True)
     plt.show()
 
 
@@ -2653,6 +2730,54 @@ trapezium_only = (orion.data['sci_frames'].mask) & (orion.data['APOGEE'].mask)
 
 
 #################################################
+################### Expansion ###################
+#################################################
+e_distance = 3*u.pc
+vx = orion.data['pmRA'].to(u.rad/u.s) / u.rad * orion.coord.distance.to(u.km)
+vy = orion.data['pmDE'].to(u.rad/u.s) / u.rad * orion.coord.distance.to(u.km)
+vr = orion.data['rv']
+e_vx = np.sqrt((e_distance * orion.data['pmRA'])**2 + (orion.coord.distance * orion.data['e_pmRA'])**2).to(u.rad*u.km/u.s)/u.rad
+e_vy = np.sqrt((e_distance * orion.data['pmDE'])**2 + (orion.coord.distance * orion.data['e_pmDE'])**2).to(u.rad*u.km/u.s)/u.rad
+e_vr = orion.data['e_rv']
+
+ra_offset = -(orion.coord.ra - trapezium.ra).to(u.rad)/u.rad * orion.coord.distance
+dec_offset = (orion.coord.dec - trapezium.dec).to(u.rad)/u.rad * orion.coord.distance
+radial_offset = orion.data['dist']
+
+ra_idx = ~np.isnan(vx)
+dec_idx = ~np.isnan(vy)
+vr_idx = ~np.isnan(vr) & ~np.isnan(radial_offset)
+
+ra_wls = sm.WLS(vx[ra_idx], sm.add_constant(ra_offset[ra_idx]), weights=1/e_vx[ra_idx]**2).fit()
+dec_wls = sm.WLS(vy[dec_idx], sm.add_constant(dec_offset[dec_idx]), weights=1/e_vy[dec_idx]**2).fit()
+vr_wls = sm.WLS(vr[vr_idx], sm.add_constant(radial_offset[vr_idx]), weights=1/e_vr[vr_idx]**2).fit()
+
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(8, 9))
+xs = np.array([min(ra_offset[ra_idx].value), max(ra_offset[ra_idx].value)])
+ax1.errorbar(ra_offset[ra_idx], vx[ra_idx].value, yerr=e_vx[ra_idx].value, fmt='.')
+ax1.plot(xs, ra_wls.predict(sm.add_constant(xs)), color='C1', label=f'$k={ra_wls.params[1]:.2f} ± {ra_wls.bse[1]:.2f}~\mathrm{{km}}~\mathrm{{s}}^{{-1}}~\mathrm{{pc}}^{{-1}}$')
+ax1.legend(loc='upper left')
+ax1.set_xlabel('RA Offset (pc)')
+ax1.set_ylabel('Velocity ($\mathrm{km}\cdot\mathrm{s}^{-1}$)')
+
+xs = np.array([min(dec_offset[dec_idx].value), max(dec_offset.value[dec_idx])])
+ax2.errorbar(dec_offset[dec_idx], vy[dec_idx].value, yerr=e_vy[dec_idx].value, fmt='.')
+ax2.plot(xs, dec_wls.predict(sm.add_constant(xs)), color='C1', label=f'$k={dec_wls.params[1]:.2f} ± {dec_wls.bse[1]:.2f}~\mathrm{{km}}~\mathrm{{s}}^{{-1}}~\mathrm{{pc}}^{{-1}}$')
+ax2.legend(loc='upper left')
+ax2.set_xlabel('DEC Offset (pc)')
+ax2.set_ylabel('Velocity ($\mathrm{km}\cdot\mathrm{s}^{-1}$)')
+
+xs = np.array([min(radial_offset[vr_idx].value), max(radial_offset[vr_idx].value)])
+ax3.errorbar(radial_offset[vr_idx], vr[vr_idx].value, yerr=e_vr[vr_idx].value, fmt='.')
+ax3.plot(xs, vr_wls.predict(sm.add_constant(xs)), color='C1', label=f'$k={vr_wls.params[1]:.2f} ± {vr_wls.bse[1]:.2f}~\mathrm{{km}}~\mathrm{{s}}^{{-1}}~\mathrm{{pc}}^{{-1}}$')
+ax3.legend(loc='upper left')
+ax3.set_xlabel('Radial Offset (pc)')
+ax3.set_ylabel('Velocity ($\mathrm{km}\cdot\mathrm{s}^{-1}$)')
+fig.tight_layout()
+plt.show()
+
+
+#################################################
 ########### Relative Velocity vs Mass ###########
 #################################################
 resampling = 10000
@@ -2727,39 +2852,39 @@ orion_mean_offset.set_attr()
 
 # orion.data.write(f'{user_path}/ONC/starrynight/catalogs/sources with vrel.ecsv', overwrite=True)
 
-# # Make plot of k vs radius
-# model_name = 'MIST'
-# model_type = 'linear'
-# ks = np.empty((2, len(radii)))
-# ks_mean_offset = np.empty((2, len(radii)))
+# Make plot of k vs radius
+model_name = 'MIST'
+model_type = 'linear'
+ks = np.empty((2, len(radii)))
+ks_mean_offset = np.empty((2, len(radii)))
 
-# for i, radius in enumerate(radii):
-#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/uniform_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
-#         raw = file.readlines()
-#     with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/uniform_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
-#         raw_mean_offset = file.readlines()
+for i, radius in enumerate(radii):
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/uniform_dist/{model_type}-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw = file.readlines()
+    with open(f'{user_path}/ONC/starrynight/codes/analysis/vrel_results/uniform_dist/{model_type}-mean-offset-{radius.value:.2f}pc/{model_name}-{model_type}-{radius.value:.2f}pc params.txt', 'r') as file:
+        raw_mean_offset = file.readlines()
     
-#     for line, line_mean_offset in zip(raw, raw_mean_offset):
-#         if line.startswith('k_resample:\t'):
-#             ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
-#         if line_mean_offset.startswith('k_resample:\t'):
-#             ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
+    for line, line_mean_offset in zip(raw, raw_mean_offset):
+        if line.startswith('k_resample:\t'):
+            ks[:, i] = np.array([float(_) for _ in line.strip('k_resample:\t\n').split('± ')])
+        if line_mean_offset.startswith('k_resample:\t'):
+            ks_mean_offset[:, i] = np.array([float(_) for _ in line_mean_offset.strip('k_resample:\t\n').split('± ')])
 
 
-# colors = ['C0', 'C3']
-# fig, ax = plt.subplots(figsize=(6, 4.5))
-# blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
-# red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
-# blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
-# red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
+colors = ['C0', 'C3']
+fig, ax = plt.subplots(figsize=(6, 4.5), dpi=300)
+blue_errorbar  = ax.errorbar(radii.value, ks[0], yerr=ks[1], color=colors[0], fmt='o-', markersize=5, capsize=5, zorder=2)
+red_errorbar   = ax.errorbar(radii.value, ks_mean_offset[0], yerr=ks_mean_offset[1], color=colors[1], fmt='o--', markersize=5, capsize=5, zorder=3)
+blue_fill      = ax.fill_between(radii.value, y1=ks[0]-ks[1], y2=ks[0]+ks[1], edgecolor='none', facecolor=colors[0], alpha=0.4, zorder=1)
+red_fill       = ax.fill_between(radii.value, y1=ks_mean_offset[0]-ks_mean_offset[1], y2=ks_mean_offset[0] + ks_mean_offset[1], edgecolor='none', facecolor=colors[1], alpha=0.4, zorder=4)
 
-# hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
-# ax.set_xticks([0.05, 0.1, 0.15, 0.2, 0.25])
-# ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
-# ax.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
-# ax.set_ylabel('Slope of Linear Fit (k)', fontsize=12)
-# plt.savefig(f'{user_path}/ONC/figures/slope vs sep - ksm.pdf', bbox_inches='tight')
-# plt.show()
+hline = ax.hlines(0, xmin=min(radii.value), xmax=max(radii.value), linestyles=':', lw=2, colors='k', zorder=0)
+ax.set_xticks([0.05, 0.1, 0.15, 0.2, 0.25])
+ax.legend(handles=[(blue_errorbar, blue_fill), (red_errorbar, red_fill), hline], labels=[f'Original {model_name} Model', 'Average Offset NIRSPAO Teff', 'Zero Slope'], fontsize=12)
+ax.set_xlabel('Separation Limits of Neighbors (pc)', fontsize=12)
+ax.set_ylabel('Slope of Linear Fit (k)', fontsize=12)
+plt.savefig(f'{user_path}/ONC/figures/slope vs sep - ksm.pdf', bbox_inches='tight')
+plt.show()
 
 
 
@@ -2930,7 +3055,7 @@ plt.show()
 # vdisps_all = vdisp_all(orion.data[rv_constraint], save_path=f'{save_path}/vdisp_results', MCMC=MCMC)
 
 # # vdisp vs sep
-# vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
+vdisp_vs_sep(orion.data[rv_constraint], nbins=8, ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_sep', MCMC=MCMC)
 
 # vdisp vs mass
 vdisp_vs_mass(orion.data[rv_constraint], model_name='MIST', ngroups=8, save_path=f'{save_path}/vdisp_results/vdisp_vs_mass', MCMC=MCMC)
