@@ -517,7 +517,7 @@ class StarCluster:
             Rs = np.empty(resampling)
             
             if model_type=='linear':
-                for i in range(resampling):
+                for i in tqdm(range(resampling)):
                     mass_resample = np.random.normal(loc=mass.to(u.solMass).value, scale=e_mass.to(u.solMass).value)
                     vrel_resample = np.random.normal(loc=vrel.to(u.km/u.s).value, scale=e_vrel.to(u.km/u.s).value)
                     valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
@@ -532,7 +532,7 @@ class StarCluster:
                     Rs[i] = np.corrcoef(mass_resample, vrel_resample)[1, 0]
                 
             elif model_type=='power':
-                for i in range(resampling):
+                for i in tqdm(range(resampling)):
                     mass_resample = np.random.normal(loc=mass.to(u.solMass).value, scale=e_mass.to(u.solMass).value)
                     vrel_resample = np.random.normal(loc=vrel.to(u.km/u.s).value, scale=e_vrel.to(u.km/u.s).value)
                     valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)

@@ -1497,12 +1497,13 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
         sources = sources.drop(binary_idx_pair[1])
 
     sources = sources.reset_index(drop=True)
+    n_sources = len(sources)
 
     # Construct separation matrix
     sources_coord = SkyCoord(ra=sources.RAJ2000.to_numpy()*u.degree, dec=sources.DEJ2000.to_numpy()*u.degree)
-    sep_matrix = np.zeros((len(sources), len(sources)))
+    sep_matrix = np.zeros((n_sources, n_sources))
 
-    for i in range(len(sources)):
+    for i in range(n_sources):
         sep_matrix[i, :] = sources_coord[i].separation(sources_coord).arcsec
         sep_matrix[i, 0:i] = 0
 
@@ -1523,7 +1524,7 @@ def mass_segregation_ratio(sources: pd.DataFrame, model_name: str, save_path: st
             repetition = 50
         l_norm = np.empty(repetition)
         for j in range(repetition):
-            random_idx = np.random.choice(len(sources), Nmst)
+            random_idx = np.random.choice(n_sources, Nmst)
             random_sep_matrix = sep_matrix[random_idx][:, random_idx]
             random_mst = minimum_spanning_tree(csr_matrix(random_sep_matrix)).toarray()
             l_norm[j] = random_mst.sum()
