@@ -193,8 +193,8 @@ def main(date, sci_frame, tel_frame, output_prefix = 'M_'):
     ################# Analyze Output #################
     ##################################################
     Analyzer = pymultinest.Analyzer(n_params=n_params, outputfiles_basename = save_path + output_prefix)
-    param_chain = Analyzer.get_data()[:,2:]
-    # param_chain[0,1,2] = teff, veiling, logg
+    param_chain = Analyzer.get_data()[:, 2:]
+    # param_chain[0,1,2] = teff, veiling, logg after [:, 2:]
     weights = Analyzer.get_data()[:, 0]
     mask = weights > 1e-4
     

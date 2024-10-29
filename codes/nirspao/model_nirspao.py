@@ -73,7 +73,7 @@ def plot_spectrum(sci_spec, result, spec_lines=None, save_path=None, mark_CO=Tru
     
     alpha=0.7
     lw = 0.8
-
+    
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4.5), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
     if mark_CO:
         if order==32:

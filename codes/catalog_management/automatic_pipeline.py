@@ -1,6 +1,6 @@
 import os
 from itertools import repeat
-from nirspec_sources import nirspec_sources
+from nirspao_sources import nirspao_sources
 from construct_synthetic_catalog import construct_synthetic_catalog
 
 user_path = os.path.expanduser('~')
@@ -81,7 +81,7 @@ exceptions = {
 }
 
 # create nirspec sources catalog.
-result = nirspec_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv')
+result = nirspao_sources(dates=dates, names=names, exceptions=exceptions, save_path=f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv')
 
 nirspec_path        = f'{user_path}/ONC/starrynight/catalogs/nirspec sources.csv'
 chris_table_path    = f'{user_path}/ONC/starrynight/catalogs/Chris\'s Table.csv'
