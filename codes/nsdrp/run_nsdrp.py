@@ -1,16 +1,17 @@
 import os, sys
 
-path2nsdrp  = '/home/l3wei/packages/NIRSPEC-Data-Reduction-Pipeline/nsdrp.py'
+user_path = os.path.expanduser('~')
+path2nsdrp  = f'{user_path}/Software/NIRSPEC-Data-Reduction-Pipeline/nsdrp.py'
 
-Year 	= 15
-Month 	= 12
-Day 	= 24
+Year 	= 22
+Month 	= 1
+Day 	= 20
 
 eta_frame  = 22
 
 # A-B pairs.
 frames = [
-    [41, 40, 42, 43]
+    [49, 50]
 ]
 
 # standalone frames
@@ -31,12 +32,12 @@ Month 	= str(Month).zfill(2)
 Day 	= str(Day).zfill(2)
 Month_list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
-common_path = '/home/l3wei/ONC/Data/20' + Year + Month_list[int(Month)-1] + Day
+common_path = f'{user_path}/ONC/data/nirspao/20' + Year + Month_list[int(Month)-1] + Day
 name_prefix = 'nspec' + Year + Month + Day + '_'
 flatfile    = common_path + '/reduced/MasterFlatNoDark.fits'
 save_path	= common_path + '/reduced/nsdrp_out/'
 etafile     = common_path + '/specs/' + name_prefix + str(eta_frame).zfill(4) + '.fits'
-etalinefile = '/home/l3wei/packages/NIRSPEC-Data-Reduction-Pipeline/ir_etalonlines.dat'
+etalinefile = f'{user_path}/Software/NIRSPEC-Data-Reduction-Pipeline/ir_etalonlines.dat'
 
 # os.chdir(common_path + '/reduced')
 

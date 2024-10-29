@@ -138,7 +138,7 @@ def plot_spectrum(date, name, order, spec_lines=None, save_path=None, mark_CO=Tr
     # )
     
     ax1.plot(sci_spec.wave, sci_spec.flux, color='C7', label='Data', alpha=alpha, lw=lw)
-    ax1.plot(model_notel.wave, model_notel.flux, color='C3', label='Model', alpha=1, lw=1)
+    ax1.plot(model_notel.wave, model_notel.flux, color='C3', label='Model', alpha=1, lw=lw)
     ax1.plot(model.wave, model.flux, color='C0', label='Model + Telluric', alpha=alpha, lw=lw)
     ax1.minorticks_on()
     ax1.xaxis.tick_top()

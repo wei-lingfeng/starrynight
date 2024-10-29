@@ -28,7 +28,7 @@ scale_coord = SkyCoord(['5h35m{:.2f}s -5d24m45s'.format(10.5), '5h35m{:.2f}s -5d
 sources['sep_to_trapezium'] = sources_coord.separation(trapezium).arcmin
 
 # Load fits file. See https://docs.astropy.org/en/stable/visualization/wcsaxes/index.html.
-image_path = f'{user_path}/ONC/figures/Skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
+image_path = f'{user_path}/ONC/figures/skymap/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits'
 hdu = fits.open(image_path)[0]
 wcs = WCS(image_path)
 

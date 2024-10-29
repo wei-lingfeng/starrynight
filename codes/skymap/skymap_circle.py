@@ -18,7 +18,7 @@ ra_offset = 8
 de_offset = 12
 
 trapezium = SkyCoord("05h35m16.26s", "-05d23m16.4s")
-sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv')
+sources = pd.read_csv(f'{user_path}/ONC/starrynight/catalogs/synthetic catalog - epoch combined.csv', dtype={'HC2000':str, 'Gaia DR3': str, 'ID_kim': str})
 tobin       = (Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]).to_pandas()
 tobin = tobin.rename(columns={'RAJ2000':'_RAJ2000', 'DEJ2000':'_DEJ2000'})
 tobin_coord = SkyCoord([ra + dec for ra, dec in zip(tobin['_RAJ2000'], tobin['_DEJ2000'])], unit=(u.hourangle, u.deg))
@@ -154,5 +154,5 @@ ax2.set_xlabel('Right Ascension', fontsize=12)
 ax2.set_ylabel('Declination', fontsize=12)
 ax2.legend(loc='upper right')
 plt.tight_layout()
-plt.savefig(f'{user_path}/ONC/figures/skymap/Skymap Side-by-Side.pdf', bbox_inches='tight')
+# plt.savefig(f'{user_path}/ONC/figures/skymap/Skymap Side-by-Side.pdf', bbox_inches='tight')
 plt.show()

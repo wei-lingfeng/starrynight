@@ -17,7 +17,7 @@ from multiprocessing.pool import Pool
 
 user_path = os.path.expanduser('~')
 
-def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outlier_rej=3., save=True, test=False):
+def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outlier_rej=3., save=False, test=False):
     year, month, day = date
     name = str(frame)
     
@@ -133,11 +133,11 @@ def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outl
 if __name__ == '__main__':
     
     ## Set up the input paramters
-    year    = 15
-    month   = 12
-    day     = 24
-    frames  = [44, 45]
-    orders  = [32, 35]
+    year    = 22
+    month   = 1
+    day     = 20
+    frames  = [49, 50]
+    orders  = [32, 33]
     guess_pwv = False
     pwvs = [1.5, 1.5] # [0.5, 1.0, 1.5, 2.5, 3.5, 5.0, 7.5, 10.0, 20.0]
     xcorr_range = 20
