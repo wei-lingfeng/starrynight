@@ -2,6 +2,7 @@ import os
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from scipy.stats import gaussian_kde
 from scipy.stats import linregress
 from collections.abc import Iterable
@@ -16,6 +17,23 @@ nbins=7
 kde_percentile = 84
 
 def binary_mass(masses):
+    """Simulate the binary mass given the observed mass array
+
+    Parameters
+    ----------
+    masses : array
+        Observed mass array
+
+    Returns
+    -------
+    binary_masses
+        Simulated binary mass with the observed mass being the primary
+
+    Raises
+    ------
+    TypeError
+        Type of masses must be array-like
+    """
     if not isinstance(masses, Iterable):
         try:
             masses = np.array(masses)
@@ -52,7 +70,7 @@ for model_name in ['MIST', 'BHAC15', 'Feiden', 'Palla']:
     mass = mass.value
     vrel = vrel.value
     e_mass = e_mass.value
-    e_vrel = e_vrel.value    
+    e_vrel = e_vrel.value
     
     
     # resampling
@@ -61,7 +79,7 @@ for model_name in ['MIST', 'BHAC15', 'Feiden', 'Palla']:
     Rs = np.empty(resampling)
     mass_new = binary_mass(mass)
 
-    for i in range(resampling):
+    for i in tqdm(range(resampling)):
         mass_resample = np.random.normal(loc=mass_new, scale=e_mass)
         vrel_resample = np.random.normal(loc=vrel, scale=e_vrel)
         valid_resample_idx = (mass_resample > 0) & (vrel_resample > 0)
@@ -199,5 +217,5 @@ for model_name in ['MIST', 'BHAC15', 'Feiden', 'Palla']:
     ax.set_ylabel('Relative Velocity (km$\cdot$s$^{-1}$)', fontsize=12)
 
 
-    plt.savefig(f'{user_path}/ONC/figures/Close Binary-{model_name}.pdf', bbox_inches='tight')
+    # plt.savefig(f'{user_path}/ONC/figures/Close Binary-{model_name}.pdf', bbox_inches='tight')
     plt.show()
