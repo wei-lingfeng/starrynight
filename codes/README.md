@@ -4,6 +4,7 @@
 | --- | --- |
 | [analysis](analysis) | Analysis code |
 | [apogee](apogee) | APOGEE data modeling code |
+| [binary_proposal](binary_proposal) | Binary proposal code (some files are lost during git manipulations) |
 | [binary_simulation](binary_simulation) | Binary simulation analysis in paper for the violin plots |
 | [catalog_management](catalog_management) | Catalog management code |
 | [JWST](JWST) | JWST simulated spectra modeling code |
