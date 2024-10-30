@@ -24,16 +24,12 @@ __pycache__
 test*
 temp*
 
-# Large Files #
-###############
-/codes/binary_proposal/figures/RV\ vs\ Semi-major\ axis.png
-/codes/binary_proposal/figures/RV\ vs\ Semi-major\ axis.pdf
-
 # Unused Files #
 ################
 /observing/hlsp_orion_hst_acs_colorimage_r_v1_drz.fits
-/codes/binary_proposal/data/*.pkl
-/codes/binary_simulation/*.npy
+/codes/binary_proposal/data
+/codes/binary_proposal/figures
+/codes/binary_simulation/data
 /codes/analysis/vdisp/
 /codes/analysis/*.txt
 /codes/analysis/*.png
