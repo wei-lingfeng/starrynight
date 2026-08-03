@@ -11,7 +11,7 @@ eta_frame  = 22
 
 # A-B pairs.
 frames = [
-    [49, 50]
+    [49, 50], [51, 52, 53, 54]
 ]
 
 # standalone frames
@@ -48,6 +48,7 @@ for Aframe, Bframe in zip(Aframes, Bframes):
     # Run the reduction pipeline
     os.system('python3 {} {} {} -b {} -out_dir={} -eta_filename={} -etalon_filename={} -spatial_jump_override -verbose -debug -dgn'.format(path2nsdrp, flatfile, Apath, Bpath, save_path, etafile, etalinefile))
 
+# Change it to -arc_file
 
 # stand alone frames
 for frame in standalone_frames:

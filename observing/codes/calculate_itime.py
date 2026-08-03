@@ -23,6 +23,21 @@ def convert_to_csv():
         writer = csv.writer(file)
         writer.writerows(result)
 
+# def calc_itime(mags):
+#     """Calculate integration time
+
+#     Parameters
+#     ----------
+#     mags : array-like
+#         Magnitude array
+#     """
+#     mags = np.asarray(mags)
+#     itime_table = pd.read_csv('../catalogs/Kmag-itime.csv')
+#     model_kmag = itime_table['Kmag']
+#     model_itime = itime_table['itime']
+#     # popt: parameter optimal
+#     popt, pcov = curve_fit(model_func, model_kmag, model_itime)
+#     distance = np.abs(model_func(kmag, *popt) - itimes)
 
 ############### Customize Targets ###############
 
@@ -41,7 +56,7 @@ if not os.path.exists(save_path):
     os.makedirs(save_path)
 
 # convert_to_csv()
-table = pd.read_csv('pm_hillenbrand.csv', dtype=str)
+table = pd.read_csv('../catalogs/pm_hillenbrand.csv', dtype=str)
 
 target_kmag = [table['K'][list(table['#']).index(str(target))] for target in targets]
 target_hcid = [table['H#'][list(table['#']).index(str(target))] for target in targets]
@@ -49,17 +64,10 @@ target_hcid = [table['H#'][list(table['#']).index(str(target))] for target in ta
 target_kmag = [float(_) for _ in target_kmag]
 
 
-model_kmag = []
-model_itime = []
-with open('Kmag-itime.csv', 'r') as file:
-    raw = csv.reader(file)
-    next(raw, None)
-    for line in raw:
-        model_kmag.append(float(line[0]))
-        model_itime.append(int(line[1]))
+itime_table = pd.read_csv('../catalogs/Kmag-itime.csv')
+model_kmag = itime_table['Kmag']
+model_itime = itime_table['itime']
 
-model_kmag = np.array(model_kmag)
-model_itime = np.array(model_itime)
 plt.scatter(model_kmag, model_itime)
 
 # popt: parameter optimal
@@ -85,9 +93,9 @@ for a, b, c, d in zip(targets, target_hcid, target_kmag, target_itime):
     print('\t'.join([str(_) for _ in [a, b, c, d]]))
 
 
-with open(save_path + '/' + year + ' ' + month + ' observing plan.csv', 'w') as file:
-    writer = csv.writer(file)
-    writer.writerow(['#', 'H#', 'K', 'itime'])
+# with open(f'{save_path}/{year} {month} observing plan.csv', 'w') as file:
+#     writer = csv.writer(file)
+#     writer.writerow(['#', 'H#', 'K', 'itime'])
     
-    for a, b, c, d in zip(targets, target_hcid, target_kmag, target_itime):
-        writer.writerow([a, b, c, d])
+#     for a, b, c, d in zip(targets, target_hcid, target_kmag, target_itime):
+#         writer.writerow([a, b, c, d])

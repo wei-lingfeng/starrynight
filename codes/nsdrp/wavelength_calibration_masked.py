@@ -17,7 +17,7 @@ from multiprocessing.pool import Pool
 
 user_path = os.path.expanduser('~')
 
-def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outlier_rej=3., save=False, test=False):
+def wave_cal(date, frame, order, pwv='3.5', guess_pwv=True, xcorr_range=20, outlier_rej=3., save=True, test=False):
     year, month, day = date
     name = str(frame)
     
