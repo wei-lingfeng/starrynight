@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import astropy.units as u
 from astropy.io import ascii
-from astropy.table import QTable, MaskedColumn, hstack, vstack
+from astropy.table import Table, QTable, MaskedColumn, hstack, vstack
 from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astroquery.vizier import Vizier
@@ -380,7 +380,8 @@ def merge(catalog1, catalog2, matches, join_type='left', table_names=['1', '2'],
     # vstack unmatched
     if join_type=='outer':
         result = vstack((result, catalog2[list(set(range(len(catalog2))) - set(matches[valid_match]))]))
-    
+
+    # Restore units
     for col in uniq_columns_catalog2:
         result[col] = MaskedColumn(result[col], unit=catalog2[col].unit)
     
@@ -488,11 +489,11 @@ def merge_multiepoch(sources, column_pairs=None):
     counts = collections.Counter(ID_HC2000)
     multiepoch = {k: v for k, v in counts.items() if ((v > 1) & (str(k).lower()!='nan'))}   # multi epoch objects
     sources_epoch_combined = copy.deepcopy(sources)
-    for object in multiepoch.keys():
-        if '_' in object:
-            indices = sources.index[sources.HC2000==int(object.split('_')[0]) & sources.m_HC2000==object.split('_')[1]].tolist()
+    for object_name in multiepoch.keys():
+        if '_' in object_name:
+            indices = sources.index[(sources.HC2000==int(object_name.split('_')[0])) & (sources.m_HC2000==object_name.split('_')[1])].tolist()
         else:
-            indices = sources.index[sources.HC2000==int(object)].tolist()
+            indices = sources.index[sources.HC2000==int(object_name)].tolist()
         for value_column, error_column in column_pairs.items():
             sources_epoch_combined.loc[indices[-1], value_column], sources_epoch_combined.loc[indices[-1], error_column] = weighted_avrg(
                 sources.loc[indices, value_column], error=sources.loc[indices, error_column]
@@ -560,7 +561,7 @@ def fit_mass(teff, e_teff):
     ---------
         teff: array-like
             Effective temperature in K
-        teff_e: array-like effective temperature error in K.
+        e_teff: array-like effective temperature error in K.
     - Returns:
         - result: pandas dataframe.
     '''
@@ -736,7 +737,11 @@ def plot_four_catalogs(catalogs, save_path, save=True, max_sep=1.*u.arcsec, mark
 ######### Construct Synthetic Catalog #########
 ###############################################
 
-def construct_synthetic_catalog(nirspao_path, save_path):
+if __name__=='__main__':
+    nirspao_path        = f'{user_path}/ONC/starrynight/catalogs/nirspao sources.ecsv'
+    save_path           = f'{user_path}/ONC/starrynight/catalogs'
+
+# def construct_synthetic_catalog(nirspao_path, save_path):
     '''Construct synthetic catalog combining nirspao, apogee, pm, gaia, and ONC Mass catalog by Hillenbrand 1997 (J/AJ/113/1733/ONC).
     --------------------
     Both a multi-epoch combined & not combined catalog are saved under the save_path folder.
@@ -763,7 +768,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         row_limit=-1
     ).get_catalogs('J/AJ/156/84/table1')[0]
     kim         = Vizier.get_catalogs('J/AJ/157/109/table3')[0]
-    gaia        = Gaia.cone_search_async(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
+    gaia        = Gaia.cone_search(trapezium, radius=u.Quantity(4.2, u.arcmin)).get_results()
     hc2000      = Vizier.get_catalogs('J/ApJ/540/236/table1')[0]
     hillenbrand = Vizier.get_catalogs('J/AJ/113/1733/ONC')[0]
     tobin       = Vizier.get_catalogs('J/ApJ/697/1103/table3')[0]
@@ -776,18 +781,17 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         max_distance=1 * u.arcsec, 
         colRA1='RAJ2000', colDec1='DEJ2000'
     )
-    apogee.remove_columns(['angDist', '2MASS', 'RAJ2000_2', 'DEJ2000_2'])
-    apogee.rename_columns(['RAJ2000_1', 'DEJ2000_1'], ['RAJ2000', 'DEJ2000'])
+    apogee.remove_columns(['angDist', '2MASS', 'RAJ20002', 'DEJ20002'])
     for key, unit in zip(apogee_keys, apogee_units):
         apogee[key].unit = unit
     for key in ['Jmag', 'Hmag', 'Kmag', 'e_Jmag', 'e_Hmag', 'e_Kmag']:
         apogee[key].unit = u.mag
     
     # Rename
-    hc2000.rename_columns(['__HC2000_'], ['HC2000'])
+    hc2000.rename_columns(['[HC2000]'], ['HC2000'])
     
     nirspao_old.rename_columns(
-        ['__HC2000_',   'm__HC2000_',   'RV', 'e_RV', 'Teff', 'e_Teff', 'Veiling'],
+        ['[HC2000]',   'm_[HC2000]',   'RV', 'e_RV', 'Teff', 'e_Teff', 'Veiling'],
         ['HC2000',      'm_HC2000',     'rv', 'e_rv', 'teff', 'e_teff', 'veiling_param_O33']
     )
     # Convert empty string to masked element in nirspao_old
@@ -799,8 +803,8 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     )
     
     kounkel.rename_columns(
-        ['_2MASS',  'Gaia',     'Teff',         'e_Teff',           'logg',         'e_logg',           'RVmean',       'e_RVmean'],
-        ['2MASS',   'Gaia DR2', 'teff_kounkel', 'e_teff_kounkel',   'logg_kounkel', 'e_logg_kounkel',   'rv_kounkel',   'e_rv_kounkel']
+        ['Gaia',     'Teff',         'e_Teff',           'logg',         'e_logg',           'RVmean',       'e_RVmean'],
+        ['Gaia DR2', 'teff_kounkel', 'e_teff_kounkel',   'logg_kounkel', 'e_logg_kounkel',   'rv_kounkel',   'e_rv_kounkel']
     )
     
     kim.rename_columns(
@@ -820,7 +824,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     )
     
     tobin.rename_columns(
-        ['_2MASS',      'HRV',      'e_HRV',        'Vmag',         'V-I'], 
+        ['2MASS',      'HRV',      'e_HRV',        'Vmag',         'V-I'], 
         ['2MASS_tobin', 'rv_tobin', 'e_rv_tobin',   'Vmag_tobin',   'V-I_tobin']
     )
     
@@ -848,13 +852,13 @@ def construct_synthetic_catalog(nirspao_path, save_path):
         trapezium_stars.write(f'{save_path}/trapezium_stars.ecsv', overwrite=True)
     # Remove trapezium stars from nirspao? No!
     # nirspao.remove_rows([index for index, element in enumerate(nirspao['HC2000']) if element in trapezium_stars['HC2000']])
-    
+
     # Merge nirspec and trapezium stars
     nirspao = vstack((nirspao, trapezium_stars))
     nirspao.rename_column('theta_orionis', 'theta_orionis-temp')
     nirspao.add_column(nirspao['theta_orionis-temp'], name='theta_orionis', index=2)
     nirspao.remove_column('theta_orionis-temp')
-    
+
     for trapezium_HC2000 in trapezium_stars['HC2000']:
         if any(nirspao['theta_orionis'][nirspao['HC2000']==trapezium_HC2000].mask):
             nirspao.remove_rows((nirspao['HC2000']==trapezium_HC2000) & ~nirspao['theta_orionis'].mask)
@@ -862,12 +866,11 @@ def construct_synthetic_catalog(nirspao_path, save_path):
             nirspao['mass_literature'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['mass_literature'][trapezium_stars['HC2000']==trapezium_HC2000]
             nirspao['e_mass_literature'][nirspao['HC2000']==trapezium_HC2000] = trapezium_stars['e_mass_literature'][trapezium_stars['HC2000']==trapezium_HC2000]
 
-    
     # Remove multiplicty index with only A or B
     for i in np.where(~nirspao_old['m_HC2000'].mask)[0]:
         if not all([_ in nirspao_old['m_HC2000'][nirspao_old['HC2000']==nirspao_old['HC2000'][i]] for _ in ['A', 'B']]):
             nirspao_old['m_HC2000'][i] = ma.masked    
-    
+
     # Add Gmag uncertainty.
     # magnitude = -2.5*log10(flux) + zero point. (https://en.wikipedia.org/wiki/Apparent_magnitude#Calculations)
     # zero point: 25.6874 ± 0.0028. (https://gea.esac.esa.int/archive/documentation/GDR3/Data_processing/chap_cu5pho/cu5pho_sec_photProc/cu5pho_ssec_photCal.html#SSS3.P2)
@@ -980,11 +983,12 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources.add_column(sources['APOGEE-temp'], index=3, name='APOGEE')
     sources.remove_column('APOGEE-temp')
     
-    
     ###############################################
     ############### Format Decimals ###############
     ###############################################
     sources.round({
+        'teff':2, 'e_teff':2,
+        'Kmag':3, 'e_Kmag':3,
         'rv_chris':2, 'e_rv_chris':2, 'vsini_chris':2, 'e_vsini_chris':2,
         'pmRA_kim':2, 'e_pmRA_kim':2, 'pmDE_kim':2, 'e_pmDE_kim':2,
         'pmRA_gaia':3, 'e_pmRA_gaia':3, 'pmDE_gaia':3, 'e_pmDE_gaia':3, 
@@ -994,6 +998,8 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     sources_epoch_combined = merge_multiepoch(sources)
     sources_epoch_combined.round({
+        'teff':2, 'e_teff':2,
+        'Kmag':3, 'e_Kmag':3,
         'rv_chris':2, 'e_rv_chris':2, 'vsini_chris':2, 'e_vsini_chris':2,
         'pmRA_kim':2, 'e_pmRA_kim':2, 'pmDE_kim':2, 'e_pmDE_kim':2,
         'pmRA_gaia':3, 'e_pmRA_gaia':3, 'pmDE_gaia':3, 'e_pmDE_gaia':3, 
@@ -1016,8 +1022,7 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     
     # plot
     plot_four_catalogs([sources_epoch_combined, apogee, kim, gaia], save_path=save_path)
-    
-    
+
     ###############################################
     ################# Write to csv ################
     ###############################################
@@ -1029,14 +1034,14 @@ def construct_synthetic_catalog(nirspao_path, save_path):
     sources_epoch_combined.write(f'{save_path}/synthetic catalog - epoch combined.ecsv', overwrite=True)
     sources_epoch_combined_pd.to_csv(f'{save_path}/synthetic catalog - epoch combined.csv', index=False)
     
-    return sources, sources_epoch_combined
+    # return sources, sources_epoch_combined
 
 
 
 
 
-if __name__=='__main__':
-    nirspao_path        = f'{user_path}/ONC/starrynight/catalogs/nirspao sources.ecsv'
-    save_path           = f'{user_path}/ONC/starrynight/catalogs'
+# if __name__=='__main__':
+#     nirspao_path        = f'{user_path}/ONC/starrynight/catalogs/nirspao sources.ecsv'
+#     save_path           = f'{user_path}/ONC/starrynight/catalogs'
 
-    sources, sources_epoch_combined = construct_synthetic_catalog(nirspao_path, save_path)
+#     sources, sources_epoch_combined = construct_synthetic_catalog(nirspao_path, save_path)

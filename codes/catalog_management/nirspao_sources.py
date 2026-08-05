@@ -124,7 +124,7 @@ def nirspao_sources(dates, names, exceptions, save_path=None, overwrite=False):
         with open(data_path, 'r') as file:
             lines = file.readlines()
         
-        index = list(hc2000['__HC2000_']).index(int(name.split('_')[0]))
+        index = list(hc2000['[HC2000]']).index(int(name.split('_')[0]))
         
         result['HC2000'].append(int(name.split('_')[0]))
         if any(_.isalpha() for _ in name):
@@ -416,7 +416,12 @@ if __name__ == '__main__':
         *list(repeat(Time('2021-10-20'), 4)),
         *list(repeat(Time('2022-1-18'), 6)),
         *list(repeat(Time('2022-1-19'), 5)),
-        *list(repeat(Time('2022-1-20'), 7))
+        *list(repeat(Time('2022-1-20'), 7)),
+        *list(repeat(Time('2024-11-10'), 5)),
+        *list(repeat(Time('2025-01-09'), 2)),
+        *list(repeat(Time('2025-01-16'), 6)),
+        *list(repeat(Time('2025-11-11'), 7)),
+        *list(repeat(Time('2025-11-12'), 6))
     ]
 
     names = [
@@ -457,17 +462,29 @@ if __name__ == '__main__':
         # 2022-1-19
         453, 438, 530, 287, 171, 
         # 2022-1-20
-        238, 266, 247, 172, 165, 177, 163
+        238, 266, 247, 172, 165, 177, 163,
+        # 2024-11-10
+        170, 172, 214, 495, 546,
+        # 2025-01-09
+        337, 483,
+        # 2025-01-16
+        220, '291_A', '291_B', 295, '306_A', '306_B',
+        # 2025-11-11
+        202, 213, 244, 252, 259, 313, 322,
+        # 2025-11-12
+        219, 223, 248, 250, 331, 332
     ]
     
     exceptions = {
         'dates':[
             Time('2015-12-24'),
-            Time('2018-2-11')
+            Time('2018-2-11'),
+            Time('2024-11-10')
         ],
         'names':[
             '291_A',
-            337
+            337,
+            404
         ],
         'orders':[35]
     }

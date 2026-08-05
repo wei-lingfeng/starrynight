@@ -1,3 +1,6 @@
+# THIS SCRIPT IS DEPRECATED
+# RUN nirspao_sources.py THEN construct_synthetic_catalog.py
+
 import os
 from itertools import repeat
 from nirspao_sources import nirspao_sources
@@ -24,7 +27,12 @@ dates = [
     *list(repeat((21, 10, 20), 4)),
     *list(repeat((22, 1, 18), 6)),
     *list(repeat((22, 1, 19), 5)),
-    *list(repeat((22, 1, 20), 7))
+    *list(repeat((22, 1, 20), 7)),
+    *list(repeat((24, 11, 10), 5)),
+    *list(repeat((25, 1, 9), 2)),
+    *list(repeat((25, 1, 16), 6)),
+    *list(repeat((25, 11, 11), 7)),
+    *list(repeat((25, 11, 12), 6))
 ]
 
 names = [
@@ -65,17 +73,30 @@ names = [
     # 2022-1-19
     453, 438, 530, 287, 171, 
     # 2022-1-20
-    238, 266, 247, 172, 165, 177, 163
+    238, 266, 247, 172, 165, 177, 163,
+    # 2024-11-10
+    170, 172, 214, 495, 546,
+    # 2025-01-09
+    337, 483,
+    # 2025-01-16
+    220, '291_1', '291_2', 295, '306_1', '306_2',
+    # 2025-11-11
+    202, 213, 244, 252, 259, 313, 322,
+    # 2025-11-12
+    219, 223, 248, 250, 331, 332
+    
 ]
 
 exceptions = {
     'dates':[
         (15, 12, 24),
-        (18, 2, 11)
+        (18, 2, 11),
+        (24, 11, 10)
     ],
     'names':[
         '291_A',
-        337
+        337,
+        404
     ],
     'orders':[35]
 }
