@@ -18,6 +18,7 @@ __pycache__
 # Results #
 ###########
 /codes/analysis/*results
+/codes/sma_limits/figures
 
 # Test Files #
 ##############
