@@ -644,7 +644,7 @@ def plot_results(M, t, rv, rv_err, samples, data, m_min, a_m_min, a_M, e_caps=(0
     plt.show()
 
 
-def sma_limits_from_two_rvs(M, t, rv, M_err=0., rv_err=(0., 0.), jitter=0., e_max=0.9, check=False, joker=False, likelihood=False, e_prior='kounkel', prior='kounkel', resolution_au=None, save_dir=None):
+def sma_limits_from_two_rvs(M, t, rv, M_err=0., rv_err=(0., 0.), jitter=0., e_max=0.9, check=False, joker=False, likelihood=False, e_prior='kounkel', prior='kounkel', resolution_au=None, save_path=None):
     """
     Semi-major axis limits for an unseen companion (m <= M) from two RV epochs.
 
@@ -673,7 +673,7 @@ def sma_limits_from_two_rvs(M, t, rv, M_err=0., rv_err=(0., 0.), jitter=0., e_ma
             log-normal P, P >= 2 d, uniform q plus twins), 'raghavan' or 'log-uniform' (see
             posterior_map). The other two are printed for comparison either way.
         resolution_au: imaging resolution limit to draw, in projected au = angle (arcsec) x distance (pc).
-        save_dir: directory for the figures (created if needed), named by the inputs, e.g.
+        save_path: directory for the figures (created if needed), named by the inputs, e.g.
             'M0.528_dv7.80_dt330_Kounkel - Likelihood Map.pdf'; None only shows the figures.
         joker: run The Joker and plot its samples and the a_max orbits (~50 s; needs pymc3 + thejoker, e.g. the `stable` env).
         check: brute-force Monte Carlo check that no random orbit exceeds the analytic a_max (slow).
@@ -688,10 +688,10 @@ def sma_limits_from_two_rvs(M, t, rv, M_err=0., rv_err=(0., 0.), jitter=0., e_ma
     dt = abs(t[1] - t[0])
     dv = abs(rv[1] - rv[0])
     save_path = None
-    if save_dir is not None:
-        save_dir = os.path.expanduser(save_dir)
-        os.makedirs(save_dir, exist_ok=True)
-        save_path = os.path.join(save_dir, f'M{M:.3f}_dv{dv:.2f}_dt{dt:.0f}_{e_prior_label(e_prior).split()[0]}')
+    if save_path is not None:
+        save_path = os.path.expanduser(save_path)
+        os.makedirs(save_path, exist_ok=True)
+        save_path = os.path.join(save_path, f'M{M:.3f}_dv{dv:.2f}_dt{dt:.0f}_{e_prior_label(e_prior).split()[0]}')
     dv_err = np.hypot(*rv_err)
     significance = dv/dv_err if dv_err else np.inf
     print(f'Δt = {dt:.1f} d, Δv = {dv:.2f} ± {dv_err:.2f} km/s ({significance:.1f}σ, jitter = {jitter:g} km/s), M = {M:.3f} ± {M_err:.3f} Msun')
@@ -782,5 +782,5 @@ if __name__ == '__main__':
         e_prior='kounkel',       # e prior: 'kounkel', 'uniform', 'thermal', 'circular', RAGHAVAN_E or (bin_edges, counts[, label])
         prior='kounkel',         # posterior P and q prior: 'kounkel', 'raghavan' or 'log-uniform'
         resolution_au=0.05*389,  # imaging limit = angle (arcsec) x distance (pc); NIRSPAO K-band AO, ~0.05" at 389 pc
-        save_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures')  # None only shows them
+        save_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures')  # None only shows them
     )
