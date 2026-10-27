@@ -262,10 +262,11 @@ def likelihood_map(dv, dv_err, dt, M, M_err, m_grid, a_grid, e_max=0.9, e_prior=
 # Close-binary population of young stars (Kounkel et al. 2019, AJ 157, 196; after Moe & Di Stefano 2017), confirmed
 # with APOGEE RVs of 1-100 Myr stars including Orion: log-normal periods, log10(P/d) = 4.6 +- 2.2, P >= 2 d;
 # e uniform on [0, e_max(P)], e_max(P) = 1 - (P / 2 d)^(-2/3) <= 0.98 (tidal circularisation);
-# q = m/M uniform for m >= 0.08 Msun, plus a twin excess (0.95 < q < 1) holding 20% of systems at a < 0.1 au,
-# falling linearly in log a to 0 at a > 200 au.
+# q = m/M uniform plus a twin excess (0.95 < q < 1) holding 20% of systems at a < 0.1 au, falling linearly in
+# log a to 0 at a > 200 au. Kounkel et al. start their uniform q at m = 0.08 Msun; we keep q uniform on (0, 1], so
+# brown-dwarf and planetary-mass companions are left to the data rather than excluded by the prior.
 KOUNKEL_LOG_P, KOUNKEL_P_MIN = (4.6, 2.2), 2/365.25  # log10(P/d); P_min in yr
-KOUNKEL_M_MIN, KOUNKEL_TWIN = 0.08, (0.2, 0.1, 200.)  # Msun; twin fraction, a (au) where it is full, a where it is 0
+KOUNKEL_TWIN = (0.2, 0.1, 200.)  # twin fraction, a (au) where it is full, a (au) where it is 0
 
 # observed e distribution of solar-type binaries with P < 1000 d (Raghavan et al. 2010, ApJS 190, 1), 34 systems;
 # usable as e_prior
@@ -308,7 +309,7 @@ def posterior_map(m_grid, a_grid, M_nodes, M_weights, L_nodes, prior='kounkel'):
     Joint posterior density in (log10 m, log10 a), unnormalised, from the likelihood_map output (return_nodes=True),
     for a prior on the period and mass ratio q = m/M (at each M node):
         'kounkel':     Kounkel et al. (2019): log-normal P (KOUNKEL_LOG_P) with P >= 2 d; q uniform for
-                       m >= 0.08 Msun plus the a-dependent twin excess (KOUNKEL_TWIN);
+                       on (0, 1] plus the a-dependent twin excess (KOUNKEL_TWIN);
         'raghavan':    log-normal P of solar-type binaries (RAGHAVAN_LOG_P), q uniform on [0, 1];
         'log-uniform': flat in log P (Opik) over the grid, q uniform. The data give no lower limit on a, so the
                        grid's lower edge (P = 1 d at m = M) is part of this prior and the upper limits move with it.
@@ -322,8 +323,7 @@ def posterior_map(m_grid, a_grid, M_nodes, M_weights, L_nodes, prior='kounkel'):
             P_density = np.exp(-0.5*((log_P - KOUNKEL_LOG_P[0])/KOUNKEL_LOG_P[1])**2) * (log_P >= np.log10(KOUNKEL_P_MIN*365.25))
             f_twin, a_full, a_zero = KOUNKEL_TWIN
             twin = f_twin*np.clip(np.log10(a_zero/a_grid)/np.log10(a_zero/a_full), 0, 1)[None, :]  # twin fraction at each a
-            q_min = min(KOUNKEL_M_MIN/M_k, 0.95)
-            q_density = (1 - twin)*((q >= q_min) & (q <= 1))/(1 - q_min) + twin*((q >= 0.95) & (q <= 1))/0.05
+            q_density = (1 - twin)*(q <= 1) + twin*((q >= 0.95) & (q <= 1))/0.05
         elif prior in ('raghavan', 'log-uniform'):
             mu, sigma = RAGHAVAN_LOG_P
             P_density = np.exp(-0.5*((log_P - mu)/sigma)**2) if prior == 'raghavan' else 1.
@@ -670,7 +670,7 @@ def sma_limits_from_two_rvs(M, t, rv, M_err=0., rv_err=(0., 0.), jitter=0., e_ma
             e_max), 'uniform', 'thermal' (f(e) = 2e on [0, e_max]), 'circular', or an observed histogram
             (bin_edges, counts[, label]) such as RAGHAVAN_E. It shapes the likelihood, not the a_max curve.
         prior: period and mass-ratio prior of the posterior: 'kounkel' (young close binaries, Kounkel et al. 2019:
-            log-normal P, P >= 2 d, uniform q for m >= 0.08 Msun plus twins), 'raghavan' or 'log-uniform' (see
+            log-normal P, P >= 2 d, uniform q plus twins), 'raghavan' or 'log-uniform' (see
             posterior_map). The other two are printed for comparison either way.
         resolution_au: imaging resolution limit to draw, in projected au = angle (arcsec) x distance (pc).
         save_dir: directory for the figures (created if needed), named by the inputs, e.g.
